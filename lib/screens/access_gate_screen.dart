@@ -77,11 +77,11 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
     String? syncError;
     try {
       contextData = await ClubAccessService.loadClubContext(membership);
-    } on ClubContextLoadException catch (error) {
-      syncError = 'La liga respondio con error ${error.statusCode}.';
+    } on ClubContextLoadException catch (_) {
+      syncError = 'No pudimos cargar los datos del club ahora.';
       contextData = null;
     } catch (_) {
-      syncError = 'La liga no respondio dentro del tiempo esperado.';
+      syncError = 'No pudimos cargar los datos del club ahora.';
       contextData = null;
     }
     if (!mounted) return;
@@ -142,16 +142,14 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${syncError ?? 'No se pudo sincronizar la liga ahora'} Usando datos guardados del club.',
+            '${syncError ?? 'No pudimos cargar los datos del club ahora.'} Estás viendo los datos guardados.',
           ),
         ),
       );
     } else if (contextData?.source == 'supabase_cache') {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'La liga no respondio. Usando respaldo guardado: ${contextData!.categories.length} categorias y ${contextData.players.length} jugadores.',
-          ),
+        const SnackBar(
+          content: Text('Estás viendo los datos guardados del club.'),
         ),
       );
     }
@@ -867,7 +865,7 @@ class _CategoryPicker extends StatelessWidget {
                                 Text(
                                   category.playerCount > 0
                                       ? '${category.playerCount} jugadores'
-                                      : 'Plantel a sincronizar',
+                                      : 'Plantel por cargar',
                                   style: const TextStyle(
                                     color: CX.faint,
                                     fontSize: 11,
@@ -899,7 +897,7 @@ class _CategoryPicker extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.login, size: 18),
-            label: Text(loading ? 'Sincronizando categoría' : 'Entrar'),
+            label: Text(loading ? 'Cargando categoría' : 'Entrar'),
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(

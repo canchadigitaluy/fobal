@@ -11,6 +11,8 @@ export default async function handler(req, res) {
   res.setHeader("access-control-allow-origin", "*");
   res.setHeader("access-control-allow-methods", "GET, OPTIONS");
   res.setHeader("access-control-allow-headers", "content-type");
+  // Never let a CDN/browser serve an old fixture.
+  res.setHeader("cache-control", "no-store, max-age=0");
 
   if (req.method === "OPTIONS") {
     return res.status(200).json({ ok: true });
@@ -46,7 +48,9 @@ export default async function handler(req, res) {
   let bestEmptyResult = null;
   for (const url of attempts) {
     try {
-      const raw = await fetchJson(normalizeLeaguePath(url), 3500);
+      const meta = {};
+      const raw = await fetchJson(normalizeLeaguePath(url), 3500, meta);
+      const fromCache = meta.fromCache === true;
       const rows = extractRows(raw);
       const normalized = rows.map((item) => normalizeMatch(item, teamId));
       const relevant = normalized.filter((match) =>
@@ -82,8 +86,8 @@ export default async function handler(req, res) {
         teamId,
         categoryId: Number.isInteger(categoryId) ? categoryId : null,
         categoryName,
-        source: "lud_live",
-        syncedAt: new Date().toISOString(),
+        source: fromCache ? "lud_cache" : "lud_live",
+        syncedAt: fromCache ? null : new Date().toISOString(),
         fixtureDiagnostics: {
           checkedUrl: safeUrl(url),
           rawRows: rows.length,
@@ -475,8 +479,8 @@ async function candidatePhaseUrls(categoryName, teamId) {
   return [...new Set(urls)];
 }
 
-async function fetchJson(path, timeoutMs = 7000) {
-  return fetchLeagueJson(path, timeoutMs);
+async function fetchJson(path, timeoutMs = 7000, meta) {
+  return fetchLeagueJson(path, timeoutMs, meta);
 }
 
 function categoryLabelFromId(id) {

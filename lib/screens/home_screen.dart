@@ -38,49 +38,66 @@ class _HomeScreenState extends State<HomeScreen> {
     _ensureLeagueFutures();
   }
 
-  void _ensureLeagueFutures() {
+  void _ensureLeagueFutures({bool force = false}) {
     final scope = AppScope.of(context);
     if (scope.club.categories.isEmpty) return;
     final category = scope.club.categories.first;
     final key = '${scope.fullClub.id}|${category.id}';
-    if (_standingsKey != key || _standingsFuture == null) {
+    if (force || _standingsKey != key || _standingsFuture == null) {
       _standingsKey = key;
-      _standingsFuture = _loadStandings(category);
+      _standingsFuture = _loadStandings(category, force: force);
     }
-    if (_fixtureKey != key || _fixtureFuture == null) {
+    if (force || _fixtureKey != key || _fixtureFuture == null) {
       _fixtureKey = key;
-      _fixtureFuture = _loadFixture(category);
+      _fixtureFuture = _loadFixture(category, force: force);
     }
-    if (_resultsKey != key || _resultsFuture == null) {
+    if (force || _resultsKey != key || _resultsFuture == null) {
       _resultsKey = key;
-      _resultsFuture = _loadResults(category);
+      _resultsFuture = _loadResults(category, force: force);
     }
   }
 
-  Future<LudStandingsTable?> _loadStandings(CategorySquad category) async {
+  void _reloadLeague() {
+    _ensureLeagueFutures(force: true);
+    setState(() {});
+  }
+
+  Future<LudStandingsTable?> _loadStandings(
+    CategorySquad category, {
+    bool force = false,
+  }) async {
     final membership = await _membershipForVisibleClub(category);
     if (membership == null) return null;
     return ClubAccessService.loadStandings(
       membership: membership,
       category: category,
+      forceRefresh: force,
     );
   }
 
-  Future<List<LudFixtureMatch>> _loadFixture(CategorySquad category) async {
+  Future<List<LudFixtureMatch>> _loadFixture(
+    CategorySquad category, {
+    bool force = false,
+  }) async {
     final membership = await _membershipForVisibleClub(category);
     if (membership == null) return const [];
     return ClubAccessService.loadFixture(
       membership: membership,
       category: category,
+      forceRefresh: force,
     );
   }
 
-  Future<List<LudFixtureMatch>> _loadResults(CategorySquad category) async {
+  Future<List<LudFixtureMatch>> _loadResults(
+    CategorySquad category, {
+    bool force = false,
+  }) async {
     final membership = await _membershipForVisibleClub(category);
     if (membership == null) return const [];
     return ClubAccessService.loadResults(
       membership: membership,
       category: category,
+      forceRefresh: force,
     );
   }
 
@@ -326,6 +343,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         club: club,
                         standingsFuture: _standingsFuture,
                         fixtureFuture: _fixtureFuture,
+                        onRefresh: _reloadLeague,
                         onOpenField: () => widget.onNavigate(1),
                         onOpenAssistant: () => widget.onNavigate(2),
                         onOpenLineup: () => widget.onNavigate(
@@ -410,6 +428,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _RecentResultsPanel(
                         future: _resultsFuture,
                         clubName: club.name,
+                        onRefresh: _reloadLeague,
                       ),
                       const SizedBox(height: 26),
                       const _SectionHeader(
@@ -1168,8 +1187,13 @@ class _DecisionQueuePanel extends StatelessWidget {
 class _RecentResultsPanel extends StatelessWidget {
   final Future<List<LudFixtureMatch>>? future;
   final String clubName;
+  final VoidCallback onRefresh;
 
-  const _RecentResultsPanel({required this.future, required this.clubName});
+  const _RecentResultsPanel({
+    required this.future,
+    required this.clubName,
+    required this.onRefresh,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1181,15 +1205,20 @@ class _RecentResultsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.sports_score_outlined, color: CX.blue, size: 19),
-              SizedBox(width: 9),
-              Expanded(
+              const Icon(Icons.sports_score_outlined, color: CX.blue, size: 19),
+              const SizedBox(width: 9),
+              const Expanded(
                 child: Text(
                   'Ultimos resultados',
                   style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
                 ),
+              ),
+              IconButton(
+                tooltip: 'Actualizar resultados',
+                onPressed: onRefresh,
+                icon: const Icon(Icons.refresh, size: 18),
               ),
             ],
           ),
@@ -1200,27 +1229,23 @@ class _RecentResultsPanel extends StatelessWidget {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const LinearProgressIndicator(minHeight: 2);
               }
-              final matches =
+              // loadResults already returns only real played matches (<=5,
+              // newest first). isPlayedResult is the belt-and-braces guard so
+              // an unplayed 0-0 can never slip into "recent form".
+              final results =
                   (snapshot.data ?? const <LudFixtureMatch>[])
-                      .where(
-                        (match) =>
-                            match.homeScore != null &&
-                            match.awayScore != null &&
-                            match.date.isBefore(DateTime.now()) &&
-                            (_matchesClub(match.homeTeamName, clubName) ||
-                                _matchesClub(match.awayTeamName, clubName)),
-                      )
+                      .where((match) => match.isPlayedResult)
                       .toList()
                     ..sort((a, b) => b.date.compareTo(a.date));
-              final results = matches.take(5).toList();
-              if (results.isEmpty) {
+              final trimmed = results.take(5).toList();
+              if (trimmed.isEmpty) {
                 return const Text(
                   'Todavia no hay resultados publicados para esta categoria.',
                   style: TextStyle(color: CX.muted, fontSize: 12),
                 );
               }
               return Column(
-                children: results
+                children: trimmed
                     .map(
                       (match) =>
                           _RecentResultRow(match: match, clubName: clubName),
@@ -1243,7 +1268,12 @@ class _RecentResultRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final home = _matchesClub(match.homeTeamName, clubName);
+    // opponentName is set server-side to the "other" team, so it is a more
+    // reliable home/away signal than fuzzy-matching the club name.
+    final opponent = match.opponentName.trim();
+    final home = opponent.isNotEmpty
+        ? match.awayTeamName.trim() == opponent
+        : _matchesClub(match.homeTeamName, clubName);
     final goalsFor = home ? match.homeScore! : match.awayScore!;
     final goalsAgainst = home ? match.awayScore! : match.homeScore!;
     final color = goalsFor > goalsAgainst
@@ -1468,6 +1498,7 @@ class _MatchCenterPanel extends StatelessWidget {
   final CanteraClub club;
   final Future<LudStandingsTable?>? standingsFuture;
   final Future<List<LudFixtureMatch>>? fixtureFuture;
+  final VoidCallback onRefresh;
   final VoidCallback onOpenField;
   final VoidCallback onOpenAssistant;
   final VoidCallback onOpenLineup;
@@ -1476,6 +1507,7 @@ class _MatchCenterPanel extends StatelessWidget {
     required this.club,
     required this.standingsFuture,
     required this.fixtureFuture,
+    required this.onRefresh,
     required this.onOpenField,
     required this.onOpenAssistant,
     required this.onOpenLineup,
@@ -1534,6 +1566,11 @@ class _MatchCenterPanel extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              IconButton(
+                tooltip: 'Actualizar datos de la liga',
+                onPressed: onRefresh,
+                icon: const Icon(Icons.refresh, size: 18),
               ),
             ],
           ),
@@ -2271,7 +2308,7 @@ class _TodayPanel extends StatelessWidget {
                   child: ElevatedButton.icon(
                     onPressed: onOpenAssistant,
                     icon: const Icon(Icons.auto_awesome, size: 17),
-                    label: const Text('Crear con IA'),
+                    label: const Text('Crear sesión'),
                   ),
                 ),
               ],
@@ -2398,12 +2435,12 @@ class _SharedPlanningStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = syncing
-        ? 'Sincronizando planificacion compartida'
+        ? 'Actualizando agenda'
         : failed
-        ? 'Agenda local disponible, nube sin respuesta'
+        ? 'Agenda guardada en este dispositivo'
         : syncedAt == null
-        ? 'Agenda lista para sincronizar'
-        : 'Agenda sincronizada ${syncedAt!.hour.toString().padLeft(2, '0')}:${syncedAt!.minute.toString().padLeft(2, '0')}';
+        ? 'Agenda lista'
+        : 'Agenda actualizada ${syncedAt!.hour.toString().padLeft(2, '0')}:${syncedAt!.minute.toString().padLeft(2, '0')}';
     return Row(
       children: [
         Icon(

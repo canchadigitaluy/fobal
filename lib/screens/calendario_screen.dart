@@ -328,7 +328,9 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: CX.line),
       ),
-      child: Column(
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
           Row(
@@ -410,6 +412,7 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
             ),
           ],
         ),
+      ),
     );
   }
 

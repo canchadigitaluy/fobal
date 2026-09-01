@@ -1411,7 +1411,7 @@ class _DesktopSidebar extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                SupabaseAuthService.currentEmail ?? 'Modo demo',
+                                SupabaseAuthService.currentEmail ?? 'Cuenta local',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -1433,7 +1433,7 @@ class _DesktopSidebar extends StatelessWidget {
                           onPressed: () =>
                               Navigator.pushReplacementNamed(context, '/login'),
                           icon: const Icon(Icons.login, size: 16),
-                          label: const Text('Acceso por club'),
+                          label: const Text('Iniciar sesión'),
                         ),
                       ),
                     ] else ...[

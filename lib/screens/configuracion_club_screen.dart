@@ -522,7 +522,7 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
         icon: Icons.admin_panel_settings_outlined,
         completed: SupabaseAuthService.currentSession != null,
         fields: const [
-          'Membresias Supabase',
+          'Miembros del club',
           'Roles operativos',
           'Estados de acceso',
           'Separacion por club',
@@ -1320,7 +1320,7 @@ class _RealClubAccessPanel extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Esta lista proviene de las membresias protegidas por RLS en Supabase. Crear una tarjeta local no concede acceso.',
+                'Estos son los accesos reales al club. Crear una tarjeta local no concede acceso.',
                 style: TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
               ),
               const SizedBox(height: 14),
@@ -1328,11 +1328,11 @@ class _RealClubAccessPanel extends StatelessWidget {
                 const LinearProgressIndicator(minHeight: 2)
               else if (snapshot.hasError)
                 const _EmptyCard(
-                  'No se pudieron consultar los accesos. Verifica la membresia administradora y RLS.',
+                  'No pudimos cargar los accesos. Probá de nuevo.',
                 )
               else if (members.isEmpty)
                 const _EmptyCard(
-                  'No hay membresias visibles para este club en Supabase.',
+                  'No hay miembros con acceso a este club.',
                 )
               else ...[
                 _AccessHealthStrip(members: members),

@@ -90,7 +90,7 @@ export default async function handler(req, res) {
     ? `Jugadores con mayor continuidad: ${continuity.map((p) => `${p.name} (${p.minutes} min, ${p.matches} PJ${p.position ? `, ${p.position}` : ""})`).join("; ")}.`
     : "No hay minutos individuales publicados para esta categoría.";
 
-  res.setHeader("cache-control", "s-maxage=600, stale-while-revalidate=3600");
+  res.setHeader("cache-control", "no-store, max-age=0");
   return res.status(200).json({
     tableContext,
     styleSummary: `${formContext} ${squadContext} El sistema y los comportamientos tácticos deben confirmarse con observación del DT; no se inventan desde estadísticas.`,

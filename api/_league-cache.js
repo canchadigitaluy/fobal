@@ -5,12 +5,22 @@ const LUDFAN_SUPABASE_ANON_KEY =
   process.env.LUDFAN_SUPABASE_ANON_KEY ||
   "sb_publishable_q33jnJrrXmi4LFpXQ_ZRpw_TQaukr-G";
 
-export async function fetchLeagueJson(pathOrUrl, timeoutMs = 3500) {
+// Pass a plain object as `meta` to learn whether the payload came from the
+// live league API (`meta.fromCache === false`) or the stale cache fallback
+// (`meta.fromCache === true`). Callers use this to avoid labelling cached
+// data as "just synced".
+export async function fetchLeagueJson(pathOrUrl, timeoutMs = 3500, meta) {
   const path = normalizeLeaguePath(pathOrUrl);
   const live = await fetchLive(path, timeoutMs).catch(() => null);
-  if (live != null) return live;
+  if (live != null) {
+    if (meta) meta.fromCache = false;
+    return live;
+  }
   const cached = await fetchLudfanCache(path, timeoutMs).catch(() => null);
-  if (cached != null) return cached;
+  if (cached != null) {
+    if (meta) meta.fromCache = true;
+    return cached;
+  }
   throw new Error(`league_unavailable:${path}`);
 }
 

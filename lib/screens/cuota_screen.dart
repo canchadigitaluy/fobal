@@ -2070,7 +2070,7 @@ class _PlanReadinessStrip extends StatelessWidget {
         ? plan.operationalReadinessLabel
         : hasSources
         ? plan.operationalReadinessLabel
-        : 'Falta sincronizacion de datos';
+        : 'Faltan datos del plantel';
     final detail = [
       '${plan.operationalReadinessScore}% preparado',
       if (hasSources) '${plan.contextSources.length} fuentes verificables',

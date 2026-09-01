@@ -150,7 +150,7 @@ export default async function handler(req, res) {
     () => {},
   );
 
-  res.setHeader("cache-control", "s-maxage=900, stale-while-revalidate=3600");
+  res.setHeader("cache-control", "no-store, max-age=0");
   return res.status(200).json({
     team: {
       id: team.id,

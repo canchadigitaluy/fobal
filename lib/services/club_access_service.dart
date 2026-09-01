@@ -910,6 +910,7 @@ class LudFixtureMatch {
 
   String get fixtureTrustLabel {
     if (!categoryVerified) return 'Categoria no verificada';
+    if (fixtureSource == 'lud_cache') return 'Datos guardados';
     if (invalidDateRows > 0) return 'Fixture depurado';
     if (fixtureSource == 'lud_live') return 'Liga verificada';
     if (fixtureSource == 'ludfan_public_fallback') {
@@ -917,6 +918,10 @@ class LudFixtureMatch {
     }
     return 'Fixture conectado';
   }
+
+  /// True when this data came from the offline cache, not a live league fetch.
+  /// UI must not present it as "updated now".
+  bool get isFromCache => fixtureSource == 'lud_cache';
 
   String get fixtureTrustDetail {
     if (fixtureSource == 'ludfan_public_fallback') {

@@ -170,7 +170,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
           content: Text(
             writeResult.synced
                 ? 'Sesion agregada y guardada para el club.'
-                : 'Sesion agregada y en cola para sincronizar.',
+                : 'Sesión agregada. Se guardará cuando vuelva la conexión.',
           ),
         ),
       );
@@ -268,7 +268,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
             content: Text(
               writeResult.synced
                   ? 'Plan de partido guardado para el club.'
-                  : 'Plan de partido en cola para sincronizar.',
+                  : 'Plan de partido agregado. Se guardará cuando vuelva la conexión.',
             ),
           ),
         );
@@ -418,7 +418,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                 ],
                 if (_generatedTactic != null && !_generatingTactic) ...[
                   const SizedBox(height: 18),
-                  _SectionTitle('Tactica generada por fobal'),
+                  _SectionTitle('Plan de partido'),
                   const SizedBox(height: 10),
                   _GeneratedSessionCard(session: _generatedTactic!),
                 ],
@@ -457,7 +457,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                 ],
                 if (_generatedSession != null && !_generating) ...[
                   const SizedBox(height: 18),
-                  _SectionTitle('Sesion generada por fobal'),
+                  _SectionTitle('Sesión generada'),
                   const SizedBox(height: 10),
                   _GeneratedSessionCard(session: _generatedSession!),
                 ],
@@ -839,27 +839,29 @@ class _ReservasScreenState extends State<ReservasScreen> {
         }
       }
       if (nextMatch != null &&
-          (_rivalName.trim().isEmpty || _fixtureContext.trim().isEmpty)) {
-        _applyFixtureMatch(nextMatch);
+          (_rivalName.trim().isEmpty ||
+              _fixtureContext.trim().isEmpty ||
+              force)) {
+        _applyFixtureMatch(nextMatch, forceOpponent: force);
       }
-    } on ClubContextLoadException catch (error) {
+    } on ClubContextLoadException catch (_) {
       if (!mounted || _fixtureKey != requestKey) return;
       setState(() {
         _fixtureLoading = false;
-        _fixtureError = 'La liga no devolvio fixture (${error.statusCode}).';
+        _fixtureError = 'No pudimos cargar el fixture. Probá actualizar.';
       });
       _rememberFixtureState(category.id);
     } catch (_) {
       if (!mounted || _fixtureKey != requestKey) return;
       setState(() {
         _fixtureLoading = false;
-        _fixtureError = 'No se pudo conectar el fixture ahora.';
+        _fixtureError = 'No pudimos cargar el fixture. Probá actualizar.';
       });
       _rememberFixtureState(category.id);
     }
   }
 
-  void _applyFixtureMatch(LudFixtureMatch match) {
+  void _applyFixtureMatch(LudFixtureMatch match, {bool forceOpponent = false}) {
     setState(() {
       _matchDate = match.date;
       _rivalName = match.opponentName;
@@ -871,10 +873,13 @@ class _ReservasScreenState extends State<ReservasScreen> {
       }
     });
     _rememberFixtureState(_selectedCategoryId);
-    Future.microtask(() => _loadOpponentAnalysis(match));
+    Future.microtask(() => _loadOpponentAnalysis(match, force: forceOpponent));
   }
 
-  Future<void> _loadOpponentAnalysis(LudFixtureMatch match) async {
+  Future<void> _loadOpponentAnalysis(
+    LudFixtureMatch match, {
+    bool force = false,
+  }) async {
     final scope = AppScope.of(context);
     CategorySquad? category;
     for (final item in scope.fullClub.categories) {
@@ -892,6 +897,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
       final analysis = await ClubAccessService.loadOpponentAnalysis(
         match: match,
         category: category,
+        forceRefresh: force,
       );
       if (!mounted) return;
       if (analysis == null || _rivalName != match.opponentName) {
@@ -970,7 +976,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
         content: Text(
           writeResult.synced
               ? 'Registro guardado para el club.'
-              : 'Registro en cola para sincronizar.',
+              : 'Registro agregado. Se guardará cuando vuelva la conexión.',
         ),
       ),
     );

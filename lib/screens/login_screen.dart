@@ -239,7 +239,7 @@ class _LoginScreenState extends State<LoginScreen> {
             _creatingAccount = false;
             _signupStep = 0;
             _authMessage =
-                'Cuenta creada. Si no te deja entrar, confirma el correo o desactiva la confirmacion de email en Supabase.';
+                'Cuenta creada. Revisá tu correo para confirmarla y volvé a iniciar sesión.';
             _emailController.text = _signupEmailController.text;
             _passwordController.text = pass;
           });

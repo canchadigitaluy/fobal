@@ -8,7 +8,8 @@ export default async function handler(req, res) {
   res.setHeader("access-control-allow-origin", "*");
   res.setHeader("access-control-allow-methods", "GET, OPTIONS");
   res.setHeader("access-control-allow-headers", "content-type");
-  res.setHeader("cache-control", "s-maxage=900, stale-while-revalidate=3600");
+  // No CDN/browser caching: the league table must never be served stale.
+  res.setHeader("cache-control", "no-store, max-age=0");
 
   if (req.method === "OPTIONS") return res.status(200).json({ ok: true });
   if (req.method !== "GET") {

@@ -353,15 +353,17 @@ class _FormPanel extends StatelessWidget {
         (left == right || left.contains(right) || right.contains(left));
   }
 
+  bool _isHome(LudFixtureMatch match) {
+    final opponent = match.opponentName.trim();
+    if (opponent.isNotEmpty) return match.awayTeamName.trim() == opponent;
+    return _sameClub(match.homeTeamName);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // loadResults already returns the last five real results, newest first.
     final recent = results
-        .where(
-          (match) =>
-              match.homeScore != null &&
-              match.awayScore != null &&
-              match.isPlayedResult,
-        )
+        .where((match) => match.isPlayedResult)
         .take(5)
         .toList()
         .reversed
@@ -373,7 +375,7 @@ class _FormPanel extends StatelessWidget {
           ? const _NoData()
           : Row(
               children: recent.map((match) {
-                final isHome = _sameClub(match.homeTeamName);
+                final isHome = _isHome(match);
                 final goalsFor = isHome ? match.homeScore! : match.awayScore!;
                 final goalsAgainst = isHome
                     ? match.awayScore!

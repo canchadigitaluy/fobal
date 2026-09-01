@@ -154,8 +154,9 @@ class ClubAccessService {
   static Future<CanteraClubContext?> loadClubContext(
     ClubMembership membership,
   ) async {
-    final teamId = _effectiveLudTeamId(membership);
-    if (teamId == null || teamId.isEmpty) return null;
+    // Club-level endpoint: the team comes straight from the membership.
+    final teamId = membership.ludTeamId?.trim() ?? '';
+    if (teamId.isEmpty) return null;
 
     final response = await http
         .get(Uri.base.resolve('/api/lud-team-context?teamId=$teamId'))
@@ -177,23 +178,27 @@ class ClubAccessService {
   static Future<List<LudFixtureMatch>> loadFixture({
     required ClubMembership membership,
     required CategorySquad category,
+    bool forceRefresh = false,
   }) async {
-    final teamId = _effectiveLudTeamId(membership);
-    if (teamId == null || teamId.isEmpty) return [];
+    final target = _ludTarget(membership, category);
+    if (target == null) return const [];
 
-    final categoryId = _ludCategoryIdFromCanteraId(category.id);
     final uri = Uri.base
         .resolve('/api/lud-team-fixture')
         .replace(
           queryParameters: {
-            'teamId': teamId,
+            'teamId': '${target.teamId}',
             'clubName': membership.clubName,
-            if (categoryId != null) 'categoryId': '$categoryId',
-            'categoryName': category.name,
+            if (target.categoryId != null) 'categoryId': '${target.categoryId}',
+            'categoryName': target.categoryName,
             'horizonDays': '120',
+            if (forceRefresh)
+              '_ts': '${DateTime.now().millisecondsSinceEpoch}',
           },
         );
-    final response = await http.get(uri).timeout(const Duration(seconds: 18));
+    final response = await http
+        .get(uri, headers: _leagueHeaders(forceRefresh))
+        .timeout(const Duration(seconds: 18));
     if (response.statusCode != 200) {
       throw ClubContextLoadException(response.statusCode);
     }
@@ -229,21 +234,24 @@ class ClubAccessService {
   static Future<List<LudFixtureMatch>> loadResults({
     required ClubMembership membership,
     required CategorySquad category,
+    bool forceRefresh = false,
   }) async {
-    final teamId = _effectiveLudTeamId(membership);
-    if (teamId == null || teamId.isEmpty) return [];
+    final target = _ludTarget(membership, category);
+    if (target == null) return const [];
 
-    final categoryId = _ludCategoryIdFromCanteraId(category.id);
     final uri = Uri.base.resolve('/api/lud-team-fixture').replace(
       queryParameters: {
-        'teamId': teamId,
+        'teamId': '${target.teamId}',
         'clubName': membership.clubName,
-        if (categoryId != null) 'categoryId': '$categoryId',
-        'categoryName': category.name,
+        if (target.categoryId != null) 'categoryId': '${target.categoryId}',
+        'categoryName': target.categoryName,
         'history': '1',
+        if (forceRefresh) '_ts': '${DateTime.now().millisecondsSinceEpoch}',
       },
     );
-    final response = await http.get(uri).timeout(const Duration(seconds: 18));
+    final response = await http
+        .get(uri, headers: _leagueHeaders(forceRefresh))
+        .timeout(const Duration(seconds: 18));
     if (response.statusCode != 200) {
       throw ClubContextLoadException(response.statusCode);
     }
@@ -253,7 +261,7 @@ class ClubAccessService {
         json['fixtureDiagnostics'] as Map<String, dynamic>? ?? const {};
     final source = json['source']?.toString() ?? '';
     final categoryVerified = diagnostics['categoryVerified'] as bool? ?? true;
-    return (json['matches'] as List<dynamic>? ?? const [])
+    final played = (json['matches'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
         .map(
           (match) => LudFixtureMatch.fromJson(
@@ -266,30 +274,36 @@ class ClubAccessService {
           (match) =>
               match.hasValidDate &&
               match.categoryVerified &&
-              match.homeScore != null &&
-              match.awayScore != null &&
-              match.opponentName.trim().isNotEmpty,
+              match.opponentName.trim().isNotEmpty &&
+              match.isPlayedResult,
         )
         .toList();
+    // Real results only, newest first, capped at five. No 0-0 padding for
+    // rounds that were never played (isPlayedResult already excludes them).
+    played.sort((a, b) => b.date.compareTo(a.date));
+    return played.take(5).toList();
   }
 
   static Future<LudStandingsTable?> loadStandings({
     required ClubMembership membership,
     required CategorySquad category,
+    bool forceRefresh = false,
   }) async {
-    final teamId = _effectiveLudTeamId(membership);
-    if (teamId == null || teamId.isEmpty) return null;
+    final target = _ludTarget(membership, category);
+    if (target == null) return null;
 
-    final categoryId = _ludCategoryIdFromCanteraId(category.id);
     final uri = Uri.base.resolve('/api/lud-team-standings').replace(
       queryParameters: {
-        'teamId': teamId,
+        'teamId': '${target.teamId}',
         'clubName': membership.clubName,
-        if (categoryId != null) 'categoryId': '$categoryId',
-        'categoryName': category.name,
+        if (target.categoryId != null) 'categoryId': '${target.categoryId}',
+        'categoryName': target.categoryName,
+        if (forceRefresh) '_ts': '${DateTime.now().millisecondsSinceEpoch}',
       },
     );
-    final response = await http.get(uri).timeout(const Duration(seconds: 18));
+    final response = await http
+        .get(uri, headers: _leagueHeaders(forceRefresh))
+        .timeout(const Duration(seconds: 18));
     if (response.statusCode != 200) {
       throw ClubContextLoadException(response.statusCode);
     }
@@ -301,16 +315,20 @@ class ClubAccessService {
   static Future<OpponentAnalysis?> loadOpponentAnalysis({
     required LudFixtureMatch match,
     required CategorySquad category,
+    bool forceRefresh = false,
   }) async {
     if (match.opponentTeamId == null) return null;
     final uri = Uri.base.resolve('/api/lud-opponent-analysis').replace(
       queryParameters: {
         'opponentTeamId': '${match.opponentTeamId}',
         if (match.phaseId != null) 'phaseId': '${match.phaseId}',
-        'categoryName': category.name,
+        'categoryName': category.name.trim(),
+        if (forceRefresh) '_ts': '${DateTime.now().millisecondsSinceEpoch}',
       },
     );
-    final response = await http.get(uri).timeout(const Duration(seconds: 18));
+    final response = await http
+        .get(uri, headers: _leagueHeaders(forceRefresh))
+        .timeout(const Duration(seconds: 18));
     if (response.statusCode != 200) {
       throw ClubContextLoadException(response.statusCode);
     }
@@ -616,14 +634,35 @@ class ClubAccessService {
     return true;
   }
 
-  static int? _ludCategoryIdFromCanteraId(String value) {
-    final match = RegExp(r'lud-cat-\d+-(\d+)$').firstMatch(value);
-    return int.tryParse(match?.group(1) ?? '');
+  /// Resolves which Liga Universitaria team + category to query for this
+  /// [membership] / [category] pair, or null when there is not enough
+  /// trustworthy data. The category id (`lud-cat-<teamId>-<categoryId>`) is
+  /// the authority; if the membership also names a team and the two disagree
+  /// this returns null instead of mixing one club's team with another club's
+  /// category.
+  static _LudTarget? _ludTarget(
+    ClubMembership membership,
+    CategorySquad category,
+  ) {
+    final ref = LudCategoryRef.tryParse(category);
+    final membershipTeam = int.tryParse(membership.ludTeamId?.trim() ?? '');
+    if (ref != null) {
+      if (membershipTeam != null && membershipTeam != ref.teamId) return null;
+      return _LudTarget(ref.teamId, ref.categoryId, ref.categoryName);
+    }
+    if (membershipTeam == null) return null;
+    return _LudTarget(membershipTeam, null, category.name.trim());
   }
 
-  static String? _effectiveLudTeamId(ClubMembership membership) {
-    return membership.ludTeamId;
-  }
+  static Map<String, String> _leagueHeaders(bool forceRefresh) =>
+      forceRefresh ? const {'cache-control': 'no-cache'} : const {};
+}
+
+class _LudTarget {
+  final int teamId;
+  final int? categoryId;
+  final String categoryName;
+  const _LudTarget(this.teamId, this.categoryId, this.categoryName);
 }
 
 class ClubMemberAccess {
@@ -833,6 +872,9 @@ class LudFixtureMatch {
         normalizedStatus.contains('final')) {
       return true;
     }
+    // A 0-0 with no explicit "played" status is almost always a fixture row
+    // that was never played; never let it pad "recent form".
+    if (homeScore == 0 && awayScore == 0) return false;
     return date.toLocal().isBefore(DateTime.now());
   }
 
@@ -974,6 +1016,62 @@ class LudStandingRow {
       points: number('points'),
       isOwnTeam: json['isOwnTeam'] == true,
     );
+  }
+}
+
+/// Single source of truth for turning a picked [CategorySquad] into the Liga
+/// Universitaria team + category it points at. LUD category ids follow
+/// `lud-cat-<teamId>-<categoryId>` where both parts are integers. Every screen
+/// and service that queries LUD data must go through this instead of writing
+/// its own regex, so a club never ends up paired with another club's team or
+/// category.
+class LudCategoryRef {
+  final int teamId;
+  final int categoryId;
+  final String categoryName;
+
+  const LudCategoryRef({
+    required this.teamId,
+    required this.categoryId,
+    required this.categoryName,
+  });
+
+  static final RegExp _pattern = RegExp(r'^lud-cat-(\d+)-(\d+)$');
+
+  /// Null when [category] is not a Liga Universitaria category. Callers must
+  /// treat null as "no LUD data for this selection" and must not substitute
+  /// another team or category.
+  static LudCategoryRef? tryParse(CategorySquad category) {
+    final match = _pattern.firstMatch(category.id.trim());
+    if (match == null) return null;
+    final teamId = int.tryParse(match.group(1)!);
+    final categoryId = int.tryParse(match.group(2)!);
+    if (teamId == null || categoryId == null) return null;
+    return LudCategoryRef(
+      teamId: teamId,
+      categoryId: categoryId,
+      categoryName: category.name.trim(),
+    );
+  }
+
+  /// Like [tryParse] but also rejects the category when its embedded team does
+  /// not match [expectedTeamId] (a club's own LUD team id). Use this at call
+  /// sites that already know which club they are in.
+  static LudCategoryRef? forTeam(
+    CategorySquad category,
+    String? expectedTeamId,
+  ) {
+    final ref = tryParse(category);
+    if (ref == null) return null;
+    final expected = int.tryParse(expectedTeamId?.trim() ?? '');
+    if (expected != null && expected != ref.teamId) return null;
+    return ref;
+  }
+
+  /// The team id behind a raw category id, for call sites that only need that.
+  static int? teamIdOf(String categoryId) {
+    final match = _pattern.firstMatch(categoryId.trim());
+    return match == null ? null : int.tryParse(match.group(1)!);
   }
 }
 

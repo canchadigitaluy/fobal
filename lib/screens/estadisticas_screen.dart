@@ -14,6 +14,7 @@ class EstadisticasScreen extends StatefulWidget {
 class _EstadisticasScreenState extends State<EstadisticasScreen> {
   Future<_StatsData>? _future;
   String? _key;
+  bool _forceNextLoad = false;
 
   @override
   void didChangeDependencies() {
@@ -40,6 +41,8 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
     CategorySquad category,
     List<Player> players,
   ) async {
+    final force = _forceNextLoad;
+    _forceNextLoad = false;
     final activeMembership = await ClubAccessService.activeMembership();
     final membership =
         activeMembership != null && activeMembership.clubId == club.id
@@ -52,10 +55,12 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
       ClubAccessService.loadStandings(
         membership: membership,
         category: category,
+        forceRefresh: force,
       ).catchError((_) => null),
       ClubAccessService.loadResults(
         membership: membership,
         category: category,
+        forceRefresh: force,
       ).catchError((_) => <LudFixtureMatch>[]),
     ]);
     return _StatsData(
@@ -69,12 +74,12 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
     CanteraClub club,
     CategorySquad category,
   ) {
-    final teamId = RegExp(r'lud-cat-(\d+)-').firstMatch(category.id)?.group(1);
+    final teamId = LudCategoryRef.teamIdOf(category.id);
     if (teamId == null) return null;
     return ClubMembership(
       clubId: club.id,
       clubName: club.name,
-      ludTeamId: teamId,
+      ludTeamId: '$teamId',
       role: 'coach',
       status: 'active',
     );
@@ -103,6 +108,7 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
 
   void _refresh() {
     _key = null;
+    _forceNextLoad = true;
     didChangeDependencies();
     setState(() {});
   }

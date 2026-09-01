@@ -94,14 +94,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   ClubMembership? _previewMembershipFromCategory(CategorySquad category) {
-    final match = RegExp(r'lud-cat-(\d+)-').firstMatch(category.id);
-    final teamId = match?.group(1);
-    if (teamId == null || teamId.isEmpty) return null;
+    final teamId = LudCategoryRef.teamIdOf(category.id);
+    if (teamId == null) return null;
     final club = AppScope.of(context).fullClub;
     return ClubMembership(
       clubId: club.id,
       clubName: club.name,
-      ludTeamId: teamId,
+      ludTeamId: '$teamId',
       role: 'coach',
       status: 'active',
     );

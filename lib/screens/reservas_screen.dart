@@ -828,6 +828,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
       final matches = await ClubAccessService.loadFixture(
         membership: effectiveMembership,
         category: category,
+        forceRefresh: force,
       );
       if (!mounted || _fixtureKey != requestKey) return;
       setState(() {
@@ -947,10 +948,8 @@ class _ReservasScreenState extends State<ReservasScreen> {
     return int.tryParse(match?.group(1) ?? '');
   }
 
-  int? _ludTeamIdFromCategory(String categoryId) {
-    final match = RegExp(r'lud-cat-(\d+)-').firstMatch(categoryId);
-    return int.tryParse(match?.group(1) ?? '');
-  }
+  int? _ludTeamIdFromCategory(String categoryId) =>
+      LudCategoryRef.teamIdOf(categoryId);
 
   Future<void> _saveTrainingReport(
     CanteraClub club,

@@ -1,0 +1,14 @@
+.dart_localappdata/
+.dart_tool/
+.git/
+.idea/
+.vercel/
+coverage/
+node_modules/.cache/
+tmp/
+output/
+*.log
+*.err.log
+*.png
+cantera_preview_dom.html
+preview_*.html

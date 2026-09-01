@@ -1,0 +1,1259 @@
+import 'package:flutter/material.dart';
+
+import '../data/cantera_data.dart';
+import '../main.dart';
+import '../services/club_access_service.dart';
+
+class PerfilScreen extends StatelessWidget {
+  const PerfilScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final club = AppScope.of(context).club;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Táctica'),
+            Text(
+              'Forma de jugar del equipo',
+              style: TextStyle(
+                color: CX.faint,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1120),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
+              children: CanteraMotion.stagger([
+                _SignalTile(
+                  metric: _SignalMetric(
+                    'Plantel',
+                    '${club.players.length} jugadores',
+                    Icons.groups_2_outlined,
+                    CX.green,
+                  ),
+                ),
+                const SizedBox(height: 25),
+                const _SectionTitle('Impronta futbolística', 'IDENTIDAD'),
+                const SizedBox(height: 10),
+                _MethodologyBoard(methodology: club.methodology),
+                const SizedBox(height: 25),
+                const _SectionTitle('Seguimiento individual', 'JUGADORES'),
+                const SizedBox(height: 10),
+                if (club.players.isEmpty)
+                  const _IntelligenceEmpty(
+                    icon: Icons.person_search_outlined,
+                    title: 'Sin jugadores para comparar',
+                    description:
+                        'Carga el plantel para comenzar el seguimiento de asistencia, estado y evolucion.',
+                  )
+                else
+                  _PlayerRadar(players: club.players),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  int _contextScore(CanteraClub club) {
+    final checks = [
+      club.categories.isNotEmpty,
+      club.players.isNotEmpty,
+      club.methodology.playingStyle.isNotEmpty,
+      club.methodology.offensivePrinciples.isNotEmpty,
+      club.methodology.defensivePrinciples.isNotEmpty,
+      club.trainingReports.isNotEmpty,
+    ];
+    return (checks.where((value) => value).length / checks.length * 100)
+        .round();
+  }
+
+  _WellbeingSnapshot _wellbeingSnapshot(CanteraClub club) {
+    final totalPlayers = club.players.length;
+    final unavailablePlayers = club.players.where(_isUnavailable).length;
+    final availablePlayers = totalPlayers - unavailablePlayers;
+    final categoriesWithFocus = club.categories
+        .where((category) => category.currentFocus.trim().isNotEmpty)
+        .length;
+    final plannedSessions = club.sessions
+        .where((session) => session.status != 'completed')
+        .length;
+    final completedSessions = club.sessions
+        .where((session) => session.status == 'completed')
+        .length;
+    final recentReports = club.trainingReports.length;
+    final postTrainingDebt = (completedSessions - recentReports).clamp(0, 999);
+    final categories = club.categories.length;
+    final positionedPlayers = club.players
+        .where((player) => player.position.trim().isNotEmpty)
+        .length;
+    final aiReadyPlayers = club.players.where(_hasAiReadyPlayerProfile).length;
+
+    final availabilityScore = totalPlayers == 0
+        ? 0
+        : (availablePlayers / totalPlayers * 100).round();
+    final focusScore = categories == 0
+        ? 0
+        : (categoriesWithFocus / categories * 100).round();
+    final continuityScore = categories == 0
+        ? (recentReports > 0 ? 70 : 0)
+        : ((recentReports / categories).clamp(0, 1) * 100).round();
+    final adjustedContinuityScore = postTrainingDebt == 0
+        ? continuityScore
+        : (continuityScore - (postTrainingDebt * 14)).clamp(0, 100);
+    final loadScore = plannedSessions == 0
+        ? 48
+        : categories == 0
+        ? 60
+        : (100 - ((plannedSessions / categories - 1).abs() * 22))
+              .clamp(42, 100)
+              .round();
+    final profileScore = totalPlayers == 0
+        ? 0
+        : (aiReadyPlayers / totalPlayers * 100).round();
+    final score =
+        (availabilityScore * .28 +
+                focusScore * .18 +
+                adjustedContinuityScore * .22 +
+                loadScore * .17 +
+                profileScore * .15)
+            .round();
+
+    final items = [
+      _WellbeingItem(
+        Icons.health_and_safety_outlined,
+        availabilityScore >= 85 ? CX.green : CX.amber,
+        'Disponibilidad',
+        totalPlayers == 0
+            ? 'Sin plantel cargado'
+            : '$availablePlayers disponibles de $totalPlayers',
+        availabilityScore,
+      ),
+      _WellbeingItem(
+        Icons.flag_outlined,
+        focusScore >= 75 ? CX.green : CX.amber,
+        'Foco semanal',
+        categories == 0
+            ? 'Sin categorias'
+            : '$categoriesWithFocus de $categories categorias con foco',
+        focusScore,
+      ),
+      _WellbeingItem(
+        Icons.assignment_turned_in_outlined,
+        adjustedContinuityScore >= 60 ? CX.green : CX.blue,
+        'Continuidad',
+        postTrainingDebt > 0
+            ? '$postTrainingDebt sesiones sin devolucion'
+            : recentReports == 0
+            ? 'Sin registros post-entreno'
+            : '$recentReports registros tecnicos guardados',
+        adjustedContinuityScore,
+      ),
+      _WellbeingItem(
+        Icons.calendar_month_outlined,
+        plannedSessions == 0 ? CX.amber : CX.green,
+        'Carga planificada',
+        plannedSessions == 0
+            ? 'Sin sesiones futuras'
+            : '$plannedSessions sesiones abiertas',
+        loadScore,
+      ),
+      _WellbeingItem(
+        Icons.account_tree_outlined,
+        profileScore >= 85 ? CX.green : CX.amber,
+        'Perfiles individuales',
+        totalPlayers == 0
+            ? 'Sin jugadores para perfilar'
+            : '$aiReadyPlayers completos / $positionedPlayers con posicion',
+        profileScore,
+      ),
+    ];
+
+    final recommendations = [
+      if (totalPlayers == 0)
+        'Cargar plantel real antes de tomar decisiones de carga o disponibilidad.',
+      if (unavailablePlayers > 0)
+        'Ajustar tareas para $unavailablePlayers jugadores no disponibles.',
+      if (categories > 0 && categoriesWithFocus < categories)
+        'Definir foco actual en las categorias pendientes para ordenar la semana.',
+      if (recentReports == 0 && plannedSessions > 0)
+        'Cerrar sesiones con registro post-entreno para mejorar continuidad.',
+      if (postTrainingDebt > 0)
+        'Completar devolucion de $postTrainingDebt sesiones cerradas para que la IA aprenda de la cancha.',
+      if (plannedSessions == 0 && categories > 0)
+        'Planificar al menos una sesion por categoria activa.',
+      if (totalPlayers > 0 && positionedPlayers < totalPlayers)
+        'Completar posicion principal en ${totalPlayers - positionedPlayers} jugadores para que la IA proponga tareas y roles con mas precision.',
+      if (totalPlayers > 0 &&
+          positionedPlayers == totalPlayers &&
+          aiReadyPlayers < totalPlayers)
+        'Agregar rol alternativo, pie habil y nota tecnica en ${totalPlayers - aiReadyPlayers} jugadores para mejorar recomendaciones individuales.',
+    ];
+
+    return _WellbeingSnapshot(
+      score: score,
+      title: score >= 75
+          ? 'Semana saludable'
+          : score >= 50
+          ? 'Semana a estabilizar'
+          : 'Semana con tareas pendientes',
+      description: score >= 75
+          ? 'La carga, disponibilidad y continuidad muestran una base ordenada.'
+          : 'Hay señales concretas para cuidar mejor al plantel y sostener el trabajo.',
+      items: items,
+      recommendations: recommendations,
+    );
+  }
+
+  bool _isUnavailable(Player player) {
+    final status = player.status.toLowerCase();
+    return status.contains('lesion') ||
+        status.contains('baja') ||
+        status.contains('suspend');
+  }
+
+  bool _hasAiReadyPlayerProfile(Player player) =>
+      player.position.trim().isNotEmpty &&
+      player.secondaryPositions.trim().isNotEmpty &&
+      player.dominantFoot.trim().isNotEmpty &&
+      player.status.trim().isNotEmpty &&
+      player.note.trim().length >= 12;
+
+  List<_DerivedSignal> _derivedSignals(CanteraClub club) {
+    final injuredPlayers = club.players
+        .where((player) => player.status.toLowerCase() == 'lesionado')
+        .toList();
+    final lowAttendancePlayers = club.players
+        .where(
+          (player) => player.attendanceRate > 0 && player.attendanceRate < .7,
+        )
+        .toList();
+    final categoriesWithoutFocus = club.categories
+        .where((category) => category.currentFocus.trim().isEmpty)
+        .toList();
+    final ludPlayers = club.players
+        .where(
+          (player) =>
+              player.note.contains('LUD player_id') ||
+              player.note.contains('Importado desde LUD Stats'),
+        )
+        .length;
+    final playersWithoutPosition = club.players
+        .where((player) => player.position.trim().isEmpty)
+        .length;
+
+    return [
+      if (injuredPlayers.isNotEmpty)
+        _DerivedSignal(
+          Icons.health_and_safety_outlined,
+          CX.red,
+          '${injuredPlayers.length} jugadores no disponibles',
+          'Revisar carga y adaptar la proxima sesion antes de exigir duelos o alta intensidad.',
+        ),
+      if (lowAttendancePlayers.isNotEmpty)
+        _DerivedSignal(
+          Icons.trending_down,
+          CX.amber,
+          '${lowAttendancePlayers.length} jugadores con asistencia irregular',
+          'Conviene hablarlo, revisar motivos y no depender de ellos para roles clave.',
+        ),
+      if (categoriesWithoutFocus.isNotEmpty)
+        _DerivedSignal(
+          Icons.flag_outlined,
+          CX.amber,
+          '${categoriesWithoutFocus.length} categorias sin objetivo semanal',
+          'Escribir el objetivo de la semana ayuda a ordenar entrenamientos y partido.',
+        ),
+      if (club.trainingReports.isEmpty && club.sessions.isNotEmpty)
+        const _DerivedSignal(
+          Icons.assignment_outlined,
+          CX.blue,
+          'Sesiones sin devolucion post-entreno',
+          'Registrar una lectura breve despues de entrenar ayuda a cerrar el ciclo de planificacion.',
+        ),
+      if (club.players.isNotEmpty && ludPlayers == 0)
+        const _DerivedSignal(
+          Icons.link_off_outlined,
+          CX.amber,
+          'Plantel pendiente de sincronizacion completa',
+          'Cuando sea posible, sincronizar desde la liga reduce datos manuales y evita planteles mezclados.',
+        ),
+      if (playersWithoutPosition > 0)
+        _DerivedSignal(
+          Icons.account_tree_outlined,
+          CX.amber,
+          '$playersWithoutPosition jugadores sin posicion',
+          'Editar el perfil individual permite que el motor tactico use roles reales en convocatorias, tareas y planes de partido.',
+        ),
+    ];
+  }
+}
+
+class _WellbeingPanel extends StatelessWidget {
+  final _WellbeingSnapshot snapshot;
+
+  const _WellbeingPanel({required this.snapshot});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: CX.panel,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.green.withValues(alpha: .18)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 20,
+            offset: Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final dial = _WellbeingDial(score: snapshot.score);
+              final text = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    snapshot.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    snapshot.description,
+                    style: const TextStyle(
+                      color: CX.muted,
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              );
+              if (constraints.maxWidth < 620) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [dial, const SizedBox(height: 14), text],
+                );
+              }
+              return Row(
+                children: [
+                  dial,
+                  const SizedBox(width: 18),
+                  Expanded(child: text),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 760;
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: snapshot.items.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: compact ? 1 : 2,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: compact ? 4.4 : 3.2,
+                ),
+                itemBuilder: (context, index) =>
+                    _WellbeingTile(item: snapshot.items[index]),
+              );
+            },
+          ),
+          if (snapshot.recommendations.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            ...snapshot.recommendations
+                .take(3)
+                .map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 7),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.check_circle_outline,
+                          color: CX.green,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            item,
+                            style: const TextStyle(
+                              color: CX.muted,
+                              fontSize: 11,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WellbeingDial extends StatelessWidget {
+  final int score;
+
+  const _WellbeingDial({required this.score});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = score >= 75
+        ? CX.green
+        : score >= 50
+        ? CX.amber
+        : CX.red;
+    return SizedBox(
+      width: 88,
+      height: 88,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: score / 100),
+        duration: CX.motionSlow,
+        curve: CX.curve,
+        builder: (context, value, _) {
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              CircularProgressIndicator(
+                value: value,
+                strokeWidth: 7,
+                strokeCap: StrokeCap.round,
+                backgroundColor: CX.panel3,
+                color: color,
+              ),
+              Text(
+                '${(value * 100).round()}%',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _WellbeingTile extends StatelessWidget {
+  final _WellbeingItem item;
+
+  const _WellbeingTile({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: CX.panel2,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: item.color.withValues(alpha: .18)),
+      ),
+      child: Row(
+        children: [
+          Icon(item.icon, color: item.color, size: 19),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  item.detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: CX.faint, fontSize: 10),
+                ),
+                const SizedBox(height: 7),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: item.score / 100),
+                    duration: CX.motionSlow,
+                    curve: CX.curve,
+                    builder: (context, value, _) {
+                      return LinearProgressIndicator(
+                        value: value,
+                        minHeight: 4,
+                        color: item.color,
+                        backgroundColor: CX.panel3,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WellbeingSnapshot {
+  final int score;
+  final String title;
+  final String description;
+  final List<_WellbeingItem> items;
+  final List<String> recommendations;
+
+  const _WellbeingSnapshot({
+    required this.score,
+    required this.title,
+    required this.description,
+    required this.items,
+    required this.recommendations,
+  });
+}
+
+class _WellbeingItem {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String detail;
+  final int score;
+
+  const _WellbeingItem(
+    this.icon,
+    this.color,
+    this.title,
+    this.detail,
+    this.score,
+  );
+}
+
+class _IntelligenceHero extends StatelessWidget {
+  final CanteraClub club;
+  final int contextScore;
+  const _IntelligenceHero({required this.club, required this.contextScore});
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = contextScore >= 70;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: CX.greenDark.withValues(alpha: .5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.green.withValues(alpha: .22)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72,
+            height: 72,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: contextScore / 100,
+                  strokeWidth: 6,
+                  strokeCap: StrokeCap.round,
+                  backgroundColor: CX.panel3,
+                  color: CX.green,
+                ),
+                Text(
+                  '$contextScore%',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 17),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  ready
+                      ? 'Contexto deportivo consistente'
+                      : 'Contexto en construccion',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  ready
+                      ? 'La plataforma tiene base suficiente para conectar metodologia, campo y evolucion.'
+                      : 'Cada dato de metodologia, plantel y entrenamiento mejora la precision de las recomendaciones.',
+                  style: const TextStyle(
+                    color: CX.muted,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SignalTile extends StatelessWidget {
+  final _SignalMetric metric;
+  const _SignalTile({required this.metric});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: CX.panelDecoration(),
+    child: Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: metric.color.withValues(alpha: .1),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Icon(metric.icon, color: metric.color, size: 18),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                metric.value,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                metric.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: CX.faint, fontSize: 9),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _MethodologyBoard extends StatelessWidget {
+  final Methodology methodology;
+  const _MethodologyBoard({required this.methodology});
+
+  @override
+  Widget build(BuildContext context) {
+    if (methodology.playingStyle.trim().isEmpty) {
+      return _EditableMethodologyBox(methodology: methodology, empty: true);
+    }
+    return _EditableMethodologyBox(methodology: methodology);
+  }
+}
+
+class _EditableMethodologyBox extends StatelessWidget {
+  final Methodology methodology;
+  final bool empty;
+
+  const _EditableMethodologyBox({
+    required this.methodology,
+    this.empty = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = methodology.playingStyle.trim();
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => _edit(context),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: CX.panelDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.edit_note_outlined, color: CX.green, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Nuestra forma de jugar',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+                  ),
+                ),
+                Icon(Icons.edit_outlined, color: CX.faint, size: 16),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              text.isEmpty
+                  ? 'Defini una idea clara para que todo el cuerpo tecnico trabaje con los mismos criterios: salida, presion, ataque, defensa y pelota quieta.'
+                  : text,
+              style: TextStyle(
+                color: text.isEmpty ? CX.faint : CX.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                height: 1.4,
+              ),
+            ),
+            if (!empty) ...[
+              const SizedBox(height: 17),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final attack = _PrincipleColumn(
+                    title: 'Con pelota',
+                    color: CX.green,
+                    items: methodology.offensivePrinciples,
+                  );
+                  final defense = _PrincipleColumn(
+                    title: 'Sin pelota',
+                    color: CX.blue,
+                    items: methodology.defensivePrinciples,
+                  );
+                  if (constraints.maxWidth < 620) {
+                    return Column(
+                      children: [attack, const SizedBox(height: 16), defense],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: attack),
+                      const SizedBox(width: 18),
+                      Expanded(child: defense),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _edit(BuildContext context) async {
+    final controller = TextEditingController(text: methodology.playingStyle);
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Forma de jugar'),
+        content: SizedBox(
+          width: 520,
+          child: TextField(
+            controller: controller,
+            autofocus: true,
+            minLines: 6,
+            maxLines: 10,
+            decoration: const InputDecoration(
+              hintText:
+                  'Ej: presionar alto tras perdida, salir corto cuando haya apoyo, atacar por bandas...',
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null) return;
+    final scope = AppScope.of(context);
+    scope.updateClub(
+      scope.club.copyWith(
+        methodology: scope.club.methodology.copyWith(playingStyle: value),
+      ),
+    );
+    try {
+      await ClubAccessService.saveTacticalData(
+        type: 'methodology',
+        title: 'Forma de jugar',
+        categoryId: scope.selectedCategoryId,
+        content: {
+          'methodology': scope.club.methodology
+              .copyWith(playingStyle: value)
+              .toJson(),
+        },
+      );
+    } catch (_) {
+      // La copia local ya quedo guardada; la nube se reintentara en otro acceso.
+    }
+  }
+}
+
+class _PrincipleColumn extends StatelessWidget {
+  final String title;
+  final Color color;
+  final List<String> items;
+  const _PrincipleColumn({
+    required this.title,
+    required this.color,
+    required this.items,
+  });
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+          ),
+        ],
+      ),
+      const SizedBox(height: 9),
+      if (items.isEmpty)
+        const Text(
+          'Sin principios cargados',
+          style: TextStyle(color: CX.faint, fontSize: 11),
+        )
+      else
+        ...items
+            .take(5)
+            .map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 7),
+                child: Text(
+                  '-  $item',
+                  style: const TextStyle(
+                    color: CX.muted,
+                    fontSize: 11,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ),
+    ],
+  );
+}
+
+class _AlertRow extends StatelessWidget {
+  final IntelligentAlert alert;
+  const _AlertRow({required this.alert});
+  @override
+  Widget build(BuildContext context) {
+    final color = alert.severity == 'high' ? CX.red : CX.amber;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(15),
+      decoration: CX.panelDecoration(borderColor: color.withValues(alpha: .28)),
+      child: Row(
+        children: [
+          Icon(Icons.priority_high, color: color, size: 19),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  alert.title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  alert.description,
+                  style: const TextStyle(
+                    color: CX.muted,
+                    fontSize: 11,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: CX.faint, size: 18),
+        ],
+      ),
+    );
+  }
+}
+
+class _DerivedSignalRow extends StatelessWidget {
+  final _DerivedSignal signal;
+  const _DerivedSignalRow(this.signal);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.all(15),
+    decoration: CX.panelDecoration(
+      borderColor: signal.color.withValues(alpha: .28),
+    ),
+    child: Row(
+      children: [
+        Icon(signal.icon, color: signal.color, size: 19),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                signal.title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                signal.description,
+                style: const TextStyle(
+                  color: CX.muted,
+                  fontSize: 11,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ReportRow extends StatelessWidget {
+  final AiReport report;
+  const _ReportRow({required this.report});
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.all(16),
+    decoration: CX.panelDecoration(),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: CX.green, size: 17),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                report.title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            Text(
+              report.createdAt,
+              style: const TextStyle(color: CX.faint, fontSize: 9),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          report.content,
+          maxLines: 4,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: CX.muted, fontSize: 11, height: 1.4),
+        ),
+      ],
+    ),
+  );
+}
+
+class _PlayerRadar extends StatelessWidget {
+  final List<Player> players;
+  const _PlayerRadar({required this.players});
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: CX.panelDecoration(),
+    child: Column(
+      children: players.take(8).map((player) {
+        final position = player.position.trim();
+        final hasPosition = position.isNotEmpty;
+        final secondary = player.secondaryPositions
+            .split(RegExp(r'[,/;]'))
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .take(2)
+            .join(' / ');
+        final foot = player.dominantFoot.trim();
+        final status = player.status.trim();
+        final aiReady = _aiReady(player);
+        final partiallyReady =
+            hasPosition || secondary.isNotEmpty || foot.isNotEmpty;
+        final profileParts = [
+          if (secondary.isNotEmpty) secondary,
+          if (foot.isNotEmpty) foot,
+          if (status.isNotEmpty && status.toLowerCase() != 'activo') status,
+        ];
+        final color = player.status.toLowerCase() == 'lesionado'
+            ? CX.red
+            : player.attendanceRate > 0 && player.attendanceRate < .7
+            ? CX.amber
+            : CX.green;
+        return AnimatedContainer(
+          duration: CX.motion,
+          curve: CX.curve,
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+          decoration: BoxDecoration(
+            border: const Border(bottom: BorderSide(color: CX.line)),
+            color: hasPosition
+                ? Colors.transparent
+                : CX.amber.withValues(alpha: .035),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 520;
+              final identity = Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      player.fullName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (profileParts.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        profileParts.join(' / '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: CX.faint, fontSize: 9),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+              final roleChip = Container(
+                constraints: BoxConstraints(maxWidth: compact ? 130 : 180),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: aiReady
+                      ? CX.green.withValues(alpha: .1)
+                      : partiallyReady
+                      ? CX.amber.withValues(alpha: .1)
+                      : CX.red.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: aiReady
+                        ? CX.green.withValues(alpha: .22)
+                        : partiallyReady
+                        ? CX.amber.withValues(alpha: .28)
+                        : CX.red.withValues(alpha: .2),
+                  ),
+                ),
+                child: Text(
+                  aiReady
+                      ? 'Completo'
+                      : hasPosition
+                      ? 'A completar'
+                      : 'Perfil pendiente',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: CX.muted,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              );
+              final attendance = SizedBox(
+                width: 38,
+                child: Text(
+                  player.attendanceRate <= 0
+                      ? '--'
+                      : '${(player.attendanceRate * 100).round()}%',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              );
+              return Row(
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  identity,
+                  const SizedBox(width: 10),
+                  roleChip,
+                  const SizedBox(width: 12),
+                  attendance,
+                ],
+              );
+            },
+          ),
+        );
+      }).toList(),
+    ),
+  );
+
+  bool _aiReady(Player player) =>
+      player.position.trim().isNotEmpty &&
+      player.secondaryPositions.trim().isNotEmpty &&
+      player.dominantFoot.trim().isNotEmpty &&
+      player.status.trim().isNotEmpty &&
+      player.note.trim().length >= 12;
+}
+
+class _IntelligenceEmpty extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+  const _IntelligenceEmpty({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(18),
+    decoration: CX.panelDecoration(),
+    child: Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: CX.panel2,
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Icon(icon, color: CX.faint, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: const TextStyle(
+                  color: CX.faint,
+                  fontSize: 11,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  final String eyebrow;
+  const _SectionTitle(this.title, this.eyebrow);
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        eyebrow,
+        style: const TextStyle(
+          color: CX.green,
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      const SizedBox(height: 3),
+      Text(
+        title,
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+      ),
+    ],
+  );
+}
+
+class _SignalMetric {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  const _SignalMetric(this.label, this.value, this.icon, this.color);
+}
+
+class _DerivedSignal {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String description;
+
+  const _DerivedSignal(this.icon, this.color, this.title, this.description);
+}

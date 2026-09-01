@@ -1,0 +1,1844 @@
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
+
+import 'dart:convert';
+import 'dart:html' as html;
+import 'dart:async';
+
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import 'data/cantera_data.dart';
+import 'screens/access_gate_screen.dart';
+import 'screens/alineacion_screen.dart';
+import 'screens/asistencia_screen.dart';
+import 'screens/configuracion_club_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/local_coach_setup_screen.dart';
+import 'screens/calendario_screen.dart';
+import 'screens/mi_equipo_screen.dart';
+import 'screens/tactica_screen.dart';
+import 'screens/estadisticas_screen.dart';
+import 'services/club_access_service.dart';
+import 'services/offline_mutation_service.dart';
+import 'services/preview_access_service.dart';
+import 'services/supabase_auth_service.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SupabaseAuthService.initialize();
+  OfflineMutationService.instance.start();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ),
+  );
+  runApp(const CanteraApp());
+}
+
+class AppScope extends InheritedWidget {
+  final CanteraClub club;
+  final CanteraClub fullClub;
+  final UserRole role;
+  final String? selectedCategoryId;
+  final ValueChanged<UserRole> selectRole;
+  final ValueChanged<String?> selectCategory;
+  final ValueChanged<CanteraClub> updateClub;
+  final CanteraClub Function(String clubId) loadClub;
+
+  const AppScope({
+    super.key,
+    required this.club,
+    required this.fullClub,
+    required this.role,
+    required this.selectedCategoryId,
+    required this.selectRole,
+    required this.selectCategory,
+    required this.updateClub,
+    required this.loadClub,
+    required super.child,
+  });
+
+  static AppScope of(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();
+    assert(scope != null, 'AppScope not found');
+    return scope!;
+  }
+
+  @override
+  bool updateShouldNotify(AppScope oldWidget) =>
+      club != oldWidget.club ||
+      fullClub != oldWidget.fullClub ||
+      role != oldWidget.role ||
+      selectedCategoryId != oldWidget.selectedCategoryId;
+}
+
+class CX {
+  static const bg = Color(0xFFF3F6F4);
+  static const canvas = Color(0xFFFAFCFB);
+  static const panel = Color(0xFFFFFFFF);
+  static const panel2 = Color(0xFFF1F5F3);
+  static const panel3 = Color(0xFFE7EFEB);
+  static const line = Color(0x1F0D1A14);
+  static const lineStrong = Color(0x380D1A14);
+  static const white = Color(0xFF102019);
+  static const muted = Color(0xA60D1A14);
+  static const faint = Color(0x660D1A14);
+  static const green = Color(0xFF159463);
+  static const greenDark = Color(0xFFDDF6EA);
+  static const blue = Color(0xFF2563EB);
+  static const amber = Color(0xFFE0A11A);
+  static const red = Color(0xFFDC3D3D);
+  static const motionFast = Duration(milliseconds: 160);
+  static const motion = Duration(milliseconds: 260);
+  static const motionSlow = Duration(milliseconds: 420);
+  static const curve = Curves.easeOutCubic;
+
+  static BoxDecoration panelDecoration({Color? borderColor}) => BoxDecoration(
+    color: panel,
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(color: borderColor ?? line),
+    boxShadow: const [
+      BoxShadow(color: Color(0x120D1A14), blurRadius: 16, offset: Offset(0, 8)),
+    ],
+  );
+}
+
+class CanteraApp extends StatefulWidget {
+  const CanteraApp({super.key});
+
+  @override
+  State<CanteraApp> createState() => _CanteraAppState();
+}
+
+class _CanteraAppState extends State<CanteraApp> {
+  static const _storagePrefix = 'cantera_os_club_';
+  static const _localClubKey = 'fobal_local_profile_club_id';
+  static const _categoryPrefix = 'fobal_selected_category_';
+  UserRole _role = UserRole.coach;
+  String? _selectedCategoryId;
+  late CanteraClub _club;
+
+  @override
+  void initState() {
+    super.initState();
+    _club = _loadClub();
+    _selectedCategoryId = _storedCategoryId(_club);
+  }
+
+  CanteraClub _loadClub() {
+    final localClubId = html.window.localStorage[_localClubKey];
+    if (localClubId != null && localClubId.isNotEmpty) {
+      return _loadClubById(localClubId);
+    }
+    return _loadClubById(canteraDemoClub.id);
+  }
+
+  CanteraClub _loadClubById(String clubId) {
+    try {
+      final raw = html.window.localStorage['$_storagePrefix$clubId'];
+      if (raw == null || raw.isEmpty) {
+        return canteraDemoClub.copyWith(id: clubId);
+      }
+      return CanteraClub.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return canteraDemoClub.copyWith(id: clubId);
+    }
+  }
+
+  String? _storedCategoryId(CanteraClub club) {
+    final stored = html.window.localStorage['$_categoryPrefix${club.id}'];
+    if (stored != null && club.categories.any((item) => item.id == stored)) {
+      return stored;
+    }
+    return null;
+  }
+
+  String? _effectiveCategoryId(CanteraClub club) {
+    if (_role == UserRole.coordinator || club.categories.isEmpty) return null;
+    if (club.categories.any((category) => category.id == _selectedCategoryId)) {
+      return _selectedCategoryId;
+    }
+    final stored = _storedCategoryId(club);
+    if (stored != null) return stored;
+    return club.categories.first.id;
+  }
+
+  CanteraClub _visibleClub() {
+    final categoryId = _effectiveCategoryId(_club);
+    if (categoryId == null) return _club;
+    final category = _club.categories.firstWhere(
+      (item) => item.id == categoryId,
+    );
+    return _club.copyWith(
+      categories: [category],
+      players: _club.players
+          .where((player) => player.categoryId == categoryId)
+          .toList(),
+      sessions: _club.sessions
+          .where((session) => session.categoryId == categoryId)
+          .toList(),
+      trainingReports: _club.trainingReports
+          .where((report) => report.categoryId == categoryId)
+          .toList(),
+      alerts: _club.alerts
+          .where(
+            (alert) =>
+                alert.categoryId == null || alert.categoryId == categoryId,
+          )
+          .toList(),
+      aiReports: _club.aiReports
+          .where((report) => report.categoryId == categoryId)
+          .toList(),
+    );
+  }
+
+  CanteraClub _mergeScopedClub(CanteraClub scopedClub) {
+    final categoryId = _effectiveCategoryId(_club);
+    if (categoryId == null) return scopedClub;
+    CategorySquad? scopedCategory;
+    for (final category in scopedClub.categories) {
+      if (category.id == categoryId) {
+        scopedCategory = category;
+        break;
+      }
+    }
+    return _club.copyWith(
+      name: scopedClub.name,
+      league: scopedClub.league,
+      sportFocus: scopedClub.sportFocus,
+      logoUrl: scopedClub.logoUrl,
+      seasonYear: scopedClub.seasonYear,
+      headCoachName: scopedClub.headCoachName,
+      assistantCoachName: scopedClub.assistantCoachName,
+      dataSource: scopedClub.dataSource,
+      syncedAt: scopedClub.syncedAt,
+      methodology: scopedClub.methodology,
+      categories: _club.categories
+          .map(
+            (category) => category.id == categoryId
+                ? scopedCategory ?? category
+                : category,
+          )
+          .toList(),
+      players: [
+        ..._club.players.where((player) => player.categoryId != categoryId),
+        ...scopedClub.players.where(
+          (player) => player.categoryId == categoryId,
+        ),
+      ],
+      sessions: [
+        ..._club.sessions.where((session) => session.categoryId != categoryId),
+        ...scopedClub.sessions.where(
+          (session) => session.categoryId == categoryId,
+        ),
+      ],
+      trainingReports: [
+        ..._club.trainingReports.where(
+          (report) => report.categoryId != categoryId,
+        ),
+        ...scopedClub.trainingReports.where(
+          (report) => report.categoryId == categoryId,
+        ),
+      ],
+      alerts: [
+        ..._club.alerts.where((alert) => alert.categoryId != categoryId),
+        ...scopedClub.alerts.where((alert) => alert.categoryId == categoryId),
+      ],
+      aiReports: [
+        ..._club.aiReports.where((report) => report.categoryId != categoryId),
+        ...scopedClub.aiReports.where(
+          (report) => report.categoryId == categoryId,
+        ),
+      ],
+    );
+  }
+
+  void _updateClub(CanteraClub club) {
+    final changingClub = club.id != _club.id;
+    final nextClub = changingClub ? club : _mergeScopedClub(club);
+    html.window.localStorage['$_storagePrefix${nextClub.id}'] = jsonEncode(
+      nextClub.toJson(),
+    );
+    setState(() {
+      _club = nextClub;
+      if (changingClub) _selectedCategoryId = _storedCategoryId(nextClub);
+    });
+  }
+
+  void _selectRole(UserRole role) {
+    setState(() {
+      _role = role;
+      if (_role == UserRole.coordinator) _selectedCategoryId = null;
+    });
+  }
+
+  void _selectCategory(String? categoryId) {
+    if (categoryId == null || categoryId.isEmpty) {
+      html.window.localStorage.remove('$_categoryPrefix${_club.id}');
+    } else {
+      html.window.localStorage['$_categoryPrefix${_club.id}'] = categoryId;
+    }
+    setState(() => _selectedCategoryId = categoryId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final baseText = GoogleFonts.interTextTheme(ThemeData.light().textTheme);
+    final visibleClub = _visibleClub();
+    return AppScope(
+      club: visibleClub,
+      fullClub: _club,
+      role: _role,
+      selectedCategoryId: _effectiveCategoryId(_club),
+      selectRole: _selectRole,
+      selectCategory: _selectCategory,
+      updateClub: _updateClub,
+      loadClub: _loadClubById,
+      child: MaterialApp(
+        title: 'fobal',
+        debugShowCheckedModeBanner: false,
+        scrollBehavior: const CanteraScrollBehavior(),
+        theme: ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.light,
+          scaffoldBackgroundColor: CX.canvas,
+          colorScheme: const ColorScheme.light(
+            primary: CX.green,
+            secondary: CX.blue,
+            surface: CX.panel,
+            error: CX.red,
+          ),
+          textTheme: baseText.apply(
+            bodyColor: CX.white,
+            displayColor: CX.white,
+          ),
+          dividerColor: CX.line,
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: _CanteraPageTransitionsBuilder(),
+              TargetPlatform.iOS: _CanteraPageTransitionsBuilder(),
+              TargetPlatform.linux: _CanteraPageTransitionsBuilder(),
+              TargetPlatform.macOS: _CanteraPageTransitionsBuilder(),
+              TargetPlatform.windows: _CanteraPageTransitionsBuilder(),
+            },
+          ),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: CX.canvas,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: false,
+            iconTheme: IconThemeData(color: CX.white),
+            titleTextStyle: TextStyle(
+              color: CX.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: CX.panel2,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 15,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: CX.line),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: CX.line),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: CX.green, width: 1.4),
+            ),
+            labelStyle: const TextStyle(color: CX.muted),
+            hintStyle: const TextStyle(color: CX.faint),
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CX.green,
+              foregroundColor: const Color(0xFF07100B),
+              minimumSize: const Size(double.infinity, 50),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+              animationDuration: CX.motionFast,
+            ),
+          ),
+          outlinedButtonTheme: OutlinedButtonThemeData(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: CX.white,
+              side: const BorderSide(color: CX.lineStrong),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              minimumSize: const Size(0, 46),
+              animationDuration: CX.motionFast,
+            ),
+          ),
+          snackBarTheme: SnackBarThemeData(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: CX.white,
+            contentTextStyle: const TextStyle(color: Colors.white),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          dialogTheme: DialogThemeData(
+            backgroundColor: CX.panel,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          navigationBarTheme: const NavigationBarThemeData(
+            backgroundColor: CX.bg,
+            indicatorColor: CX.greenDark,
+            height: 68,
+            labelTextStyle: WidgetStatePropertyAll(
+              TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+        initialRoute: '/login',
+        routes: {
+          '/login': (context) => const LoginScreen(),
+          '/login?mode=lud': (context) => const LoginScreen(),
+          '/login?mode=local': (context) => const LoginScreen(),
+          '/auth-lud': (context) => const _PostAuthRedirect(localMode: false),
+          '/auth-local': (context) => const _PostAuthRedirect(localMode: true),
+          '/access': (context) => const AccessGateScreen(),
+          '/local-setup': (context) => const LocalCoachSetupScreen(),
+          '/local-home': (context) => const _LocalHomeRoute(),
+          '/local-team': (context) => const _LocalHomeRoute(initialIndex: 0),
+          '/local-tactica': (context) => const _LocalHomeRoute(initialIndex: 1),
+          '/local-calendar': (context) => const _LocalHomeRoute(initialIndex: 2),
+          '/local-attendance': (context) => const _LocalHomeRoute(initialIndex: 3),
+          '/local-lineups': (context) => const _LocalHomeRoute(initialIndex: 4),
+          '/home': (context) => const _ProtectedHome(),
+          '/preview-access': (context) => const _PreviewAccessRoute(),
+          '/preview-home': (context) => const _PreviewHomeRoute(),
+        },
+      ),
+    );
+  }
+}
+
+class _PostAuthRedirect extends StatefulWidget {
+  final bool localMode;
+
+  const _PostAuthRedirect({required this.localMode});
+
+  @override
+  State<_PostAuthRedirect> createState() => _PostAuthRedirectState();
+}
+
+class _PostAuthRedirectState extends State<_PostAuthRedirect> {
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(_finishAuthRedirect);
+  }
+
+  Future<void> _finishAuthRedirect() async {
+    for (var attempt = 0; attempt < 20; attempt++) {
+      if (!SupabaseAuthService.isConfigured ||
+          SupabaseAuthService.currentSession != null) {
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+    if (!mounted) return;
+    if (SupabaseAuthService.isConfigured &&
+        SupabaseAuthService.currentSession == null) {
+      Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
+    if (widget.localMode) {
+      final localClubId =
+          html.window.localStorage[_CanteraAppState._localClubKey];
+      Navigator.pushReplacementNamed(
+        context,
+        localClubId == null || localClubId.isEmpty
+            ? '/local-setup'
+            : '/local-home',
+      );
+      return;
+    }
+    Navigator.pushReplacementNamed(context, '/access');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const _CalmLoadingScaffold();
+  }
+}
+
+class _LocalHomeRoute extends StatelessWidget {
+  final int initialIndex;
+
+  const _LocalHomeRoute({this.initialIndex = 0});
+
+  @override
+  Widget build(BuildContext context) {
+    if (SupabaseAuthService.isConfigured &&
+        SupabaseAuthService.currentSession == null) {
+      return const _AccessRedirect(route: '/login');
+    }
+    final localClubId =
+        html.window.localStorage[_CanteraAppState._localClubKey];
+    if (localClubId == null || localClubId.isEmpty) {
+      return const _AccessRedirect(route: '/local-setup');
+    }
+    return MainShell(initialIndex: initialIndex);
+  }
+}
+
+class _PreviewAccessRoute extends StatelessWidget {
+  const _PreviewAccessRoute();
+
+  @override
+  Widget build(BuildContext context) {
+    if (!PreviewAccessService.isGranted) {
+      return const _AccessRedirect(route: '/login');
+    }
+    return const AccessGateScreen(forcePreview: true);
+  }
+}
+
+class _PreviewHomeRoute extends StatelessWidget {
+  const _PreviewHomeRoute();
+
+  @override
+  Widget build(BuildContext context) {
+    if (!PreviewAccessService.isGranted) {
+      return const _AccessRedirect(route: '/login');
+    }
+    return const MainShell();
+  }
+}
+
+class _ProtectedHome extends StatefulWidget {
+  const _ProtectedHome();
+
+  @override
+  State<_ProtectedHome> createState() => _ProtectedHomeState();
+}
+
+class _ProtectedHomeState extends State<_ProtectedHome> {
+  late final Future<ClubMembership?> _membership =
+      ClubAccessService.activeMembership();
+
+  @override
+  Widget build(BuildContext context) {
+    if (!SupabaseAuthService.isConfigured) return const MainShell();
+    if (SupabaseAuthService.currentSession == null) {
+      return const _AccessRedirect(route: '/login');
+    }
+    return FutureBuilder<ClubMembership?>(
+      future: _membership,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _CalmLoadingScaffold();
+        }
+        if (snapshot.data == null) {
+          return const _AccessRedirect(route: '/access');
+        }
+        return _MembershipHydrator(
+          membership: snapshot.data!,
+          child: const MainShell(),
+        );
+      },
+    );
+  }
+}
+
+class _MembershipHydrator extends StatefulWidget {
+  final ClubMembership membership;
+  final Widget child;
+
+  const _MembershipHydrator({required this.membership, required this.child});
+
+  @override
+  State<_MembershipHydrator> createState() => _MembershipHydratorState();
+}
+
+class _MembershipHydratorState extends State<_MembershipHydrator> {
+  String? _hydratedClubId;
+  bool _hydrating = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_hydratedClubId == widget.membership.clubId || _hydrating) return;
+    _hydrating = true;
+    Future<void>.microtask(_hydrate);
+  }
+
+  Future<void> _hydrate() async {
+    final scope = AppScope.of(context);
+    ClubAccessService.selectActiveMembership(widget.membership);
+    final localClub = scope.loadClub(widget.membership.clubId);
+
+    CanteraClubContext? contextData;
+    try {
+      contextData = await ClubAccessService.loadClubContext(widget.membership);
+    } catch (_) {
+      contextData = null;
+    }
+    if (!mounted) return;
+
+    List<ClubTacticalRecord> sharedRecords = const [];
+    try {
+      sharedRecords = await ClubAccessService.loadTacticalData(limit: 100);
+    } catch (_) {
+      sharedRecords = const [];
+    }
+    if (!mounted) return;
+
+    Methodology? sharedMethodology;
+    for (final record in sharedRecords) {
+      if (record.type != 'methodology') continue;
+      final raw = record.content['methodology'];
+      if (raw is Map) {
+        sharedMethodology = Methodology.fromJson(
+          Map<String, dynamic>.from(raw),
+        );
+        break;
+      }
+    }
+
+    final basePlayers = contextData == null
+        ? localClub.players
+        : preservePlayerProfiles(
+            incoming: contextData.players,
+            existing: localClub.players,
+          );
+
+    scope.updateClub(
+      localClub.copyWith(
+        id: widget.membership.clubId,
+        name: contextData?.teamName.isNotEmpty == true
+            ? contextData!.teamName
+            : widget.membership.clubName,
+        league: widget.membership.ludTeamId == null
+            ? localClub.league
+            : 'Liga Universitaria',
+        dataSource: contextData?.source ?? localClub.dataSource,
+        seasonYear: contextData?.seasonYear ?? localClub.seasonYear,
+        logoUrl: contextData?.logoUrl.isNotEmpty == true
+            ? contextData!.logoUrl
+            : localClub.logoUrl,
+        syncedAt:
+            contextData?.syncedAt?.toUtc().toIso8601String() ??
+            localClub.syncedAt,
+        categories: contextData?.categories ?? localClub.categories,
+        methodology: localClub.methodology.playingStyle.trim().isNotEmpty
+            ? localClub.methodology
+            : sharedMethodology ?? localClub.methodology,
+        players: applyRemotePlayerProfiles(
+          players: basePlayers,
+          records: sharedRecords,
+        ),
+      ),
+    );
+    final allCategories = contextData?.categories ?? localClub.categories;
+    final categories = widget.membership.accessibleCategories(allCategories);
+    await ClubAccessService.prewarmPrimaryLeagueData(
+      membership: widget.membership,
+      categories: categories,
+    );
+    unawaited(
+      ClubAccessService.prewarmAllLeagueData(
+        membership: widget.membership,
+        categories: categories,
+      ),
+    );
+    scope.selectRole(
+      widget.membership.isClubAdmin
+          ? UserRole.coordinator
+          : widget.membership.role == 'viewer'
+          ? UserRole.viewer
+          : UserRole.coach,
+    );
+    if (!widget.membership.isClubAdmin && categories.isNotEmpty) {
+      final stored =
+          html.window.localStorage['fobal_selected_category_${widget.membership.clubId}'];
+      final selected = categories.any((category) => category.id == stored)
+          ? stored
+          : categories.first.id;
+      scope.selectCategory(selected);
+    }
+    if (!mounted) return;
+    setState(() {
+      _hydratedClubId = widget.membership.clubId;
+      _hydrating = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hydratedClubId != widget.membership.clubId) {
+      return const _CalmLoadingScaffold();
+    }
+    return widget.child;
+  }
+}
+
+class _AccessRedirect extends StatelessWidget {
+  final String route;
+  const _AccessRedirect({required this.route});
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) Navigator.pushReplacementNamed(context, route);
+    });
+    return const _CalmLoadingScaffold();
+  }
+}
+
+class _CalmLoadingScaffold extends StatelessWidget {
+  const _CalmLoadingScaffold();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: CX.bg,
+      body: const Center(child: _MinimalAppLoader()),
+    );
+  }
+}
+
+class _MinimalAppLoader extends StatelessWidget {
+  const _MinimalAppLoader();
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: .96, end: 1),
+      duration: CX.motionSlow,
+      curve: CX.curve,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value.clamp(.0, 1.0),
+          child: Transform.scale(scale: value, child: child),
+        );
+      },
+      child: Container(
+        width: 260,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: CX.panel.withValues(alpha: .74),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: CX.line),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x120D1A14),
+              blurRadius: 28,
+              offset: Offset(0, 18),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: CX.green.withValues(alpha: .35)),
+              ),
+              child: const CustomPaint(painter: _CanteraIsoPainter()),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'fobal',
+              style: TextStyle(
+                color: CX.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w300,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Cargando',
+              style: TextStyle(
+                color: CX.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 14),
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: .08, end: 1),
+              duration: Duration(milliseconds: 1800),
+              curve: Curves.easeInOutCubic,
+              builder: (context, value, _) {
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: value,
+                    minHeight: 2,
+                    color: CX.green,
+                    backgroundColor: CX.line,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CanteraScrollBehavior extends MaterialScrollBehavior {
+  const CanteraScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+  };
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return const _CanteraScrollPhysics(parent: AlwaysScrollableScrollPhysics());
+  }
+}
+
+class _CanteraScrollPhysics extends ClampingScrollPhysics {
+  const _CanteraScrollPhysics({super.parent});
+
+  @override
+  _CanteraScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return _CanteraScrollPhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
+    return super.applyPhysicsToUserOffset(position, offset * .62);
+  }
+
+  @override
+  double carriedMomentum(double existingVelocity) => 0;
+}
+
+class _CanteraPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _CanteraPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final curved = CurvedAnimation(parent: animation, curve: CX.curve);
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, .025),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
+      ),
+    );
+  }
+}
+
+class CanteraMotion {
+  const CanteraMotion._();
+
+  static List<Widget> stagger(
+    List<Widget> children, {
+    int intervalMs = 34,
+    double distance = 10,
+  }) {
+    return children;
+  }
+}
+
+class _StaggeredReveal extends StatefulWidget {
+  final Duration delay;
+  final double distance;
+  final Widget child;
+
+  const _StaggeredReveal({
+    required this.delay,
+    required this.distance,
+    required this.child,
+  });
+
+  @override
+  State<_StaggeredReveal> createState() => _StaggeredRevealState();
+}
+
+class _StaggeredRevealState extends State<_StaggeredReveal> {
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.delayed(widget.delay, () {
+      if (mounted) setState(() => _visible = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final offset = _visible ? Offset.zero : Offset(0, widget.distance / 100);
+    return AnimatedOpacity(
+      opacity: _visible ? 1 : 0,
+      duration: CX.motionSlow,
+      curve: CX.curve,
+      child: AnimatedSlide(
+        offset: offset,
+        duration: CX.motionSlow,
+        curve: CX.curve,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class MainShell extends StatefulWidget {
+  final int initialIndex;
+
+  const MainShell({super.key, this.initialIndex = 0});
+
+  @override
+  State<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<MainShell> {
+  late int _currentIndex = widget.initialIndex;
+  final PageStorageBucket _pageStorageBucket = PageStorageBucket();
+  final GlobalKey<TacticaScreenState> _tacticaKey = GlobalKey();
+
+  static const _allItems = <_ShellItem>[
+    _ShellItem(Icons.space_dashboard_outlined, Icons.space_dashboard, 'Inicio'),
+    _ShellItem(Icons.shield_outlined, Icons.shield, 'Mi equipo'),
+    _ShellItem(
+      Icons.sports_soccer_outlined,
+      Icons.sports_soccer,
+      'Táctica',
+    ),
+    _ShellItem(Icons.calendar_month_outlined, Icons.calendar_month, 'Calendario'),
+    _ShellItem(Icons.fact_check_outlined, Icons.fact_check, 'Asistencia'),
+    _ShellItem(Icons.bar_chart_outlined, Icons.bar_chart, 'Estadísticas'),
+    _ShellItem(Icons.settings_outlined, Icons.settings, 'Configurar'),
+    _ShellItem(
+      Icons.view_module_outlined,
+      Icons.view_module,
+      'Alineación & citaciones',
+    ),
+  ];
+
+  void _goTo(int index) {
+    final role = AppScope.of(context).role;
+    if (index >= 1 && index <= 3) {
+      _tacticaKey.currentState?.selectSection(index - 1);
+    }
+    if (role == UserRole.coordinator) {
+      final target = switch (index) {
+        0 => 0,
+        >= 1 && <= 3 => 1,
+        4 => 3,
+        5 => 4,
+        _ => null,
+      };
+      if (target != null) _setIndex(target);
+      return;
+    }
+    final target = role == UserRole.viewer
+        ? switch (index) {
+            0 => 0,
+            1 => 1,
+            2 => 1,
+            3 => 1,
+            _ => null,
+          }
+        : switch (index) {
+            0 => 0,
+            1 => 1,
+            2 => 1,
+            3 => 1,
+            4 => 3,
+            5 => 3,
+            _ => null,
+          };
+    if (target != null) _setIndex(target);
+  }
+
+  void _selectNavigation(int index) {
+    _setIndex(index);
+  }
+
+  void _installPwa() {
+    html.window.dispatchEvent(html.CustomEvent('cantera-install-pwa'));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Si el navegador lo permite, se abrira la instalacion.'),
+      ),
+    );
+  }
+
+  void _setIndex(int index) {
+    final scope = AppScope.of(context);
+    final external = _isExternalClub(scope.fullClub);
+    final maxIndex = external
+        ? (_enabledExternalLabels(scope.fullClub).length - 1).clamp(0, 999)
+        : (_screens(scope.role, false).length - 1).clamp(0, 999);
+    final next = index.clamp(0, maxIndex).toInt();
+    if (next == _currentIndex) return;
+    setState(() {
+      _currentIndex = next;
+    });
+  }
+
+  void _switchClub() {
+    final scope = AppScope.of(context);
+    Navigator.pushReplacementNamed(
+      context,
+      _isExternalClub(scope.fullClub) ? '/login?mode=local' : '/access',
+    );
+  }
+
+  Future<void> _signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cerrar sesion'),
+        content: const Text(
+          'Se cerrara tu acceso actual. Los datos del club quedan guardados y separados.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Cerrar sesion'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await SupabaseAuthService.signOut();
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, '/login');
+  }
+
+  bool _isExternalClub(CanteraClub club) =>
+      club.dataSource == 'manual' || club.league == 'Trabajo independiente';
+
+  List<String> _enabledExternalLabels(CanteraClub club) {
+    const fallback = [
+      'Mi equipo',
+      'Táctica',
+      'Calendario',
+      'Asistencia',
+      'Alineación & citaciones',
+    ];
+    return fallback;
+  }
+
+  Widget _screenForLabel(String label) => switch (label) {
+    'Mi equipo' => const MiEquipoScreen(),
+    'Táctica' => TacticaScreen(key: _tacticaKey),
+    'Calendario' => const CalendarioScreen(),
+    'Asistencia' => const AsistenciaScreen(),
+    'Alineación & citaciones' => AlineacionScreen(onBack: () => _goTo(0)),
+    _ => const MiEquipoScreen(),
+  };
+
+  List<Widget> _screens(UserRole role, bool external) => [
+      if (external) const MiEquipoScreen() else HomeScreen(onNavigate: _goTo),
+      TacticaScreen(key: _tacticaKey),
+      if (external) const CalendarioScreen(),
+      if (!external) const EstadisticasScreen(),
+      if (!external && role == UserRole.coordinator)
+        const ConfiguracionClubScreen(),
+      if (role != UserRole.viewer) AlineacionScreen(onBack: () => _goTo(0)),
+    ];
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final desktop = width >= 980;
+    final scope = AppScope.of(context);
+    final role = scope.role;
+    final external = _isExternalClub(scope.fullClub);
+    final externalLabels = external ? _enabledExternalLabels(scope.fullClub) : const <String>[];
+    final items = external
+        ? [
+            _allItems[1],
+            _allItems[2],
+            _allItems[3],
+            _allItems[4],
+            _allItems[7],
+          ].where((item) => externalLabels.contains(item.label)).toList()
+        : switch (role) {
+            UserRole.viewer => [_allItems[0], _allItems[2], _allItems[5]],
+      UserRole.coach => [
+        _allItems[0],
+        _allItems[2],
+        _allItems[5],
+        _allItems[7],
+            ],
+            UserRole.coordinator => [
+              _allItems[0],
+              _allItems[2],
+              _allItems[5],
+              _allItems[6],
+              _allItems[7],
+            ],
+          };
+    final screens = external
+        ? externalLabels.map(_screenForLabel).toList()
+        : _screens(role, external);
+    final selectedIndex = _currentIndex.clamp(0, items.length - 1).toInt();
+    if (_currentIndex != selectedIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _currentIndex = selectedIndex);
+      });
+    }
+
+    if (desktop) {
+      return Scaffold(
+        backgroundColor: CX.bg,
+        body: Row(
+          children: [
+            _DesktopSidebar(
+              selectedIndex: selectedIndex,
+              items: items,
+              onSelected: _selectNavigation,
+              onSwitchClub: _switchClub,
+              onSignOut: _signOut,
+              onInstallPwa: _installPwa,
+            ),
+            Expanded(
+              child: Container(
+                color: CX.canvas,
+                child: PageStorage(
+                  bucket: _pageStorageBucket,
+                  child: _AnimatedShellStack(
+                    selectedIndex: selectedIndex,
+                    children: screens,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Scaffold(
+      body: PageStorage(
+        bucket: _pageStorageBucket,
+        child: _AnimatedShellStack(
+          selectedIndex: selectedIndex,
+          children: screens,
+        ),
+      ),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (role != UserRole.coordinator &&
+              ClubAccessService.accessibleCategories(
+                AppScope.of(context).fullClub.categories,
+              ).isNotEmpty)
+            _MobileCategoryScopeBar(),
+          if (SupabaseAuthService.currentEmail != null)
+            _MobileClubContextBar(
+              onSwitchClub: _switchClub,
+              onSignOut: _signOut,
+              onInstallPwa: _installPwa,
+            ),
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: CX.line)),
+            ),
+            child: NavigationBar(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: _selectNavigation,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              destinations: items
+                  .map(
+                    (item) => NavigationDestination(
+                      icon: Icon(item.icon, color: CX.faint, size: 21),
+                      selectedIcon: Icon(
+                        item.activeIcon,
+                        color: CX.green,
+                        size: 21,
+                      ),
+                      label: item.shortLabel,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DesktopSidebar extends StatelessWidget {
+  final int selectedIndex;
+  final List<_ShellItem> items;
+  final ValueChanged<int> onSelected;
+  final VoidCallback onSwitchClub;
+  final Future<void> Function() onSignOut;
+  final VoidCallback onInstallPwa;
+
+  const _DesktopSidebar({
+    required this.selectedIndex,
+    required this.items,
+    required this.onSelected,
+    required this.onSwitchClub,
+    required this.onSignOut,
+    required this.onInstallPwa,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    final clubName = scope.club.name == 'Club Demo'
+        ? 'Espacio de trabajo'
+        : scope.club.name;
+    return Container(
+      width: 248,
+      decoration: const BoxDecoration(
+        color: CX.bg,
+        border: Border(right: BorderSide(color: CX.line)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 22, 14, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: _BrandMark(compact: false),
+              ),
+              const SizedBox(height: 28),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  children: [
+                    ClubCrest(logoUrl: scope.club.logoUrl, size: 30),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        clubName.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: CX.faint,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ),
+                    if (scope.role == UserRole.viewer)
+                      const Tooltip(
+                        message: 'Acceso de solo lectura',
+                        child: Icon(
+                          Icons.visibility_outlined,
+                          color: CX.blue,
+                          size: 16,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (scope.role != UserRole.coordinator &&
+                  ClubAccessService.accessibleCategories(
+                    scope.fullClub.categories,
+                  ).isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _CategoryScopeSelector(
+                  categories: ClubAccessService.accessibleCategories(
+                    scope.fullClub.categories,
+                  ),
+                  selectedCategoryId: scope.selectedCategoryId,
+                  onChanged: scope.selectCategory,
+                ),
+              ],
+              const SizedBox(height: 8),
+              ...List.generate(items.length, (index) {
+                final item = items[index];
+                final selected = index == selectedIndex;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: _DesktopNavTile(
+                    item: item,
+                    selected: selected,
+                    onTap: () => onSelected(index),
+                  ),
+                );
+              }),
+              const Spacer(),
+              OutlinedButton.icon(
+                onPressed: onInstallPwa,
+                icon: const Icon(Icons.install_mobile, size: 17),
+                label: const Text('Instalar app'),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: CX.panelDecoration(),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: CX.greenDark,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.person_outline,
+                            color: CX.green,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _roleLabel(scope.role),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              Text(
+                                SupabaseAuthService.currentEmail ?? 'Modo demo',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: CX.faint,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (SupabaseAuthService.currentEmail == null) ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 36,
+                        child: OutlinedButton.icon(
+                          onPressed: () =>
+                              Navigator.pushReplacementNamed(context, '/login'),
+                          icon: const Icon(Icons.login, size: 16),
+                          label: const Text('Acceso por club'),
+                        ),
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: IconButton.outlined(
+                              tooltip: 'Cambiar club',
+                              onPressed: onSwitchClub,
+                              icon: const Icon(Icons.swap_horiz, size: 18),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: IconButton.outlined(
+                              tooltip: 'Cerrar sesion',
+                              onPressed: onSignOut,
+                              icon: const Icon(Icons.logout, size: 18),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DesktopNavTile extends StatefulWidget {
+  final _ShellItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DesktopNavTile({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  State<_DesktopNavTile> createState() => _DesktopNavTileState();
+}
+
+class _DesktopNavTileState extends State<_DesktopNavTile> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.selected || _hovered;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(7),
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: CX.motionFast,
+          curve: CX.curve,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: widget.selected
+                ? CX.greenDark
+                : _hovered
+                ? CX.panel
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(
+              color: widget.selected
+                  ? CX.green.withValues(alpha: .26)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Row(
+            children: [
+              AnimatedScale(
+                duration: CX.motionFast,
+                curve: CX.curve,
+                scale: widget.selected ? 1.08 : 1,
+                child: Icon(
+                  widget.selected ? widget.item.activeIcon : widget.item.icon,
+                  color: widget.selected
+                      ? CX.green
+                      : active
+                      ? CX.white
+                      : CX.faint,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: AnimatedDefaultTextStyle(
+                  duration: CX.motionFast,
+                  curve: CX.curve,
+                  style: TextStyle(
+                    color: widget.selected
+                        ? CX.white
+                        : active
+                        ? CX.white
+                        : CX.muted,
+                    fontWeight: widget.selected
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                  ),
+                  child: Text(widget.item.label),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryScopeSelector extends StatelessWidget {
+  final List<CategorySquad> categories;
+  final String? selectedCategoryId;
+  final ValueChanged<String?> onChanged;
+
+  const _CategoryScopeSelector({
+    required this.categories,
+    required this.selectedCategoryId,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = categories.any((item) => item.id == selectedCategoryId)
+        ? selectedCategoryId
+        : categories.first.id;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: CX.panel,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.green.withValues(alpha: .24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'MI CATEGORIA',
+            style: TextStyle(
+              color: CX.green,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: selected,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 10,
+              ),
+            ),
+            items: categories
+                .map(
+                  (category) => DropdownMenuItem(
+                    value: category.id,
+                    child: Text(category.name, overflow: TextOverflow.ellipsis),
+                  ),
+                )
+                .toList(),
+            onChanged: onChanged,
+          ),
+          const SizedBox(height: 7),
+          const Text(
+            'La app muestra solo esta categoria.',
+            style: TextStyle(color: CX.faint, fontSize: 10, height: 1.25),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnimatedShellStack extends StatelessWidget {
+  final int selectedIndex;
+  final List<Widget> children;
+
+  const _AnimatedShellStack({
+    required this.selectedIndex,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return KeyedSubtree(
+      key: ValueKey('shell-screen-$selectedIndex'),
+      child: children[selectedIndex],
+    );
+  }
+}
+
+class _MobileClubContextBar extends StatelessWidget {
+  final VoidCallback onSwitchClub;
+  final Future<void> Function() onSignOut;
+  final VoidCallback onInstallPwa;
+
+  const _MobileClubContextBar({
+    required this.onSwitchClub,
+    required this.onSignOut,
+    required this.onInstallPwa,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    return Material(
+      color: CX.bg,
+      child: SafeArea(
+        top: false,
+        bottom: false,
+        child: SizedBox(
+          height: 42,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 16, right: 6),
+            child: Row(
+              children: [
+                ClubCrest(logoUrl: scope.club.logoUrl, size: 24),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${scope.club.name} / ${_roleLabel(scope.role)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: CX.muted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'Opciones del club',
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  onSelected: (value) {
+                    if (value == 'club') onSwitchClub();
+                    if (value == 'install') onInstallPwa();
+                    if (value == 'logout') onSignOut();
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: 'install',
+                      child: ListTile(
+                        leading: Icon(Icons.install_mobile),
+                        title: Text('Instalar app'),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'club',
+                      child: ListTile(
+                        leading: Icon(Icons.swap_horiz),
+                        title: Text('Cambiar club'),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'logout',
+                      child: ListTile(
+                        leading: Icon(Icons.logout),
+                        title: Text('Cerrar sesion'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _roleLabel(UserRole role) => switch (role) {
+  UserRole.coordinator => 'Coordinador',
+  UserRole.coach => 'Entrenador',
+  UserRole.viewer => 'Solo lectura',
+};
+
+class _BrandMark extends StatelessWidget {
+  final bool compact;
+  const _BrandMark({required this.compact});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: compact ? 34 : 38,
+          height: compact ? 34 : 38,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D1117),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: CX.green.withValues(alpha: .45)),
+            boxShadow: [
+              BoxShadow(color: CX.green.withValues(alpha: .18), blurRadius: 14),
+            ],
+          ),
+          child: const CustomPaint(painter: _CanteraIsoPainter()),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          'fobal',
+          style: TextStyle(
+            color: CX.white,
+            fontSize: compact ? 21 : 23,
+            fontWeight: FontWeight.w300,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CanteraIsoPainter extends CustomPainter {
+  const _CanteraIsoPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final green = Paint()
+      ..color = CX.green
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * .075
+      ..strokeCap = StrokeCap.round;
+    final yellow = Paint()
+      ..color = CX.amber
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * .06
+      ..strokeCap = StrokeCap.round;
+    final blue = Paint()
+      ..color = CX.blue
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * .055
+      ..strokeCap = StrokeCap.round;
+    final dotGreen = Paint()..color = CX.green;
+    final dotYellow = Paint()..color = CX.amber;
+    final dotBlue = Paint()..color = CX.blue;
+
+    final field = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * .17, h * .18, w * .66, h * .64),
+      Radius.circular(w * .16),
+    );
+    canvas.drawRRect(field, green);
+    canvas.drawCircle(Offset(w * .50, h * .50), w * .16, green);
+    canvas.drawLine(Offset(w * .50, h * .20), Offset(w * .50, h * .80), green);
+
+    canvas.drawLine(Offset(w * .30, h * .57), Offset(w * .50, h * .25), green);
+    canvas.drawLine(Offset(w * .50, h * .50), Offset(w * .67, h * .42), yellow);
+    canvas.drawLine(Offset(w * .57, h * .80), Offset(w * .80, h * .65), blue);
+
+    canvas.drawCircle(Offset(w * .50, h * .23), w * .08, dotGreen);
+    canvas.drawCircle(Offset(w * .30, h * .57), w * .07, dotGreen);
+    canvas.drawCircle(Offset(w * .50, h * .50), w * .06, dotGreen);
+    canvas.drawCircle(Offset(w * .57, h * .80), w * .07, dotGreen);
+    canvas.drawCircle(Offset(w * .67, h * .42), w * .06, dotYellow);
+    canvas.drawCircle(Offset(w * .80, h * .65), w * .06, dotBlue);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class ClubCrest extends StatelessWidget {
+  final String logoUrl;
+  final double size;
+
+  const ClubCrest({super.key, required this.logoUrl, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = _proxiedLogoUrl(logoUrl);
+    return Container(
+      width: size,
+      height: size,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: CX.panel2,
+        shape: BoxShape.circle,
+        border: Border.all(color: CX.green.withValues(alpha: .28)),
+      ),
+      child: imageUrl.isEmpty
+          ? Icon(Icons.shield_outlined, size: size * .58, color: CX.green)
+          : Image.network(
+              imageUrl,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => Icon(
+                Icons.shield_outlined,
+                size: size * .58,
+                color: CX.green,
+              ),
+            ),
+    );
+  }
+
+  String _proxiedLogoUrl(String value) {
+    final clean = value.trim();
+    if (clean.isEmpty) return '';
+    if (clean.contains('PLAYA_HONDA_UNIVERSITARIO.png')) {
+      return '/club-crests/playa_honda_universitario.png';
+    }
+    if (clean.startsWith('https://lud-escudos.s3.us-east-1.amazonaws.com/')) {
+      return '/api/club-crest?url=${Uri.encodeComponent(clean)}';
+    }
+    return clean;
+  }
+}
+
+class _MobileCategoryScopeBar extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    final categories = ClubAccessService.accessibleCategories(
+      scope.fullClub.categories,
+    );
+    final selected =
+        categories.any((item) => item.id == scope.selectedCategoryId)
+        ? scope.selectedCategoryId
+        : categories.first.id;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      decoration: const BoxDecoration(
+        color: CX.bg,
+        border: Border(top: BorderSide(color: CX.line)),
+      ),
+      child: DropdownButtonFormField<String>(
+        value: selected,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Mi categoria',
+          isDense: true,
+          prefixIcon: Icon(Icons.groups_2_outlined),
+        ),
+        items: categories
+            .map(
+              (category) => DropdownMenuItem(
+                value: category.id,
+                child: Text(category.name, overflow: TextOverflow.ellipsis),
+              ),
+            )
+            .toList(),
+        onChanged: scope.selectCategory,
+      ),
+    );
+  }
+}
+
+class _ShellItem {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  const _ShellItem(this.icon, this.activeIcon, this.label);
+
+  String get shortLabel => switch (label) {
+    'Inteligencia' => 'Intel.',
+    'Configurar' => 'Config.',
+    'Alineación & citaciones' => 'Alineación',
+    _ => label,
+  };
+}

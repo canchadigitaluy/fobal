@@ -124,11 +124,12 @@ function validatePayload(payload) {
   const isManualClub =
     payload?.club?.league === "Trabajo independiente" ||
     payload?.club?.data_source === "manual";
-  if (!isManualClub && (payload?.data_quality?.category_players_loaded ?? 0) === 0) {
-    missing.push("jugadores reales vinculados a esa categoria");
-  }
 
   if (mode === "match_tactic") {
+    // A match plan without a squad is not useful; keep this gate for LUD.
+    if (!isManualClub && (payload?.data_quality?.category_players_loaded ?? 0) === 0) {
+      missing.push("jugadores reales vinculados a esa categoria");
+    }
     if (!simpleValue(match.rival_name, 3)) missing.push("el nombre del rival");
     if (!meaningful(match.rival_game_model_strengths_and_weaknesses, 18)) {
       missing.push("como juega el rival, con fortalezas o debilidades concretas");

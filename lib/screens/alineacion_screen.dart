@@ -1272,7 +1272,9 @@ class _PlayerPickerSheetState extends State<_PlayerPickerSheet> {
                   ),
                   const SizedBox(height: 10),
                   Flexible(
-                    child: ListView(
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: ListView(
                       shrinkWrap: true,
                       children: [
                         ListTile(
@@ -1304,6 +1306,7 @@ class _PlayerPickerSheetState extends State<_PlayerPickerSheet> {
                           ),
                         ),
                       ],
+                      ),
                     ),
                   ),
                 ],
@@ -1327,7 +1330,9 @@ class _SavedAlignmentsList extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: CX.panelDecoration(),
-      child: Column(
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
@@ -1353,6 +1358,7 @@ class _SavedAlignmentsList extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }

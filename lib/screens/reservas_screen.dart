@@ -88,10 +88,10 @@ class _ReservasScreenState extends State<ReservasScreen> {
       );
       return;
     }
-    if (_objective.trim().isEmpty || _problem.trim().isEmpty) {
+    if (_objective.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Completa objetivo y problema detectado.'),
+          content: Text('Escribí un objetivo para la sesión.'),
         ),
       );
       return;
@@ -103,19 +103,11 @@ class _ReservasScreenState extends State<ReservasScreen> {
           (player) => player.categoryId == category.id && _isAvailable(player),
         )
         .length;
-    if (!manualClub && available < 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'No hay suficientes jugadores disponibles confirmados para generar una sesion aplicable.',
-          ),
-        ),
-      );
-      return;
-    }
+    // No hard block on squad size: a thin plan is still useful and the
+    // assistant fills the gaps. Just size the session sensibly.
     final plannedPlayers = manualClub
-        ? _players.clamp(4, 99).toInt()
-        : (_players > available ? available : _players);
+        ? _players.clamp(1, 99).toInt()
+        : (available > 0 && _players > available ? available : _players);
     final categoryPlayers = club.players
         .where((player) => player.categoryId == category.id)
         .toList();

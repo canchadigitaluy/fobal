@@ -24,9 +24,7 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
     final selectedCategoryId = scope.selectedCategoryId;
     final category = categories.firstWhere(
       (item) => item.id == selectedCategoryId,
-      orElse: () => scope.club.categories.isNotEmpty
-          ? scope.club.categories.first
-          : categories.first,
+      orElse: () => categories.first,
     );
     final key = '${scope.fullClub.id}|${category.id}';
     if (_key == key && _future != null) return;
@@ -120,8 +118,8 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
         break;
       }
     }
-    if (category.isEmpty && club.categories.isNotEmpty) {
-      category = club.categories.first.name;
+    if (category.isEmpty && scope.fullClub.categories.isNotEmpty) {
+      category = scope.fullClub.categories.first.name;
     }
     return Scaffold(
       appBar: AppBar(

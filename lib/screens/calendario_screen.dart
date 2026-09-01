@@ -23,11 +23,14 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
   String get _storageKey {
     final scope = AppScope.of(context);
-    final categoryId = scope.selectedCategoryId ??
-        (scope.club.categories.isNotEmpty
-            ? scope.club.categories.first.id
-            : 'plantel');
+    final categoryId = _activeCategoryId(scope);
     return 'cantera_calendar_${scope.fullClub.id}_$categoryId';
+  }
+
+  String _activeCategoryId(AppScope scope) {
+    final cats = scope.fullClub.categories;
+    return scope.selectedCategoryId ??
+        (cats.isNotEmpty ? cats.first.id : 'plantel');
   }
 
   @override
@@ -64,12 +67,14 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     );
     html.window.localStorage[_storageKey] = jsonEncode(payload);
     final scope = AppScope.of(context);
-    final categoryId = scope.club.categories.isNotEmpty
-        ? scope.club.categories.first.id
-        : 'plantel';
-    final categoryName = scope.club.categories.isNotEmpty
-        ? scope.club.categories.first.name
-        : 'Plantel';
+    final categoryId = _activeCategoryId(scope);
+    var categoryName = 'Plantel';
+    for (final category in scope.fullClub.categories) {
+      if (category.id == categoryId) {
+        categoryName = category.name;
+        break;
+      }
+    }
     unawaited(OfflineMutationService.instance.saveTacticalDataOfflineFirst(
       type: 'calendar',
       title: 'Calendario $categoryName',

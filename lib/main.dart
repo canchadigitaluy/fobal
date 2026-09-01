@@ -30,6 +30,12 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseAuthService.initialize();
   OfflineMutationService.instance.start();
+  // Single source of truth for the active club: restore it before the first
+  // frame so membership resolution and category storage stay in lockstep.
+  final restoredClubId = html.window.localStorage['fobal_active_club_id'];
+  if (restoredClubId != null && restoredClubId.isNotEmpty) {
+    ClubAccessService.selectActiveClub(restoredClubId);
+  }
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -118,6 +124,7 @@ class _CanteraAppState extends State<CanteraApp> {
   static const _storagePrefix = 'cantera_os_club_';
   static const _localClubKey = 'fobal_local_profile_club_id';
   static const _categoryPrefix = 'fobal_selected_category_';
+  static const _activeClubKey = 'fobal_active_club_id';
   UserRole _role = UserRole.coach;
   String? _selectedCategoryId;
   late CanteraClub _club;
@@ -130,6 +137,11 @@ class _CanteraAppState extends State<CanteraApp> {
   }
 
   CanteraClub _loadClub() {
+    // Priority: last active club (LUD or manual) -> manual profile -> demo.
+    final activeClubId = html.window.localStorage[_activeClubKey];
+    if (activeClubId != null && activeClubId.isNotEmpty) {
+      return _loadClubById(activeClubId);
+    }
     final localClubId = html.window.localStorage[_localClubKey];
     if (localClubId != null && localClubId.isNotEmpty) {
       return _loadClubById(localClubId);
@@ -263,6 +275,11 @@ class _CanteraAppState extends State<CanteraApp> {
     html.window.localStorage['$_storagePrefix${nextClub.id}'] = jsonEncode(
       nextClub.toJson(),
     );
+    if (changingClub) {
+      // Keep the active-club pointer and the per-club category key aligned.
+      html.window.localStorage[_activeClubKey] = nextClub.id;
+      ClubAccessService.selectActiveClub(nextClub.id);
+    }
     setState(() {
       _club = nextClub;
       if (changingClub) _selectedCategoryId = _storedCategoryId(nextClub);
@@ -277,6 +294,9 @@ class _CanteraAppState extends State<CanteraApp> {
   }
 
   void _selectCategory(String? categoryId) {
+    // The category preference is always written for the currently active club,
+    // and the active-club pointer is refreshed so the two never drift apart.
+    html.window.localStorage[_activeClubKey] = _club.id;
     if (categoryId == null || categoryId.isEmpty) {
       html.window.localStorage.remove('$_categoryPrefix${_club.id}');
     } else {
@@ -673,12 +693,19 @@ class _MembershipHydratorState extends State<_MembershipHydrator> {
           : UserRole.coach,
     );
     if (!widget.membership.isClubAdmin && categories.isNotEmpty) {
-      final stored =
-          html.window.localStorage['fobal_selected_category_${widget.membership.clubId}'];
-      final selected = categories.any((category) => category.id == stored)
-          ? stored
-          : categories.first.id;
-      scope.selectCategory(selected);
+      final stored = html.window
+          .localStorage['fobal_selected_category_${widget.membership.clubId}'];
+      final storedValid =
+          stored != null && categories.any((category) => category.id == stored);
+      if (storedValid) {
+        // Honour the coach's explicit pick for this club.
+        scope.selectCategory(stored);
+      } else if (stored == null || stored.isEmpty) {
+        // No pick yet: seed with the first accessible category.
+        scope.selectCategory(categories.first.id);
+      }
+      // A stored pick that is not in the current (possibly partial) list is
+      // left untouched: never silently downgrade it to "the first category".
     }
     if (!mounted) return;
     setState(() {

@@ -414,6 +414,11 @@ class TrainingAiService {
               item['coaching_points'] as List<dynamic>? ?? [],
             ),
             successMetric: item['success_metric'] as String? ?? '',
+            animationScene: item['animation_scene'] is Map
+                ? AnimationScene.fromJson(
+                    Map<String, dynamic>.from(item['animation_scene'] as Map),
+                  )
+                : null,
           ),
         )
         .where(

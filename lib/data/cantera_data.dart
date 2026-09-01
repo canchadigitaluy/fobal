@@ -678,6 +678,11 @@ class TrainingBlock {
   final List<String> coachingPoints;
   final String successMetric;
 
+  /// Spatial representation of this block's exercise (pitch, players, ball,
+  /// movements, zones). Null on sessions generated before this field existed —
+  /// callers synthesize a fallback with [AnimationScene.fromBlockText].
+  final AnimationScene? animationScene;
+
   const TrainingBlock(
     this.name,
     this.duration,
@@ -686,6 +691,7 @@ class TrainingBlock {
     this.constraints = const [],
     this.coachingPoints = const [],
     this.successMetric = '',
+    this.animationScene,
   });
 
   Map<String, dynamic> toJson() => {
@@ -696,6 +702,7 @@ class TrainingBlock {
     'constraints': constraints,
     'coachingPoints': coachingPoints,
     'successMetric': successMetric,
+    if (animationScene != null) 'animation_scene': animationScene!.toJson(),
   };
 
   factory TrainingBlock.fromJson(Map<String, dynamic> json) => TrainingBlock(
@@ -712,7 +719,597 @@ class TrainingBlock {
     ),
     successMetric:
         (json['successMetric'] ?? json['success_metric']) as String? ?? '',
+    animationScene: _sceneFromJson(
+      json['animation_scene'] ?? json['animationScene'],
+    ),
   );
+
+  static AnimationScene? _sceneFromJson(dynamic raw) {
+    if (raw is! Map) return null;
+    final scene = AnimationScene.fromJson(Map<String, dynamic>.from(raw));
+    return scene.hasContent ? scene : null;
+  }
+
+  /// This block's scene, synthesizing a text-based fallback when the AI did
+  /// not provide one.
+  AnimationScene sceneOrFallback({
+    required String space,
+    required int playerCount,
+  }) {
+    final scene = animationScene;
+    if (scene != null && scene.hasContent) return scene;
+    return AnimationScene.fromBlockText(
+      text: '$name $description ${constraints.join(' ')}',
+      space: space,
+      playerCount: playerCount,
+      cues: coachingPoints,
+    );
+  }
+}
+
+double _clamp01(dynamic value) {
+  final d = value is num ? value.toDouble() : double.tryParse('$value') ?? 0.5;
+  if (d.isNaN) return 0.5;
+  return d.clamp(0.0, 1.0);
+}
+
+double _sceneSeconds(dynamic value) {
+  final raw = '$value'.replaceAll(RegExp(r'[^0-9.]'), '');
+  final d = value is num ? value.toDouble() : double.tryParse(raw) ?? 0;
+  return d.isNaN ? 0 : d;
+}
+
+class ScenePoint {
+  final double x; // 0..1 across pitch width (0 left, 1 right)
+  final double y; // 0..1 along pitch length (0 own goal, 1 rival goal)
+
+  const ScenePoint(this.x, this.y);
+
+  factory ScenePoint.fromJson(dynamic json) {
+    if (json is Map) return ScenePoint(_clamp01(json['x']), _clamp01(json['y']));
+    if (json is List && json.length >= 2) {
+      return ScenePoint(_clamp01(json[0]), _clamp01(json[1]));
+    }
+    return const ScenePoint(0.5, 0.5);
+  }
+
+  Map<String, dynamic> toJson() => {'x': x, 'y': y};
+}
+
+class SceneActor {
+  final String id;
+  final String label;
+  final String team; // own | rival | neutral
+  final ScenePoint start;
+  final ScenePoint end;
+  final String role;
+
+  const SceneActor({
+    required this.id,
+    required this.label,
+    required this.team,
+    required this.start,
+    required this.end,
+    required this.role,
+  });
+
+  factory SceneActor.fromJson(Map<String, dynamic> json) {
+    final start = ScenePoint.fromJson(
+      json['start'] ?? json['start_position'] ?? json['from'],
+    );
+    return SceneActor(
+      id: '${json['id'] ?? json['label'] ?? ''}'.trim(),
+      label: '${json['label'] ?? json['id'] ?? ''}'.trim(),
+      team: _team('${json['team'] ?? 'own'}'),
+      start: start,
+      end: ScenePoint.fromJson(
+        json['end'] ?? json['end_position'] ?? json['to'] ?? start.toJson(),
+      ),
+      role: '${json['role'] ?? ''}'.trim(),
+    );
+  }
+
+  static String _team(String value) {
+    final t = value.toLowerCase();
+    if (t.startsWith('riv') || t.contains('opp') || t.contains('contra')) {
+      return 'rival';
+    }
+    if (t.contains('neut') || t.contains('comod') || t.contains('joker')) {
+      return 'neutral';
+    }
+    return 'own';
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'label': label,
+    'team': team,
+    'start': start.toJson(),
+    'end': end.toJson(),
+    'role': role,
+  };
+}
+
+class SceneMovement {
+  final String playerId;
+  final ScenePoint from;
+  final ScenePoint to;
+  final double startS;
+  final double endS;
+  final String type; // pase | conduccion | desmarque | presion | cobertura | apoyo
+
+  const SceneMovement({
+    required this.playerId,
+    required this.from,
+    required this.to,
+    required this.startS,
+    required this.endS,
+    required this.type,
+  });
+
+  factory SceneMovement.fromJson(Map<String, dynamic> json) {
+    final start = _sceneSeconds(json['start_s'] ?? json['start'] ?? json['timing']);
+    final end = _sceneSeconds(json['end_s'] ?? json['end']);
+    return SceneMovement(
+      playerId: '${json['player'] ?? json['player_id'] ?? json['id'] ?? ''}'
+          .trim(),
+      from: ScenePoint.fromJson(json['from']),
+      to: ScenePoint.fromJson(json['to']),
+      startS: start.clamp(0.0, 60.0),
+      endS: (end <= start ? start + 2 : end).clamp(0.0, 60.0),
+      type: '${json['type'] ?? json['movement_type'] ?? 'movimiento'}'.trim(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'player': playerId,
+    'from': from.toJson(),
+    'to': to.toJson(),
+    'start_s': startS,
+    'end_s': endS,
+    'type': type,
+  };
+}
+
+class SceneZone {
+  final String type; // target | forbidden | lane
+  final String label;
+  final double x;
+  final double y;
+  final double width;
+  final double height;
+
+  const SceneZone({
+    required this.type,
+    required this.label,
+    required this.x,
+    required this.y,
+    required this.width,
+    required this.height,
+  });
+
+  factory SceneZone.fromJson(Map<String, dynamic> json) => SceneZone(
+    type: _zoneType('${json['type'] ?? 'target'}'),
+    label: '${json['label'] ?? ''}'.trim(),
+    x: _clamp01(json['x']),
+    y: _clamp01(json['y']),
+    width: _clamp01(json['width'] ?? json['w'] ?? 0.3),
+    height: _clamp01(json['height'] ?? json['h'] ?? 0.3),
+  );
+
+  static String _zoneType(String value) {
+    final t = value.toLowerCase();
+    if (t.contains('prohib') || t.contains('forbid') || t.contains('no-go')) {
+      return 'forbidden';
+    }
+    if (t.contains('carril') || t.contains('lane') || t.contains('pasillo')) {
+      return 'lane';
+    }
+    return 'target';
+  }
+
+  Map<String, dynamic> toJson() => {
+    'type': type,
+    'label': label,
+    'x': x,
+    'y': y,
+    'width': width,
+    'height': height,
+  };
+}
+
+class AnimationScene {
+  final String pitchArea;
+  final List<SceneActor> players;
+  final List<ScenePoint> ballPath;
+  final List<SceneMovement> movements;
+  final List<SceneZone> zones;
+  final List<String> coachingCues;
+  final double durationSeconds;
+  final bool isFallback;
+
+  const AnimationScene({
+    required this.pitchArea,
+    required this.players,
+    required this.ballPath,
+    required this.movements,
+    required this.zones,
+    required this.coachingCues,
+    required this.durationSeconds,
+    this.isFallback = false,
+  });
+
+  bool get hasContent => players.isNotEmpty || ballPath.length >= 2;
+
+  static const _pitchAreas = {
+    'full',
+    'half',
+    'attacking_third',
+    'middle_third',
+    'defensive_third',
+    'small_grid',
+    'wide_channels',
+  };
+
+  static String normalizePitchArea(String value) {
+    final t = value.toLowerCase().trim().replaceAll(RegExp(r'[\s-]+'), '_');
+    if (_pitchAreas.contains(t)) return t;
+    if (t.contains('cuadr') ||
+        t.contains('reduc') ||
+        t.contains('grid') ||
+        t.contains('rombo') ||
+        t.contains('rond')) {
+      return 'small_grid';
+    }
+    if (t.contains('ofens') || t.contains('attack') || t.contains('final')) {
+      return 'attacking_third';
+    }
+    if (t.contains('fondo') ||
+        t.contains('salida') ||
+        t.contains('propi') ||
+        t.contains('defensiv')) {
+      return 'defensive_third';
+    }
+    if (t.contains('banda') ||
+        t.contains('ancho') ||
+        t.contains('wide') ||
+        t.contains('amplitud') ||
+        t.contains('carril')) {
+      return 'wide_channels';
+    }
+    if (t.contains('medio') || t.contains('middle') || t.contains('central')) {
+      return 'middle_third';
+    }
+    if (t.contains('media') || t.contains('mitad') || t.contains('half')) {
+      return 'half';
+    }
+    return 'full';
+  }
+
+  factory AnimationScene.fromJson(
+    Map<String, dynamic> json, {
+    bool isFallback = false,
+  }) {
+    List<T> parseList<T>(dynamic v, T Function(Map<String, dynamic>) f) =>
+        (v is List ? v : const [])
+            .whereType<Map>()
+            .map((e) => f(Map<String, dynamic>.from(e)))
+            .toList();
+    final ball = (json['ball_path'] is List
+            ? json['ball_path'] as List
+            : const [])
+        .map(ScenePoint.fromJson)
+        .toList();
+    return AnimationScene(
+      pitchArea: normalizePitchArea(
+        '${json['pitch_area'] ?? json['pitchArea'] ?? 'full'}',
+      ),
+      players: parseList(json['players'], SceneActor.fromJson),
+      ballPath: ball,
+      movements: parseList(json['movements'], SceneMovement.fromJson),
+      zones: parseList(json['zones'], SceneZone.fromJson),
+      coachingCues: List<String>.from(
+        ((json['coaching_cues'] ?? json['coachingCues'] ?? const []) as List)
+            .map((e) => '$e'.trim())
+            .where((e) => e.isNotEmpty),
+      ),
+      durationSeconds: () {
+        final s = _sceneSeconds(
+          json['duration_seconds'] ?? json['durationSeconds'] ?? 8,
+        );
+        return (s < 3 ? 8.0 : s).clamp(3.0, 20.0);
+      }(),
+      isFallback: isFallback,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'pitch_area': pitchArea,
+    'players': players.map((p) => p.toJson()).toList(),
+    'ball_path': ballPath.map((p) => p.toJson()).toList(),
+    'movements': movements.map((m) => m.toJson()).toList(),
+    'zones': zones.map((z) => z.toJson()).toList(),
+    'coaching_cues': coachingCues,
+    'duration_seconds': durationSeconds,
+  };
+
+  /// Deterministic scene synthesized from a block's own text plus session
+  /// context. Distinct objectives / spaces / player counts produce visibly
+  /// distinct scenes. Always flagged [isFallback].
+  factory AnimationScene.fromBlockText({
+    required String text,
+    required String space,
+    required int playerCount,
+    List<String> cues = const [],
+  }) {
+    final t = '$text $space'.toLowerCase();
+    final area = normalizePitchArea('$space $text');
+    final total = playerCount.clamp(4, 12);
+    final perSide = (total / 2).round().clamp(2, 6);
+
+    bool has(List<String> keys) => keys.any(t.contains);
+    final isPress = has([
+      'presion',
+      'presión',
+      'recuper',
+      'tras perdida',
+      'tras pérdida',
+      'marca',
+      'robar',
+    ]);
+    final isBuildOut = has([
+      'salida',
+      'construccion',
+      'construcción',
+      'desde el fondo',
+      'amplitud',
+      'circulacion',
+      'circulación',
+      'posesion',
+      'posesión',
+    ]);
+    final isFinish = has([
+      'finaliz',
+      'defin',
+      'remate',
+      'gol',
+      'llegada al area',
+      'llegada al área',
+      'centro',
+    ]);
+
+    final players = <SceneActor>[];
+    final movements = <SceneMovement>[];
+    final zones = <SceneZone>[];
+    List<ScenePoint> ball;
+    const dur = 9.0;
+
+    ScenePoint p(double x, double y) => ScenePoint(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+
+    if (isPress) {
+      // Rival keeps the ball low-centre, own players collapse onto it.
+      final rivalBase = p(0.5, 0.32);
+      players.add(SceneActor(
+        id: 'r1',
+        label: 'R',
+        team: 'rival',
+        start: rivalBase,
+        end: p(0.42, 0.24),
+        role: 'con balón',
+      ));
+      for (var i = 1; i < perSide; i++) {
+        final rx = 0.25 + (i / perSide) * 0.5;
+        players.add(SceneActor(
+          id: 'r${i + 1}',
+          label: 'r',
+          team: 'rival',
+          start: p(rx, 0.18),
+          end: p(rx, 0.14),
+          role: 'apoyo rival',
+        ));
+      }
+      for (var i = 0; i < perSide; i++) {
+        final sx = 0.2 + (i / perSide) * 0.6;
+        final start = p(sx, 0.62 + (i.isEven ? 0.06 : 0));
+        final end = p(
+          rivalBase.x + (sx - rivalBase.x) * 0.35,
+          rivalBase.y + 0.1,
+        );
+        players.add(SceneActor(
+          id: 'o${i + 1}',
+          label: '${i + 1}',
+          team: 'own',
+          start: start,
+          end: end,
+          role: i == 0 ? 'presiona al balón' : 'cierra línea de pase',
+        ));
+        movements.add(SceneMovement(
+          playerId: 'o${i + 1}',
+          from: start,
+          to: end,
+          startS: 0,
+          endS: 4 + i.toDouble(),
+          type: i == 0 ? 'presion' : 'cobertura',
+        ));
+      }
+      ball = [p(0.5, 0.32), p(0.6, 0.28), p(0.55, 0.2), p(0.4, 0.16)];
+      zones.add(const SceneZone(
+        type: 'target',
+        label: 'zona de recuperación',
+        x: 0.28,
+        y: 0.1,
+        width: 0.44,
+        height: 0.34,
+      ));
+    } else if (isBuildOut) {
+      // Wide back line + keeper play out; ball travels goal -> flank -> forward.
+      players.add(SceneActor(
+        id: 'gk',
+        label: 'PO',
+        team: 'own',
+        start: p(0.5, 0.06),
+        end: p(0.5, 0.1),
+        role: 'inicia',
+      ));
+      final laneXs = [0.12, 0.38, 0.62, 0.88];
+      for (var i = 0; i < perSide; i++) {
+        final lane = laneXs[i % laneXs.length];
+        final start = p(lane, 0.2 + (i.isEven ? 0 : 0.08));
+        final end = p(lane, 0.44 + i * 0.05);
+        players.add(SceneActor(
+          id: 'o${i + 1}',
+          label: '${i + 1}',
+          team: 'own',
+          start: start,
+          end: end,
+          role: i == 0 ? 'recibe y orienta' : 'ofrece amplitud',
+        ));
+        movements.add(SceneMovement(
+          playerId: 'o${i + 1}',
+          from: start,
+          to: end,
+          startS: 1 + i.toDouble(),
+          endS: 5 + i.toDouble(),
+          type: i == 0 ? 'conduccion' : 'apoyo',
+        ));
+      }
+      for (var i = 0; i < (perSide - 1).clamp(1, 4); i++) {
+        final rx = 0.32 + (i / 3) * 0.36;
+        players.add(SceneActor(
+          id: 'r${i + 1}',
+          label: 'r',
+          team: 'rival',
+          start: p(rx, 0.5),
+          end: p(rx, 0.42),
+          role: 'presiona salida',
+        ));
+      }
+      ball = [p(0.5, 0.08), p(0.14, 0.24), p(0.4, 0.4), p(0.82, 0.5), p(0.7, 0.68)];
+      zones.add(const SceneZone(
+        type: 'lane',
+        label: 'carril izquierdo',
+        x: 0.0,
+        y: 0.0,
+        width: 0.28,
+        height: 1.0,
+      ));
+      zones.add(const SceneZone(
+        type: 'lane',
+        label: 'carril derecho',
+        x: 0.72,
+        y: 0.0,
+        width: 0.28,
+        height: 1.0,
+      ));
+      zones.add(const SceneZone(
+        type: 'target',
+        label: 'zona de progresión',
+        x: 0.2,
+        y: 0.6,
+        width: 0.6,
+        height: 0.3,
+      ));
+    } else if (isFinish) {
+      for (var i = 0; i < perSide; i++) {
+        final sx = 0.2 + (i / perSide) * 0.6;
+        final start = p(sx, 0.55 - i * 0.03);
+        final end = p(0.35 + (i / perSide) * 0.3, 0.86);
+        players.add(SceneActor(
+          id: 'o${i + 1}',
+          label: '${i + 1}',
+          team: 'own',
+          start: start,
+          end: end,
+          role: i == 0 ? 'asiste' : 'ataca el área',
+        ));
+        movements.add(SceneMovement(
+          playerId: 'o${i + 1}',
+          from: start,
+          to: end,
+          startS: i.toDouble(),
+          endS: 4 + i.toDouble(),
+          type: i == 0 ? 'pase' : 'desmarque',
+        ));
+      }
+      for (var i = 0; i < (perSide - 1).clamp(1, 4); i++) {
+        players.add(SceneActor(
+          id: 'r${i + 1}',
+          label: 'r',
+          team: 'rival',
+          start: p(0.35 + i * 0.12, 0.82),
+          end: p(0.35 + i * 0.12, 0.82),
+          role: 'defiende área',
+        ));
+      }
+      ball = [p(0.2, 0.55), p(0.5, 0.7), p(0.62, 0.88)];
+      zones.add(const SceneZone(
+        type: 'target',
+        label: 'área rival',
+        x: 0.28,
+        y: 0.78,
+        width: 0.44,
+        height: 0.22,
+      ));
+    } else {
+      // Generic small-sided progression: two rows, diagonal ball progression.
+      for (var i = 0; i < perSide; i++) {
+        final sx = 0.18 + (i / perSide) * 0.64;
+        final start = p(sx, 0.3);
+        final end = p(sx + 0.05, 0.7);
+        players.add(SceneActor(
+          id: 'o${i + 1}',
+          label: '${i + 1}',
+          team: 'own',
+          start: start,
+          end: end,
+          role: 'progresa',
+        ));
+        movements.add(SceneMovement(
+          playerId: 'o${i + 1}',
+          from: start,
+          to: end,
+          startS: i.toDouble(),
+          endS: 5 + i.toDouble(),
+          type: 'apoyo',
+        ));
+      }
+      for (var i = 0; i < (perSide - 1).clamp(1, 4); i++) {
+        final rx = 0.3 + (i / 3) * 0.4;
+        players.add(SceneActor(
+          id: 'r${i + 1}',
+          label: 'r',
+          team: 'rival',
+          start: p(rx, 0.55),
+          end: p(rx, 0.5),
+          role: 'defiende',
+        ));
+      }
+      ball = [p(0.2, 0.3), p(0.45, 0.45), p(0.7, 0.62), p(0.55, 0.8)];
+      zones.add(const SceneZone(
+        type: 'target',
+        label: 'zona objetivo',
+        x: 0.25,
+        y: 0.62,
+        width: 0.5,
+        height: 0.3,
+      ));
+    }
+
+    return AnimationScene(
+      pitchArea: area,
+      players: players,
+      ballPath: ball,
+      movements: movements,
+      zones: zones,
+      coachingCues: cues
+          .map((c) => c.trim())
+          .where((c) => c.isNotEmpty)
+          .take(3)
+          .toList(),
+      durationSeconds: dur,
+      isFallback: true,
+    );
+  }
 }
 
 class TrainingReport {

@@ -10,6 +10,7 @@ import '../main.dart';
 import '../services/club_access_service.dart';
 import '../services/offline_mutation_service.dart';
 import '../services/training_ai_service.dart';
+import '../ui/exercise_animation_preview.dart';
 
 const _fixtureStylePlaceholder =
     'Fixture detectado desde la liga. Completar observaciones del rival sin inventar: sistema, presion, salida, zonas fuertes y debilidades vistas.';
@@ -2932,194 +2933,6 @@ class _GeneratedSessionCard extends StatelessWidget {
     ).showSnackBar(const SnackBar(content: Text('Sesión exportada como PNG.')));
   }
 
-  _AnimationPlan _animationPlan() {
-    final mainExercise = session.blocks.isEmpty
-        ? ''
-        : '${session.blocks.first.name} ${session.blocks.first.description}';
-    final text = [
-      mainExercise,
-      session.title,
-      session.objective,
-      session.space,
-      ...session.blocks.map((block) => '${block.name} ${block.description}'),
-      ...session.coachCues,
-    ].join(' ').toLowerCase();
-
-    if (text.contains('corner') ||
-        text.contains('pelota quieta') ||
-        text.contains('aereo') ||
-        text.contains('aéreo') ||
-        text.contains('cabeza') ||
-        text.contains('centro')) {
-      return const _AnimationPlan(
-        label: 'Accion de pelota quieta / centro al area',
-        positions:
-            '.c1{left:47%;top:82%}.c2{left:78%;top:71%}.c3{left:66%;top:42%}.c4{left:51%;top:34%}.c5{left:39%;top:38%}.c6{left:24%;top:58%}',
-        keyframes:
-            '@keyframes move{0%{transform:translate(0,0)}45%{transform:translate(18px,-24px)}100%{transform:translate(-8px,-52px)}}'
-            '@keyframes ball{0%{left:80%;top:73%}45%{left:64%;top:46%}100%{left:50%;top:28%}}',
-      );
-    }
-    if (text.contains('finaliz') ||
-        text.contains('defin') ||
-        text.contains('remate') ||
-        text.contains('gol') ||
-        text.contains('area') ||
-        text.contains('área')) {
-      return const _AnimationPlan(
-        label: 'Finalizacion con llegada escalonada al area',
-        positions:
-            '.c1{left:49%;top:82%}.c2{left:30%;top:66%}.c3{left:68%;top:66%}.c4{left:41%;top:48%}.c5{left:59%;top:45%}.c6{left:50%;top:25%}',
-        keyframes:
-            '@keyframes move{0%{transform:translate(0,0)}45%{transform:translate(16px,-18px)}100%{transform:translate(0,-62px)}}'
-            '@keyframes ball{0%{left:49%;top:80%}25%{left:33%;top:63%}55%{left:60%;top:48%}100%{left:50%;top:18%}}',
-      );
-    }
-    if (text.contains('banda') ||
-        text.contains('lateral') ||
-        text.contains('extremo') ||
-        text.contains('ancho') ||
-        text.contains('exterior')) {
-      return const _AnimationPlan(
-        label: 'Superioridad por banda y ataque exterior',
-        positions:
-            '.c1{left:45%;top:82%}.c2{left:20%;top:66%}.c3{left:78%;top:66%}.c4{left:20%;top:43%}.c5{left:68%;top:37%}.c6{left:82%;top:24%}',
-        keyframes:
-            '@keyframes move{0%{transform:translate(0,0)}50%{transform:translate(28px,-18px)}100%{transform:translate(42px,-56px)}}'
-            '@keyframes ball{0%{left:46%;top:78%}34%{left:76%;top:64%}68%{left:84%;top:35%}100%{left:62%;top:22%}}',
-      );
-    }
-    if (text.contains('transicion') ||
-        text.contains('transición') ||
-        text.contains('perdida') ||
-        text.contains('pérdida') ||
-        text.contains('contra') ||
-        text.contains('replieg')) {
-      return const _AnimationPlan(
-        label: 'Transicion tras perdida y ataque al espacio',
-        positions:
-            '.c1{left:50%;top:78%}.c2{left:36%;top:62%}.c3{left:64%;top:62%}.c4{left:28%;top:42%}.c5{left:58%;top:40%}.c6{left:76%;top:30%}',
-        keyframes:
-            '@keyframes move{0%{transform:translate(0,0)}40%{transform:translate(-18px,18px)}100%{transform:translate(34px,-48px)}}'
-            '@keyframes ball{0%{left:56%;top:56%}30%{left:41%;top:58%}62%{left:63%;top:43%}100%{left:78%;top:26%}}',
-      );
-    }
-    if (text.contains('presion') ||
-        text.contains('presión') ||
-        text.contains('recuper') ||
-        text.contains('marca') ||
-        text.contains('defens')) {
-      return const _AnimationPlan(
-        label: 'Presion coordinada y cierre de lineas',
-        positions:
-            '.c1{left:48%;top:78%}.c2{left:34%;top:61%}.c3{left:62%;top:61%}.c4{left:38%;top:43%}.c5{left:58%;top:43%}.c6{left:48%;top:27%}',
-        keyframes:
-            '@keyframes move{0%{transform:translate(0,0)}55%{transform:translate(0,-26px) scale(1.05)}100%{transform:translate(0,-54px) scale(.96)}}'
-            '@keyframes ball{0%{left:50%;top:72%}40%{left:52%;top:54%}75%{left:47%;top:42%}100%{left:50%;top:31%}}',
-      );
-    }
-    if (text.contains('claridad') ||
-        text.contains('tercer hombre') ||
-        text.contains('apoyo') ||
-        text.contains('pared') ||
-        text.contains('linea de pase') ||
-        text.contains('línea de pase')) {
-      return const _AnimationPlan(
-        label: 'Apoyos cercanos, tercer hombre y linea de pase',
-        positions:
-            '.c1{left:48%;top:80%}.c2{left:34%;top:64%}.c3{left:63%;top:64%}.c4{left:46%;top:51%}.c5{left:31%;top:37%}.c6{left:67%;top:30%}',
-        keyframes:
-            '@keyframes move{0%{transform:translate(0,0)}45%{transform:translate(10px,-16px)}100%{transform:translate(-18px,-42px)}}'
-            '@keyframes ball{0%{left:48%;top:77%}25%{left:34%;top:63%}50%{left:47%;top:51%}75%{left:64%;top:33%}100%{left:67%;top:24%}}',
-      );
-    }
-    if (text.contains('salida') ||
-        text.contains('constru') ||
-        text.contains('circuito') ||
-        text.contains('posesion') ||
-        text.contains('posesión') ||
-        text.contains('volumen')) {
-      return const _AnimationPlan(
-        label: 'Salida y circuito de pases',
-        positions:
-            '.c1{left:48%;top:83%}.c2{left:27%;top:69%}.c3{left:69%;top:69%}.c4{left:36%;top:50%}.c5{left:61%;top:49%}.c6{left:49%;top:28%}',
-        keyframes:
-            '@keyframes move{0%{transform:translate(0,0)}50%{transform:translate(18px,-22px)}100%{transform:translate(-12px,-44px)}}'
-            '@keyframes ball{0%{left:50%;top:80%}25%{left:28%;top:68%}50%{left:39%;top:50%}75%{left:62%;top:49%}100%{left:50%;top:28%}}',
-      );
-    }
-    return const _AnimationPlan(
-      label: 'Juego reducido con progresion',
-      positions:
-          '.c1{left:48%;top:82%}.c2{left:28%;top:64%}.c3{left:68%;top:64%}.c4{left:36%;top:45%}.c5{left:60%;top:42%}.c6{left:47%;top:24%}',
-      keyframes:
-          '@keyframes move{0%{transform:translate(0,0)}50%{transform:translate(34px,-38px)}100%{transform:translate(-22px,-78px)}}'
-          '@keyframes ball{0%{left:49%;top:78%}35%{left:38%;top:50%}70%{left:63%;top:38%}100%{left:52%;top:19%}}',
-    );
-  }
-
-  void _exportAnimation(BuildContext context) {
-    final escape = const HtmlEscape().convert;
-    final title = escape(session.title);
-    final plan = _animationPlan();
-    final mainBlock = session.blocks.isEmpty
-        ? 'Ejercicio principal'
-        : escape(session.blocks.first.name);
-    final mainDescription = session.blocks.isEmpty
-        ? 'La animacion toma el objetivo escrito y lo convierte en movimientos base.'
-        : escape(session.blocks.first.description);
-    final cue = session.coachCues.isEmpty
-        ? 'Mover, decidir y volver a ordenar.'
-        : escape(session.coachCues.first);
-    final htmlDoc = '''
-<!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>$title</title>
-<style>
-body{margin:0;background:#f4f8f6;font-family:Inter,Arial,sans-serif;color:#102019;display:grid;place-items:center;min-height:100vh}
-.wrap{width:min(920px,94vw);background:white;border:1px solid #dce7e1;border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(13,26,20,.12)}
-.head{padding:20px 24px;background:#0d1f18;color:white}
-.head b{color:#6ef2c7}.head h1{margin:6px 0 4px;font-size:26px}.head p{margin:0;color:#b7c9c0}
-.pitch{position:relative;height:520px;margin:22px;background:#159463;border-radius:16px;overflow:hidden;border:3px solid rgba(255,255,255,.55)}
-.line{position:absolute;border:2px solid rgba(255,255,255,.5)}
-.mid{left:0;right:0;top:50%;height:0}.circle{width:140px;height:140px;border-radius:50%;left:50%;top:50%;transform:translate(-50%,-50%)}
-.box1{left:29%;top:0;width:42%;height:88px}.box2{left:29%;bottom:0;width:42%;height:88px}
-.route{position:absolute;height:3px;background:rgba(246,195,91,.85);transform-origin:left center;border-radius:99px;box-shadow:0 0 12px rgba(246,195,91,.5)}
-.r1{left:51%;top:78%;width:150px;transform:rotate(-28deg)}.r2{left:61%;top:57%;width:140px;transform:rotate(-34deg)}
-.chip{position:absolute;width:44px;height:44px;border-radius:50%;background:#6ef2c7;border:3px solid #fff;display:grid;place-items:center;font-weight:900;animation:move 6s ease-in-out infinite alternate;box-shadow:0 8px 22px rgba(0,0,0,.25)}
-.ball{position:absolute;width:24px;height:24px;border-radius:50%;background:#f6c35b;border:2px solid white;animation:ball 6s ease-in-out infinite alternate;box-shadow:0 8px 20px rgba(0,0,0,.25)}
-${plan.positions}.c1{animation-delay:.0s}.c2{animation-delay:.2s}.c3{animation-delay:.4s}.c4{animation-delay:.6s}.c5{animation-delay:.8s}.c6{animation-delay:1s}
-${plan.keyframes}
-.foot{padding:0 24px 24px}.foot h2{margin:0 0 6px;font-size:19px}.foot p{margin:0;color:#40534a;line-height:1.45}
-</style>
-</head>
-<body>
-<main class="wrap">
-  <section class="head"><b>fobal</b><h1>$title</h1><p>${session.duration} min · ${session.playerCount} jugadores · ${escape(session.space)}</p></section>
-  <section class="pitch">
-    <div class="line mid"></div><div class="line circle"></div><div class="line box1"></div><div class="line box2"></div><div class="route r1"></div><div class="route r2"></div>
-    <div class="chip c1">1</div><div class="chip c2">2</div><div class="chip c3">3</div><div class="chip c4">4</div><div class="chip c5">5</div><div class="chip c6">6</div><div class="ball"></div>
-  </section>
-  <section class="foot"><h2>$mainBlock</h2><p><b>${escape(plan.label)}.</b> $mainDescription</p><p>$cue</p></section>
-</main>
-</body>
-</html>
-''';
-    final blob = html.Blob([htmlDoc], 'text/html;charset=utf-8');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    html.AnchorElement(href: url)
-      ..download =
-          'animacion_${session.title.replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '_')}.html'
-      ..click();
-    html.Url.revokeObjectUrl(url);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Animación descargada como HTML.')),
-    );
-  }
-
   List<String> _wrapLine(String value, int max) {
     final words = value.split(RegExp(r'\s+'));
     final lines = <String>[];
@@ -3170,22 +2983,7 @@ ${plan.keyframes}
           _PostTrainingReviewPanel(session: session),
           const SizedBox(height: 12),
           ...session.blocks.map(
-            (block) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${block.name} - ${block.duration}',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  Text(
-                    block.description,
-                    style: TextStyle(color: CX.muted, fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
+            (block) => _GeneratedBlockTile(block: block, session: session),
           ),
           const SizedBox(height: 12),
           _DetailBlock('Consignas del entrenador', session.coachCues),
@@ -3218,11 +3016,6 @@ ${plan.keyframes}
                 icon: const Icon(Icons.image_outlined),
                 label: const Text('Exportar PNG'),
               ),
-              OutlinedButton.icon(
-                onPressed: () => _exportAnimation(context),
-                icon: const Icon(Icons.movie_creation_outlined),
-                label: const Text('Animación'),
-              ),
             ],
           ),
         ],
@@ -3231,16 +3024,68 @@ ${plan.keyframes}
   }
 }
 
-class _AnimationPlan {
-  final String label;
-  final String positions;
-  final String keyframes;
+/// One generated block: text + its exercise animation (real scene from the
+/// AI, or a text-derived fallback marked "aproximada").
+class _GeneratedBlockTile extends StatefulWidget {
+  final TrainingBlock block;
+  final TrainingSession session;
 
-  const _AnimationPlan({
-    required this.label,
-    required this.positions,
-    required this.keyframes,
-  });
+  const _GeneratedBlockTile({required this.block, required this.session});
+
+  @override
+  State<_GeneratedBlockTile> createState() => _GeneratedBlockTileState();
+}
+
+class _GeneratedBlockTileState extends State<_GeneratedBlockTile> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final block = widget.block;
+    final scene = block.sceneOrFallback(
+      space: widget.session.space,
+      playerCount: widget.session.playerCount,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${block.name} - ${block.duration}',
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          Text(
+            block.description,
+            style: TextStyle(color: CX.muted, fontSize: 13),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _open = !_open),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                minimumSize: const Size(0, 32),
+              ),
+              icon: Icon(
+                _open ? Icons.expand_less : Icons.animation,
+                size: 16,
+              ),
+              label: Text(_open ? 'Ocultar animación' : 'Ver animación'),
+            ),
+          ),
+          if (_open) ...[
+            const SizedBox(height: 4),
+            ExerciseAnimationPreview(
+              scene: scene,
+              title: '${widget.session.title} ${block.name}',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _OperationalScoreBanner extends StatelessWidget {

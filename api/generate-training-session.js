@@ -85,6 +85,17 @@ Incluye como minimo estos bloques diferenciados:
 Relaciona nuestras fortalezas con sus debilidades y nuestras limitaciones con sus amenazas. Si el rival es flojo por bandas, no alcanza con decir "atacar por bandas": define como crear la superioridad, quien fija, quien desdobla, quien ocupa el area, donde va el pase final y como queda la cobertura tras perdida.
 Si hay memoria de cruces anteriores, notas post partido o jugadores rivales señalados, el plan debe explicar que se aprendio, que se repite, que se corrige y que alarma observar durante el partido.
 
+ANIMATION_SCENE (OBLIGATORIO EN CADA BLOQUE)
+Cada bloque incluye "animation_scene": una representacion espacial del ejercicio de ESE bloque. No es decorativa: debe coincidir con la descripcion del bloque (mismo espacio, misma cantidad de jugadores, mismos movimientos, mismas zonas y misma idea de balon). Si dos bloques o dos sesiones tienen ejercicios distintos, sus animation_scene deben ser claramente distintas.
+Coordenadas normalizadas 0..1: x = ancho (0 izquierda, 1 derecha); y = largo (0 arco propio, 1 arco rival).
+- pitch_area: uno de "full", "half", "attacking_third", "middle_third", "defensive_third", "small_grid", "wide_channels", elegido segun el espacio descripto.
+- players: lista de {id, label (numero o rol corto), team ("own" | "rival" | "neutral"), start {x,y}, end {x,y}, role}. La cantidad debe coincidir con el formato (ej. 4v2 => 6 jugadores; 7v7 => 14).
+- ball_path: 2 a 6 puntos {x,y} que trazan el recorrido real del balon en la accion descripta.
+- movements: por cada jugador que se desplaza => {player (id), from {x,y}, to {x,y}, start_s, end_s, type ("pase" | "conduccion" | "desmarque" | "presion" | "cobertura" | "apoyo")}.
+- zones: {type ("target" | "forbidden" | "lane"), label, x, y, width, height} (0..1). Usalas para zonas objetivo, prohibidas o carriles reales del ejercicio.
+- coaching_cues: 1 a 3 consignas cortas propias de esa accion.
+- duration_seconds: entre 4 y 14.
+
 SALIDA
 Devuelve exclusivamente JSON valido siguiendo el schema solicitado. Cada bloque debe ser sustancial, especifico y distinto.
 `;
@@ -230,6 +241,42 @@ export default async function handler(req, res) {
           constraints: ["Reglas, limites o condiciones especificas del bloque"],
           coaching_points: ["Correcciones concretas que debe hacer el entrenador"],
           success_metric: "Indicador observable especifico del bloque",
+          animation_scene: {
+            pitch_area: "full | half | attacking_third | middle_third | defensive_third | small_grid | wide_channels",
+            players: [
+              {
+                id: "o1",
+                label: "5",
+                team: "own | rival | neutral",
+                start: { x: 0.3, y: 0.4 },
+                end: { x: 0.45, y: 0.6 },
+                role: "rol corto",
+              },
+            ],
+            ball_path: [{ x: 0.3, y: 0.4 }, { x: 0.55, y: 0.6 }],
+            movements: [
+              {
+                player: "o1",
+                from: { x: 0.3, y: 0.4 },
+                to: { x: 0.45, y: 0.6 },
+                start_s: 0,
+                end_s: 3,
+                type: "pase | conduccion | desmarque | presion | cobertura | apoyo",
+              },
+            ],
+            zones: [
+              {
+                type: "target | forbidden | lane",
+                label: "nombre de la zona",
+                x: 0.2,
+                y: 0.6,
+                width: 0.6,
+                height: 0.3,
+              },
+            ],
+            coaching_cues: ["consigna corta"],
+            duration_seconds: 8,
+          },
         },
       ],
       coach_cues: ["Minimo 5 consignas breves, especificas y observables"],
@@ -469,6 +516,7 @@ function normalizeGeneratedPlanShape(data, payload, mode) {
           constraints: cleanList(block?.constraints),
           coaching_points: cleanList(block?.coaching_points),
           success_metric: String(block?.success_metric || "").trim(),
+          animation_scene: block?.animation_scene ?? null,
         }))
         .filter((block) => block.name && block.description)
     : [];
@@ -493,6 +541,20 @@ function normalizeGeneratedPlanShape(data, payload, mode) {
       duration: normalizeDuration(block.duration),
     }));
   }
+
+  const session = payload?.session_request || {};
+  const sessionSpace = String(session.space || "").trim();
+  const sessionPlayers = Number(session.available_players) ||
+    Number(payload?.data_quality?.category_players_loaded) || 12;
+  data.blocks = data.blocks.map((block) => ({
+    ...block,
+    animation_scene: normalizeAnimationScene(block.animation_scene, {
+      text: `${block.name} ${block.description} ${block.constraints.join(" ")}`,
+      space: sessionSpace,
+      players: sessionPlayers,
+      cues: block.coaching_points,
+    }),
+  }));
 
   if (hasGenericPlanningLanguage(data)) {
     data.limitations.push(
@@ -519,6 +581,200 @@ function cleanList(value) {
 function normalizeDuration(value) {
   const minutes = Number.parseInt(String(value || ""), 10);
   return Number.isFinite(minutes) && minutes > 0 ? `${minutes} min` : String(value || "").trim();
+}
+
+const PITCH_AREAS = new Set([
+  "full",
+  "half",
+  "attacking_third",
+  "middle_third",
+  "defensive_third",
+  "small_grid",
+  "wide_channels",
+]);
+
+function clamp01(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0.5;
+  return Math.min(1, Math.max(0, n));
+}
+
+function normPoint(p) {
+  if (Array.isArray(p) && p.length >= 2) return { x: clamp01(p[0]), y: clamp01(p[1]) };
+  if (p && typeof p === "object") return { x: clamp01(p.x), y: clamp01(p.y) };
+  return { x: 0.5, y: 0.5 };
+}
+
+function normPitchArea(value) {
+  const t = String(value || "full").toLowerCase().trim().replace(/[\s-]+/g, "_");
+  if (PITCH_AREAS.has(t)) return t;
+  if (/(cuadr|reduc|grid|rombo|rond)/.test(t)) return "small_grid";
+  if (/(ofens|attack|final)/.test(t)) return "attacking_third";
+  if (/(fondo|salida|propi|defensiv)/.test(t)) return "defensive_third";
+  if (/(banda|ancho|wide|amplitud|carril)/.test(t)) return "wide_channels";
+  if (/(medio|middle|central)/.test(t)) return "middle_third";
+  if (/(media|mitad|half)/.test(t)) return "half";
+  return "full";
+}
+
+// Deterministic scene from a block's text + session context. Mirrors the
+// Flutter fallback so both paths stay consistent. Distinct objectives /
+// spaces / player counts produce visibly distinct scenes.
+function buildSceneFromText({ text, space, players, cues = [] }) {
+  const t = `${text || ""} ${space || ""}`.toLowerCase();
+  const area = normPitchArea(`${space || ""} ${text || ""}`);
+  const total = Math.min(12, Math.max(4, Math.round(Number(players) || 12)));
+  const perSide = Math.min(6, Math.max(2, Math.round(total / 2)));
+  const has = (re) => re.test(t);
+  const p = (x, y) => ({ x: clamp01(x), y: clamp01(y) });
+
+  const scene = {
+    pitch_area: area,
+    players: [],
+    ball_path: [],
+    movements: [],
+    zones: [],
+    coaching_cues: (cues || [])
+      .map((c) => String(c || "").trim())
+      .filter(Boolean)
+      .slice(0, 3),
+    duration_seconds: 9,
+  };
+
+  if (has(/(presion|presi[oó]n|recuper|tras p[eé]rdida|robar|marca)/)) {
+    scene.players.push({ id: "r1", label: "R", team: "rival", start: p(0.5, 0.32), end: p(0.42, 0.24), role: "con balon" });
+    for (let i = 1; i < perSide; i++) {
+      const rx = 0.25 + (i / perSide) * 0.5;
+      scene.players.push({ id: `r${i + 1}`, label: "r", team: "rival", start: p(rx, 0.18), end: p(rx, 0.14), role: "apoyo rival" });
+    }
+    for (let i = 0; i < perSide; i++) {
+      const sx = 0.2 + (i / perSide) * 0.6;
+      const start = p(sx, 0.62 + (i % 2 === 0 ? 0.06 : 0));
+      const end = p(0.5 + (sx - 0.5) * 0.35, 0.42);
+      scene.players.push({ id: `o${i + 1}`, label: `${i + 1}`, team: "own", start, end, role: i === 0 ? "presiona al balon" : "cierra linea de pase" });
+      scene.movements.push({ player: `o${i + 1}`, from: start, to: end, start_s: 0, end_s: 4 + i, type: i === 0 ? "presion" : "cobertura" });
+    }
+    scene.ball_path = [p(0.5, 0.32), p(0.6, 0.28), p(0.55, 0.2), p(0.4, 0.16)];
+    scene.zones.push({ type: "target", label: "zona de recuperacion", x: 0.28, y: 0.1, width: 0.44, height: 0.34 });
+  } else if (has(/(salida|construcci|desde el fondo|amplitud|circulaci|posesi)/)) {
+    scene.players.push({ id: "gk", label: "PO", team: "own", start: p(0.5, 0.06), end: p(0.5, 0.1), role: "inicia" });
+    const laneXs = [0.12, 0.38, 0.62, 0.88];
+    for (let i = 0; i < perSide; i++) {
+      const lane = laneXs[i % laneXs.length];
+      const start = p(lane, 0.2 + (i % 2 === 0 ? 0 : 0.08));
+      const end = p(lane, 0.44 + i * 0.05);
+      scene.players.push({ id: `o${i + 1}`, label: `${i + 1}`, team: "own", start, end, role: i === 0 ? "recibe y orienta" : "ofrece amplitud" });
+      scene.movements.push({ player: `o${i + 1}`, from: start, to: end, start_s: 1 + i, end_s: 5 + i, type: i === 0 ? "conduccion" : "apoyo" });
+    }
+    for (let i = 0; i < Math.min(4, Math.max(1, perSide - 1)); i++) {
+      const rx = 0.32 + (i / 3) * 0.36;
+      scene.players.push({ id: `r${i + 1}`, label: "r", team: "rival", start: p(rx, 0.5), end: p(rx, 0.42), role: "presiona salida" });
+    }
+    scene.ball_path = [p(0.5, 0.08), p(0.14, 0.24), p(0.4, 0.4), p(0.82, 0.5), p(0.7, 0.68)];
+    scene.zones.push({ type: "lane", label: "carril izquierdo", x: 0, y: 0, width: 0.28, height: 1 });
+    scene.zones.push({ type: "lane", label: "carril derecho", x: 0.72, y: 0, width: 0.28, height: 1 });
+    scene.zones.push({ type: "target", label: "zona de progresion", x: 0.2, y: 0.6, width: 0.6, height: 0.3 });
+  } else if (has(/(finaliz|defin|remate|gol|llegada al [aá]rea|centro)/)) {
+    for (let i = 0; i < perSide; i++) {
+      const sx = 0.2 + (i / perSide) * 0.6;
+      const start = p(sx, 0.55 - i * 0.03);
+      const end = p(0.35 + (i / perSide) * 0.3, 0.86);
+      scene.players.push({ id: `o${i + 1}`, label: `${i + 1}`, team: "own", start, end, role: i === 0 ? "asiste" : "ataca el area" });
+      scene.movements.push({ player: `o${i + 1}`, from: start, to: end, start_s: i, end_s: 4 + i, type: i === 0 ? "pase" : "desmarque" });
+    }
+    for (let i = 0; i < Math.min(4, Math.max(1, perSide - 1)); i++) {
+      scene.players.push({ id: `r${i + 1}`, label: "r", team: "rival", start: p(0.35 + i * 0.12, 0.82), end: p(0.35 + i * 0.12, 0.82), role: "defiende area" });
+    }
+    scene.ball_path = [p(0.2, 0.55), p(0.5, 0.7), p(0.62, 0.88)];
+    scene.zones.push({ type: "target", label: "area rival", x: 0.28, y: 0.78, width: 0.44, height: 0.22 });
+  } else {
+    for (let i = 0; i < perSide; i++) {
+      const sx = 0.18 + (i / perSide) * 0.64;
+      const start = p(sx, 0.3);
+      const end = p(sx + 0.05, 0.7);
+      scene.players.push({ id: `o${i + 1}`, label: `${i + 1}`, team: "own", start, end, role: "progresa" });
+      scene.movements.push({ player: `o${i + 1}`, from: start, to: end, start_s: i, end_s: 5 + i, type: "apoyo" });
+    }
+    for (let i = 0; i < Math.min(4, Math.max(1, perSide - 1)); i++) {
+      const rx = 0.3 + (i / 3) * 0.4;
+      scene.players.push({ id: `r${i + 1}`, label: "r", team: "rival", start: p(rx, 0.55), end: p(rx, 0.5), role: "defiende" });
+    }
+    scene.ball_path = [p(0.2, 0.3), p(0.45, 0.45), p(0.7, 0.62), p(0.55, 0.8)];
+    scene.zones.push({ type: "target", label: "zona objetivo", x: 0.25, y: 0.62, width: 0.5, height: 0.3 });
+  }
+  return scene;
+}
+
+// Clean an AI-provided animation_scene; fall back to buildSceneFromText when
+// it is missing or unusable so the client always gets a structured scene.
+function normalizeAnimationScene(raw, ctx) {
+  if (!raw || typeof raw !== "object") return buildSceneFromText(ctx);
+  const players = (Array.isArray(raw.players) ? raw.players : [])
+    .filter((pl) => pl && typeof pl === "object")
+    .map((pl, i) => {
+      const start = normPoint(pl.start || pl.start_position || pl.from);
+      return {
+        id: String(pl.id || pl.label || `p${i + 1}`).trim(),
+        label: String(pl.label || pl.id || `${i + 1}`).trim(),
+        team: /^riv|opp|contra/i.test(String(pl.team || ""))
+          ? "rival"
+          : /neut|comod|joker/i.test(String(pl.team || ""))
+            ? "neutral"
+            : "own",
+        start,
+        end: normPoint(pl.end || pl.end_position || pl.to || start),
+        role: String(pl.role || "").trim(),
+      };
+    })
+    .slice(0, 22);
+  const ballPath = (Array.isArray(raw.ball_path) ? raw.ball_path : [])
+    .map(normPoint)
+    .slice(0, 8);
+  if (players.length === 0 || ballPath.length < 2) return buildSceneFromText(ctx);
+  const movements = (Array.isArray(raw.movements) ? raw.movements : [])
+    .filter((m) => m && typeof m === "object")
+    .map((m) => {
+      const s = Math.max(0, Number(m.start_s ?? m.start ?? m.timing) || 0);
+      const e = Number(m.end_s ?? m.end) || s + 2;
+      return {
+        player: String(m.player || m.player_id || m.id || "").trim(),
+        from: normPoint(m.from),
+        to: normPoint(m.to),
+        start_s: s,
+        end_s: e <= s ? s + 2 : e,
+        type: String(m.type || m.movement_type || "movimiento").trim(),
+      };
+    })
+    .slice(0, 30);
+  const zones = (Array.isArray(raw.zones) ? raw.zones : [])
+    .filter((z) => z && typeof z === "object")
+    .map((z) => ({
+      type: /prohib|forbid|no-go/i.test(String(z.type || ""))
+        ? "forbidden"
+        : /carril|lane|pasillo/i.test(String(z.type || ""))
+          ? "lane"
+          : "target",
+      label: String(z.label || "").trim(),
+      x: clamp01(z.x),
+      y: clamp01(z.y),
+      width: clamp01(z.width ?? z.w ?? 0.3),
+      height: clamp01(z.height ?? z.h ?? 0.3),
+    }))
+    .slice(0, 8);
+  let dur = Number(raw.duration_seconds ?? raw.durationSeconds) || 8;
+  dur = Math.min(20, Math.max(3, dur));
+  return {
+    pitch_area: normPitchArea(raw.pitch_area ?? raw.pitchArea),
+    players,
+    ball_path: ballPath,
+    movements,
+    zones,
+    coaching_cues: (Array.isArray(raw.coaching_cues) ? raw.coaching_cues : [])
+      .map((c) => String(c || "").trim())
+      .filter(Boolean)
+      .slice(0, 3),
+    duration_seconds: dur,
+  };
 }
 
 function hasGenericPlanningLanguage(data) {

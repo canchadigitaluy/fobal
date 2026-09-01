@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
+import '../ui/exercise_animation_preview.dart';
 
 class CuotaScreen extends StatefulWidget {
   const CuotaScreen({super.key});
@@ -1520,6 +1521,56 @@ class _SessionTimelineItem extends StatelessWidget {
     required this.onChanged,
   });
 
+  void _showBlockAnimation(
+    BuildContext context,
+    TrainingSession session,
+    TrainingBlock block,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(20),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        block.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ExerciseAnimationPreview(
+                  scene: block.sceneOrFallback(
+                    space: session.space,
+                    playerCount: session.playerCount,
+                  ),
+                  title: '${session.title} ${block.name}',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final body = Column(
@@ -1574,6 +1625,14 @@ class _SessionTimelineItem extends StatelessWidget {
                           '${block.name}  -  ${block.duration}\n${block.description}',
                           style: const TextStyle(fontSize: 11, height: 1.45),
                         ),
+                      ),
+                      IconButton(
+                        tooltip: 'Ver animación del ejercicio',
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(Icons.animation, size: 16),
+                        onPressed: () => _showBlockAnimation(context, session, block),
                       ),
                     ],
                   ),

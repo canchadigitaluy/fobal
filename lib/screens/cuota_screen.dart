@@ -1626,13 +1626,19 @@ class _SessionTimelineItem extends StatelessWidget {
                           style: const TextStyle(fontSize: 11, height: 1.45),
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Ver animación del ejercicio',
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(Icons.animation, size: 16),
-                        onPressed: () => _showBlockAnimation(context, session, block),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(0, 30),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        icon: const Icon(Icons.animation, size: 15),
+                        label: const Text(
+                          'Animación',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                        onPressed: () =>
+                            _showBlockAnimation(context, session, block),
                       ),
                     ],
                   ),

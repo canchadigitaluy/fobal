@@ -869,7 +869,11 @@ class LudFixtureMatch {
       return false;
     }
     if (normalizedStatus.contains('jugado') ||
-        normalizedStatus.contains('final')) {
+        normalizedStatus.contains('final') ||
+        normalizedStatus.contains('finish') ||
+        normalizedStatus.contains('terminad') ||
+        normalizedStatus.contains('played') ||
+        normalizedStatus.contains('complet')) {
       return true;
     }
     // A 0-0 with no explicit "played" status is almost always a fixture row

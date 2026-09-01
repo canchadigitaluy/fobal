@@ -607,9 +607,21 @@ function isPlayedResult(match) {
   ) {
     return false;
   }
-  if (status.includes("jugado") || status.includes("final")) return true;
+  if (
+    status.includes("jugado") ||
+    status.includes("final") ||
+    status.includes("finish") ||
+    status.includes("terminad") ||
+    status.includes("played") ||
+    status.includes("complet")
+  ) {
+    return true;
+  }
   if (match.homeScore === 0 && match.awayScore === 0) return false;
-  return new Date(`${match.date}T00:00:00Z`).getTime() < Date.now();
+  // match.date is already a full ISO string here; parse it directly instead
+  // of concatenating another time component (which yields an Invalid Date).
+  const played = Date.parse(match.date);
+  return Number.isFinite(played) && played < Date.now();
 }
 
 function chooseBetterEmptyResult(current, next) {

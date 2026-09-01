@@ -1850,33 +1850,14 @@ class _PracticeWeekCard extends StatelessWidget {
   }
 
   Future<void> _editSchedule(BuildContext context) async {
-    final controller = TextEditingController(text: category.practiceSchedule);
-    final value = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Prácticas de la semana'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          minLines: 2,
-          maxLines: 4,
-          decoration: const InputDecoration(
-            hintText: 'Ej: martes y jueves 20:30, sábado 10:00',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
+    final value = await promptForText(
+      context,
+      title: 'Prácticas de la semana',
+      initialValue: category.practiceSchedule,
+      hintText: 'Ej: martes y jueves 20:30, sábado 10:00',
+      minLines: 2,
+      maxLines: 4,
     );
-    controller.dispose();
     if (value == null) return;
     final scope = AppScope.of(context);
     scope.updateClub(
@@ -3432,30 +3413,13 @@ class _InlineCategoryField extends StatelessWidget {
   }
 
   Future<void> _edit(BuildContext context) async {
-    final controller = TextEditingController(text: value);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(fieldLabel),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLines: fieldLabel.contains('Objetivo') ? 3 : 1,
-          decoration: InputDecoration(labelText: fieldLabel),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
+    final result = await promptForText(
+      context,
+      title: fieldLabel,
+      initialValue: value,
+      labelText: fieldLabel,
+      maxLines: fieldLabel.contains('Objetivo') ? 3 : 1,
     );
-    controller.dispose();
     if (result == null) return;
     final scope = AppScope.of(context);
     scope.updateClub(

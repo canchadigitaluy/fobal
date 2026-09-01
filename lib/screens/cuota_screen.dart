@@ -37,36 +37,14 @@ class _CuotaScreenState extends State<CuotaScreen> {
     CanteraClub club,
     CategorySquad category,
   ) async {
-    final controller = TextEditingController(text: category.currentFocus);
-    final value = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Objetivo de la semana'),
-        content: SizedBox(
-          width: 480,
-          child: TextField(
-            controller: controller,
-            autofocus: true,
-            minLines: 3,
-            maxLines: 6,
-            decoration: const InputDecoration(
-              hintText: 'Ej: mejorar la defensa de centros laterales',
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
+    final value = await promptForText(
+      context,
+      title: 'Objetivo de la semana',
+      initialValue: category.currentFocus,
+      hintText: 'Ej: mejorar la defensa de centros laterales',
+      minLines: 3,
+      maxLines: 6,
     );
-    controller.dispose();
     if (value == null || !mounted) return;
     final categories = club.categories
         .map(

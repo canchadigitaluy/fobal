@@ -875,6 +875,98 @@ class _MinimalAppLoader extends StatelessWidget {
   }
 }
 
+/// Shows a single-field text dialog and returns the trimmed value (or null if
+/// cancelled). The dialog owns its [TextEditingController] for its whole
+/// lifetime, so the controller is never disposed while the close animation is
+/// still running (which was crashing the calling section).
+Future<String?> promptForText(
+  BuildContext context, {
+  required String title,
+  String initialValue = '',
+  String? hintText,
+  String? labelText,
+  int minLines = 1,
+  int maxLines = 4,
+  String confirmLabel = 'Guardar',
+}) {
+  return showDialog<String>(
+    context: context,
+    builder: (context) => _TextPromptDialog(
+      title: title,
+      initialValue: initialValue,
+      hintText: hintText,
+      labelText: labelText,
+      minLines: minLines,
+      maxLines: maxLines,
+      confirmLabel: confirmLabel,
+    ),
+  );
+}
+
+class _TextPromptDialog extends StatefulWidget {
+  final String title;
+  final String initialValue;
+  final String? hintText;
+  final String? labelText;
+  final int minLines;
+  final int maxLines;
+  final String confirmLabel;
+
+  const _TextPromptDialog({
+    required this.title,
+    required this.initialValue,
+    required this.hintText,
+    required this.labelText,
+    required this.minLines,
+    required this.maxLines,
+    required this.confirmLabel,
+  });
+
+  @override
+  State<_TextPromptDialog> createState() => _TextPromptDialogState();
+}
+
+class _TextPromptDialogState extends State<_TextPromptDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialValue);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: 480,
+        child: TextField(
+          controller: _controller,
+          autofocus: true,
+          minLines: widget.minLines,
+          maxLines: widget.maxLines,
+          decoration: InputDecoration(
+            hintText: widget.hintText,
+            labelText: widget.labelText,
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, _controller.text.trim()),
+          child: Text(widget.confirmLabel),
+        ),
+      ],
+    );
+  }
+}
+
 class CanteraScrollBehavior extends MaterialScrollBehavior {
   const CanteraScrollBehavior();
 

@@ -777,37 +777,15 @@ class _EditableMethodologyBox extends StatelessWidget {
   }
 
   Future<void> _edit(BuildContext context) async {
-    final controller = TextEditingController(text: methodology.playingStyle);
-    final value = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Forma de jugar'),
-        content: SizedBox(
-          width: 520,
-          child: TextField(
-            controller: controller,
-            autofocus: true,
-            minLines: 6,
-            maxLines: 10,
-            decoration: const InputDecoration(
-              hintText:
-                  'Ej: presionar alto tras perdida, salir corto cuando haya apoyo, atacar por bandas...',
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
+    final value = await promptForText(
+      context,
+      title: 'Impronta futbolística',
+      initialValue: methodology.playingStyle,
+      hintText:
+          'Ej: presionar alto tras perdida, salir corto cuando haya apoyo, atacar por bandas...',
+      minLines: 6,
+      maxLines: 10,
     );
-    controller.dispose();
     if (value == null) return;
     final scope = AppScope.of(context);
     scope.updateClub(

@@ -42,7 +42,48 @@ Future<void> main() async {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
+  // Any widget that throws while building renders this instead of a blank/grey
+  // rectangle, so a broken section always shows something the user can act on.
+  ErrorWidget.builder = (_) => const _SectionErrorView();
   runApp(const CanteraApp());
+}
+
+class _SectionErrorView extends StatelessWidget {
+  const _SectionErrorView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: CX.canvas,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, color: CX.amber, size: 34),
+                const SizedBox(height: 12),
+                const Text(
+                  'Esta sección no se pudo mostrar',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Probá cambiar de sección y volver, o recargá la página. '
+                  'Tus datos quedan guardados.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: CX.muted, fontSize: 13, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class AppScope extends InheritedWidget {

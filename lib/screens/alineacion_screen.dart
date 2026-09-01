@@ -99,6 +99,30 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     _dateController.addListener(_refreshPitchHeader);
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncCategory();
+  }
+
+  /// Reacts to a club/category change. Runs here (not in build) because
+  /// [_load] writes to text controllers whose listeners call setState, which
+  /// is illegal during build and was leaving the screen blank.
+  void _syncCategory() {
+    final club = AppScope.of(context).club;
+    final next = club.categories.any((c) => c.id == _categoryId)
+        ? _categoryId
+        : club.categories.isEmpty
+            ? null
+            : club.categories.first.id;
+    if (_categoryId == next) return;
+    _categoryId = next;
+    _editing = false;
+    if (next != null) {
+      _load(club, club.categories.firstWhere((c) => c.id == next));
+    }
+  }
+
   void _refreshPitchHeader() {
     if (mounted) setState(() {});
   }
@@ -402,16 +426,6 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
         : club.categories.isEmpty
         ? null
         : club.categories.first.id;
-    if (_categoryId != selectedCategoryId) {
-      _categoryId = selectedCategoryId;
-      if (selectedCategoryId != null) {
-        _load(
-          club,
-          club.categories.firstWhere((c) => c.id == selectedCategoryId),
-        );
-      }
-      _editing = false;
-    }
     final category = selectedCategoryId == null
         ? null
         : club.categories.firstWhere((c) => c.id == selectedCategoryId);

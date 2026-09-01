@@ -118,7 +118,37 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final club = scope.club;
     final category = club.categories.isEmpty ? null : club.categories.first;
     if (category == null) {
-      return const Center(child: Text('Primero crea una categoría.'));
+      return Scaffold(
+        appBar: AppBar(title: const Text('Asistencia')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 380),
+              padding: const EdgeInsets.all(20),
+              decoration: CX.panelDecoration(),
+              child: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.fact_check_outlined, color: CX.green, size: 32),
+                  SizedBox(height: 12),
+                  Text(
+                    'Todavía no hay un plantel para pasar lista',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Cargá el equipo en "Mi equipo" y volvé acá para registrar la asistencia.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
     }
     final players = club.players
         .where((player) => player.categoryId == category.id)

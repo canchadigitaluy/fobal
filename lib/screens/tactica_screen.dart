@@ -81,9 +81,16 @@ class TacticaScreenState extends State<TacticaScreen> {
           ),
         ),
         const Divider(height: 1),
+        // Section -> screen map. The screen classes keep historical names:
+        // CuotaScreen  = "Plantel" (squad + tracking)
+        // AsistenciaScreen = "Asistencia" (LUD profiles only)
+        // ReservasScreen = "Planificar" (match / session planner)
+        // PerfilScreen = "Impronta futbolística" (playing identity)
+        // They each render their own Scaffold and a real empty state, so a
+        // missing plantel or category never leaves this area blank.
         Expanded(
           child: KeyedSubtree(
-            key: ValueKey('tactica-section-$_section'),
+            key: ValueKey('tactica-section-$selectedSection-$external'),
             child: switch (selectedSection) {
               0 => const CuotaScreen(),
               1 => external ? const ReservasScreen() : const AsistenciaScreen(),

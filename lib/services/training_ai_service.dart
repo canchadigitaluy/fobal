@@ -385,7 +385,7 @@ class TrainingAiService {
       data = jsonDecode(response.body) as Map<String, dynamic>;
     } catch (_) {
       throw const TrainingAiException(
-        'El asistente devolvio una respuesta incompleta. Intenta nuevamente.',
+        'No pudimos armar la sesión ahora. Probá de nuevo en unos segundos.',
       );
     }
 
@@ -395,7 +395,7 @@ class TrainingAiService {
         throw TrainingAiException(message);
       }
       throw const TrainingAiException(
-        'No se pudo generar una respuesta confiable. Revisa los datos e intenta nuevamente.',
+        'No pudimos generar la sesión con estos datos. Ajustá el objetivo o probá otra vez.',
       );
     }
 
@@ -423,10 +423,13 @@ class TrainingAiService {
         )
         .toList();
 
-    final minimumBlocks = mode == 'match_tactic' ? 6 : 4;
+    // Minimal viable plan: enough blocks to run something on the pitch. The
+    // backend always returns a contextual fallback, so this only trips on a
+    // genuinely empty response.
+    final minimumBlocks = mode == 'match_tactic' ? 4 : 3;
     if (blocks.length < minimumBlocks) {
       throw const TrainingAiException(
-        'La IA no produjo un plan suficientemente detallado. Vuelve a intentarlo con mas contexto.',
+        'No pudimos generar la sesión con estos datos. Ajustá el objetivo o probá otra vez.',
       );
     }
 
@@ -444,25 +447,19 @@ class TrainingAiService {
     final limitations = List<String>.from(
       data['limitations'] as List<dynamic>? ?? [],
     );
-    final confidence = data['confidence'] as String? ?? '';
-
-    if (title.trim().isEmpty ||
-        diagnosis.trim().isEmpty ||
-        coachCues.length < 2 ||
-        successIndicators.length < 2) {
-      throw const TrainingAiException(
-        'La respuesta no alcanzo el nivel de detalle necesario. Agrega informacion concreta e intenta nuevamente.',
-      );
+    var confidence = data['confidence'] as String? ?? '';
+    if (!const {'high', 'medium', 'low'}.contains(confidence)) {
+      confidence = 'medium';
     }
-    if (contextSources.isEmpty ||
-        !const {'high', 'medium', 'low'}.contains(confidence)) {
+
+    if (title.trim().isEmpty || diagnosis.trim().isEmpty) {
       throw const TrainingAiException(
-        'La respuesta no explico que datos utilizo. Vuelve a intentarlo para obtener un plan trazable.',
+        'No pudimos generar la sesión con estos datos. Ajustá el objetivo o probá otra vez.',
       );
     }
 
     return TrainingSession(
-      id: 'gemini-${DateTime.now().millisecondsSinceEpoch}',
+      id: 'sesion-${DateTime.now().millisecondsSinceEpoch}',
       categoryId: request.category.id,
       title: title,
       objective: diagnosis,

@@ -137,14 +137,11 @@ function validatePayload(payload) {
       missing.push("caracteristicas concretas del plantel propio");
     }
   } else {
-    if (!meaningful(session.objective, 8)) missing.push("un objetivo futbolistico concreto");
-    if (!meaningful(session.problem, 8)) missing.push("un problema observable que quieras corregir");
-    if (!simpleValue(session.space, 3)) missing.push("el espacio real disponible");
-    if (!Number.isInteger(session.duration_minutes) || session.duration_minutes < 30) {
-      missing.push("una duracion valida");
-    }
-    if (!Number.isInteger(session.available_players) || session.available_players < 4) {
-      missing.push("la cantidad de jugadores disponibles");
+    // Training sessions can be generated with sparse input: the model (and the
+    // contextual fallback) fill space, duration and player count with sane
+    // defaults. Only an objective is genuinely required.
+    if (!simpleValue(session.objective, 4)) {
+      missing.push("un objetivo para la sesion");
     }
   }
 
@@ -195,12 +192,31 @@ export default async function handler(req, res) {
     if (missing.length > 0) {
       res.status(422).json({
         error: "insufficient_context",
-        message: `Para crear una respuesta realmente personalizada, completa ${missing.join(", ")}.`,
+        message: `Para armar la sesión necesitamos ${missing.join(", ")}.`,
       });
       return;
     }
 
     mode = payload.mode === "match_tactic" ? "match_tactic" : "training_session";
+    if (mode === "training_session") {
+      // Fill sparse training input with sane defaults so both the model and
+      // the fallback always have something concrete to work with.
+      const sr = (payload.session_request = payload.session_request || {});
+      const loaded = Number(payload?.data_quality?.category_players_loaded) || 0;
+      if (!simpleValue(sr.space, 3)) sr.space = "media cancha";
+      if (!Number.isInteger(sr.duration_minutes) || sr.duration_minutes < 20) {
+        sr.duration_minutes = 60;
+      }
+      if (
+        !Number.isInteger(sr.available_players) ||
+        sr.available_players < 1
+      ) {
+        sr.available_players = loaded > 0 ? loaded : 12;
+      }
+      if (!simpleValue(sr.problem, 4)) {
+        sr.problem = "mejorar la ejecucion del objetivo planteado";
+      }
+    }
     const schema = {
       title: "Titulo especifico del caso",
       objective: "Diagnostico breve que conecta explicitamente los datos y justifica las prioridades",
@@ -587,7 +603,7 @@ async function authenticateClubRequest(req, payload) {
       ok: false,
       status: 401,
       error: "not_authenticated",
-      message: "Inicia sesion con tu cuenta del club para usar el asistente.",
+      message: "Iniciá sesión para usar el asistente.",
     };
   }
   const clubId = String(payload?.club?.id || "");

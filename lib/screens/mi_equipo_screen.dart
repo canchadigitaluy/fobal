@@ -59,7 +59,9 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
     );
     if (player == null || !mounted) return;
     final scope = AppScope.of(context);
-    final categoryId = scope.selectedCategoryId ?? scope.fullClub.categories.first.id;
+    final cats = scope.fullClub.categories;
+    final categoryId = scope.selectedCategoryId ??
+        (cats.isNotEmpty ? cats.first.id : 'plantel');
     final updated = player.copyWith(categoryId: categoryId);
     final categories = scope.fullClub.categories
         .map((category) => category.id == categoryId

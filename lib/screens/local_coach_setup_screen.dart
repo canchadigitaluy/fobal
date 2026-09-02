@@ -282,7 +282,15 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
                 const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('${_players.length} jugadores cargados', style: const TextStyle(color: CX.green, fontWeight: FontWeight.w800)),
+                  child: Text(
+                    _players.length == 1
+                        ? '1 jugador cargado'
+                        : '${_players.length} jugadores cargados',
+                    style: const TextStyle(
+                      color: CX.green,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ],
             ],

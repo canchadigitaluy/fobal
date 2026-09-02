@@ -1391,7 +1391,9 @@ class _SessionTimeline extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: CX.green.withValues(alpha: .24)),
       ),
-      child: Column(
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
         children: ordered
             .take(3)
             .map(
@@ -1407,6 +1409,7 @@ class _SessionTimeline extends StatelessWidget {
               ),
             )
             .toList(),
+        ),
       ),
     );
   }

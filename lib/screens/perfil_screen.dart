@@ -38,7 +38,8 @@ class PerfilScreen extends StatelessWidget {
                 _SignalTile(
                   metric: _SignalMetric(
                     'Plantel',
-                    '${club.players.length} jugadores',
+                    '${club.players.length} '
+                        '${club.players.length == 1 ? 'jugador' : 'jugadores'}',
                     Icons.groups_2_outlined,
                     CX.green,
                   ),

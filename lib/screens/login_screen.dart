@@ -650,7 +650,9 @@ class _ModernLoginView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final desktop = MediaQuery.sizeOf(context).width >= 860;
-    final form = SingleChildScrollView(
+    final form = Material(
+      type: MaterialType.transparency,
+      child: SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: desktop ? 54 : 28, vertical: 28),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 390),
@@ -738,6 +740,7 @@ class _ModernLoginView extends StatelessWidget {
             ],
           ],
         ),
+      ),
       ),
     );
     return Scaffold(

@@ -3,11 +3,9 @@
 import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
-import '../services/preview_access_service.dart';
 import '../services/supabase_auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -19,7 +17,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   static const _postAuthModeKey = 'cantera_post_auth_mode';
-  UserRole _role = UserRole.coach;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _signupEmailController = TextEditingController();
@@ -27,10 +24,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _lastNameController = TextEditingController();
   final _signupPasswordController = TextEditingController();
   final _signupPassword2Controller = TextEditingController();
-  final _codeController = TextEditingController();
   bool _googleLoading = false;
   bool _emailLoading = false;
-  bool _previewLoading = false;
   bool _ludMode = true;
   bool _remember = true;
   bool _creatingAccount = false;
@@ -85,13 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _lastNameController.dispose();
     _signupPasswordController.dispose();
     _signupPassword2Controller.dispose();
-    _codeController.dispose();
     super.dispose();
-  }
-
-  void _enter() {
-    AppScope.of(context).selectRole(_role);
-    Navigator.pushReplacementNamed(context, '/home');
   }
 
   String _localRoute() {
@@ -99,36 +88,6 @@ class _LoginScreenState extends State<LoginScreen> {
     return localClubId == null || localClubId.isEmpty
         ? '/local-setup'
         : '/local-home';
-  }
-
-  Future<void> _enterWithCode() async {
-    if (_previewLoading) return;
-    final code = _codeController.text.trim().replaceAll(' ', '');
-    if (code.length != 4) {
-      setState(() => _authMessage = 'Ingresa los cuatro numeros.');
-      return;
-    }
-    setState(() {
-      _previewLoading = true;
-      _authMessage = null;
-    });
-    try {
-      await PreviewAccessService.grant(code);
-      if (!mounted) return;
-      AppScope.of(context).selectRole(UserRole.coach);
-      Navigator.pushReplacementNamed(
-        context,
-        _ludMode ? '/preview-access' : _localRoute(),
-      );
-    } on PreviewAccessException catch (error) {
-      if (mounted) setState(() => _authMessage = error.message);
-    } catch (_) {
-      if (mounted) {
-        setState(() => _authMessage = 'No se pudo validar el acceso.');
-      }
-    } finally {
-      if (mounted) setState(() => _previewLoading = false);
-    }
   }
 
   Future<void> _enterWithGoogle() async {
@@ -268,37 +227,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _sendMagicLink() async {
-    setState(() {
-      _emailLoading = true;
-      _authMessage = null;
-    });
-
-    try {
-      AppScope.of(context).selectRole(_role);
-      await SupabaseAuthService.sendMagicLink(_emailController.text);
-      if (!mounted) return;
-      setState(() {
-        _authMessage =
-            'Te enviamos un enlace de acceso. Al abrirlo, fobal validara tu club.';
-      });
-    } on AuthConfigException {
-      if (!mounted) return;
-      setState(() => _authMessage = 'No se pudo conectar el acceso.');
-    } on AuthInputException catch (error) {
-      if (!mounted) return;
-      setState(() => _authMessage = error.message);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _authMessage =
-            'No se pudo enviar el enlace. Vuelve a intentar.';
-      });
-    } finally {
-      if (mounted) setState(() => _emailLoading = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_creatingAccount) {
@@ -356,260 +284,6 @@ class _LoginScreenState extends State<LoginScreen> {
         _creatingAccount = true;
         _authMessage = null;
       }),
-    );
-    return Scaffold(
-      backgroundColor: CX.bg,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final desktop = constraints.maxWidth >= 860;
-            return Row(
-              children: [
-                if (desktop) const Expanded(flex: 6, child: _ProductStory()),
-                Expanded(
-                  flex: desktop ? 4 : 1,
-                  child: Container(
-                    color: CX.canvas,
-                    child: Center(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: desktop ? 54 : 22,
-                          vertical: 28,
-                        ),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 430),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (!desktop) ...[
-                                const _MobileBrand(),
-                                const SizedBox(height: 40),
-                              ],
-                              const Text(
-                                'Bienvenido a tu cantera',
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  height: 1.1,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Organiza el trabajo deportivo y convierte informacion de campo en decisiones.',
-                                style: TextStyle(
-                                  color: CX.muted,
-                                  height: 1.45,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(height: 26),
-                              _AccessPathSelector(
-                                ludMode: _ludMode,
-                                onChanged: (value) =>
-                                    setState(() => _ludMode = value),
-                              ),
-                              const SizedBox(height: 22),
-                              const Text(
-                                'ACCESO DE PRUEBA',
-                                style: TextStyle(
-                                  color: CX.faint,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              TextField(
-                                controller: _codeController,
-                                keyboardType: TextInputType.number,
-                                textInputAction: TextInputAction.done,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 14,
-                                ),
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  LengthLimitingTextInputFormatter(4),
-                                ],
-                                onChanged: (value) {
-                                  if (value.length == 4) _enterWithCode();
-                                },
-                                onSubmitted: (_) => _enterWithCode(),
-                                decoration: const InputDecoration(
-                                  labelText: 'Codigo de acceso',
-                                  prefixIcon: Icon(Icons.lock_outline, size: 19),
-                                  counterText: '',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              ElevatedButton.icon(
-                                onPressed: _previewLoading ? null : _enterWithCode,
-                                icon: _previewLoading
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(Icons.arrow_forward, size: 18),
-                                label: Text(
-                                  _previewLoading
-                                      ? 'Validando...'
-                                      : _ludMode
-                                      ? 'Elegir club de Liga'
-                                      : 'Crear espacio del profe',
-                                ),
-                              ),
-                              const SizedBox(height: 18),
-                              ExpansionTile(
-                                tilePadding: EdgeInsets.zero,
-                                childrenPadding: EdgeInsets.zero,
-                                title: const Text(
-                                  'Acceso interno',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                children: [
-                                  const Text(
-                                    'Para cuentas reales del club.',
-                                    style: TextStyle(
-                                      color: CX.muted,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _RoleSelector(
-                                    value: _role,
-                                    onChanged: (value) =>
-                                        setState(() => _role = value),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TextField(
-                                    controller: _emailController,
-                                    keyboardType: TextInputType.emailAddress,
-                                    autofillHints: const [AutofillHints.email],
-                                    onSubmitted: (_) => _sendMagicLink(),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Email del cuerpo tecnico',
-                                      prefixIcon: Icon(
-                                        Icons.mail_outline,
-                                        size: 19,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                              OutlinedButton.icon(
-                                onPressed: _emailLoading
-                                    ? null
-                                    : _sendMagicLink,
-                                icon: _emailLoading
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: CX.green,
-                                        ),
-                                      )
-                                    : const Icon(
-                                        Icons.forward_to_inbox_outlined,
-                                        size: 18,
-                                      ),
-                                label: Text(
-                                  _emailLoading
-                                      ? 'Enviando enlace'
-                                      : 'Enviar enlace de acceso',
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              ElevatedButton.icon(
-                                onPressed: _googleLoading
-                                    ? null
-                                    : _enterWithGoogle,
-                                icon: _googleLoading
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: CX.green,
-                                        ),
-                                      )
-                                    : const Icon(Icons.g_mobiledata, size: 24),
-                                label: Text(
-                                  _googleLoading
-                                      ? 'Conectando con Google'
-                                      : 'Continuar con Google',
-                                ),
-                              ),
-                                  const SizedBox(height: 12),
-                                  OutlinedButton.icon(
-                                    onPressed: _enter,
-                                    icon: const Icon(
-                                      Icons.visibility_outlined,
-                                      size: 18,
-                                    ),
-                                    label: const Text('Entrar solo a demo'),
-                                  ),
-                                ],
-                              ),
-                              if (_authMessage != null) ...[
-                                const SizedBox(height: 12),
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF6DD),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: const Color(0x66F0BE57),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _authMessage!,
-                                    style: const TextStyle(
-                                      color: CX.amber,
-                                      fontSize: 12,
-                                      height: 1.35,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 14),
-                              const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.shield_outlined,
-                                    color: CX.faint,
-                                    size: 14,
-                                  ),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'Google habilita acceso por club real',
-                                    style: TextStyle(
-                                      color: CX.faint,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
     );
   }
 }
@@ -1109,44 +783,6 @@ class _ProductStory extends StatelessWidget {
   }
 }
 
-class _RoleSelector extends StatelessWidget {
-  final UserRole value;
-  final ValueChanged<UserRole> onChanged;
-  const _RoleSelector({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CX.line),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _RoleOption(
-              label: 'Coordinador',
-              icon: Icons.hub_outlined,
-              selected: value == UserRole.coordinator,
-              onTap: () => onChanged(UserRole.coordinator),
-            ),
-          ),
-          Expanded(
-            child: _RoleOption(
-              label: 'Entrenador',
-              icon: Icons.sports_outlined,
-              selected: value == UserRole.coach,
-              onTap: () => onChanged(UserRole.coach),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _AccessPathSelector extends StatelessWidget {
   final bool ludMode;
   final ValueChanged<bool> onChanged;
@@ -1227,53 +863,6 @@ class _AccessPathOption extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: selected ? CX.white : CX.muted,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RoleOption extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-  const _RoleOption({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
-        decoration: BoxDecoration(
-          color: selected ? CX.panel3 : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 17, color: selected ? CX.green : CX.faint),
-            const SizedBox(width: 7),
-            Flexible(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
                   color: selected ? CX.white : CX.muted,
                 ),
               ),

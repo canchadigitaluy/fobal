@@ -123,63 +123,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _syncLud(BuildContext context, CanteraClub club) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final membership = await ClubAccessService.activeMembership();
-      if (membership == null || membership.ludTeamId == null) {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Este club todavia no tiene un equipo vinculado.'),
-          ),
-        );
-        return;
-      }
-      final contextData = await ClubAccessService.loadClubContext(membership);
-      if (!context.mounted || contextData == null) return;
-      AppScope.of(context).updateClub(
-        club.copyWith(
-          name: contextData.teamName.isNotEmpty
-              ? contextData.teamName
-              : club.name,
-          categories: contextData.categories,
-          players: preservePlayerProfiles(
-            incoming: contextData.players,
-            existing: club.players,
-          ),
-          dataSource: contextData.source,
-          seasonYear: contextData.seasonYear ?? club.seasonYear,
-          logoUrl: contextData.logoUrl.isNotEmpty
-              ? contextData.logoUrl
-              : club.logoUrl,
-          syncedAt:
-              contextData.syncedAt?.toUtc().toIso8601String() ?? club.syncedAt,
-        ),
-      );
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            contextData.source == 'supabase_cache'
-                ? 'La liga no respondio: se actualizo con el respaldo guardado.'
-                : 'Plantel actualizado: ${contextData.categories.length} categorias y ${contextData.players.length} jugadores.',
-          ),
-        ),
-      );
-    } on ClubContextLoadException catch (error) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('La liga respondio con error ${error.statusCode}.'),
-        ),
-      );
-    } catch (_) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo actualizar la liga en este momento.'),
-        ),
-      );
-    }
-  }
-
   Future<void> _syncSharedPlanning() async {
     if (_planningSyncing) return;
     setState(() {
@@ -274,7 +217,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final scope = AppScope.of(context);
     final club = scope.club;
     _ensureLeagueFutures();
-    final configurationTarget = scope.role == UserRole.coordinator ? 4 : 1;
     final setupItems = <bool>[
       club.name.trim().isNotEmpty &&
           club.name != 'Club Demo' &&
@@ -295,32 +237,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final planned = club.sessions
         .where((session) => session.status == 'planned')
         .length;
-    final completedSessions = club.sessions
-        .where((session) => session.status == 'completed')
-        .length;
-    final postTrainingDebt = (completedSessions - club.trainingReports.length)
-        .clamp(0, 999);
-    final ludPlayers = club.players
-        .where(
-          (player) =>
-              player.note.contains('LUD player_id') ||
-              player.note.contains('Importado desde LUD Stats'),
-        )
-        .length;
-    final positionedPlayers = club.players
-        .where((player) => player.position.trim().isNotEmpty)
-        .length;
     final completePlayerProfiles = club.players
         .where(_hasAiReadyPlayerProfile)
-        .length;
-    final playersWithoutCategory = club.players
-        .where(
-          (player) =>
-              player.categoryId.isEmpty ||
-              !club.categories.any(
-                (category) => category.id == player.categoryId,
-              ),
-        )
         .length;
     return Scaffold(
       body: SafeArea(
@@ -494,135 +412,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-  }
-
-  List<_DecisionItem> _buildDecisionItems({
-    required CanteraClub club,
-    required UserRole role,
-    required int plannedSessions,
-    required int ludPlayers,
-    required int playersWithoutCategory,
-    required int positionedPlayers,
-    required int completePlayerProfiles,
-    required int postTrainingDebt,
-    required int configurationTarget,
-  }) {
-    final items = <_DecisionItem>[];
-    final hasStaffNotes = club.trainingReports.isNotEmpty;
-    final canWrite = role != UserRole.viewer;
-
-    if (club.categories.isEmpty) {
-      items.add(
-        _DecisionItem(
-          Icons.account_tree_outlined,
-          CX.amber,
-          'Crear estructura deportiva',
-          'Sin categorias no hay planificacion por edad, plantel ni seguimiento real.',
-          'Configurar',
-          configurationTarget,
-        ),
-      );
-    }
-    if (playersWithoutCategory > 0) {
-      items.add(
-        _DecisionItem(
-          Icons.link_off_outlined,
-          CX.amber,
-          '$playersWithoutCategory jugadores sin categoria',
-          'fobal los conserva separados para no mezclar planteles privados.',
-          role == UserRole.coordinator ? 'Revisar' : 'Ver campo',
-          role == UserRole.coordinator ? configurationTarget : 1,
-        ),
-      );
-    }
-    if (plannedSessions == 0 && club.categories.isNotEmpty && canWrite) {
-      items.add(
-        _DecisionItem(
-          Icons.auto_awesome_outlined,
-          CX.green,
-          'Planificar la proxima sesion',
-          'El asistente puede usar plantel, metodologia y reportes reales de la categoria.',
-          'Abrir asistente',
-          2,
-        ),
-      );
-    }
-    if (club.players.isNotEmpty && positionedPlayers < club.players.length) {
-      items.add(
-        _DecisionItem(
-          Icons.sports_soccer_outlined,
-          CX.green,
-          '${club.players.length - positionedPlayers} jugadores sin posicion',
-          'Completar roles por linea mejora tacticas, sesiones y lectura del plantel.',
-          'Editar campo',
-          1,
-        ),
-      );
-    }
-    if (club.players.isNotEmpty &&
-        completePlayerProfiles < club.players.length &&
-        positionedPlayers == club.players.length) {
-      items.add(
-        _DecisionItem(
-          Icons.psychology_alt_outlined,
-          CX.amber,
-          '${club.players.length - completePlayerProfiles} perfiles individuales incompletos',
-          'Faltan rol alternativo, pie habil o nota tecnica en parte del plantel.',
-          'Completar',
-          1,
-        ),
-      );
-    }
-    if (!hasStaffNotes && club.sessions.isNotEmpty && canWrite) {
-      items.add(
-        _DecisionItem(
-          Icons.assignment_outlined,
-          CX.blue,
-          'Cerrar el ciclo post-entreno',
-          'Registrar una lectura corta alimenta continuidad y mejora recomendaciones.',
-          'Registrar',
-          2,
-        ),
-      );
-    }
-    if (postTrainingDebt > 0 && canWrite) {
-      items.add(
-        _DecisionItem(
-          Icons.assignment_turned_in_outlined,
-          CX.blue,
-          '$postTrainingDebt devoluciones pendientes',
-          'Hay sesiones cerradas sin lectura post-entreno; completar esa informacion mejora continuidad.',
-          'Registrar',
-          2,
-        ),
-      );
-    }
-    if (club.methodology.playingStyle.trim().isEmpty) {
-      items.add(
-        _DecisionItem(
-          Icons.account_tree_outlined,
-          CX.amber,
-          'Metodologia pendiente',
-          'La idea de juego es el marco para sesiones, partido e inteligencia.',
-          role == UserRole.coordinator ? 'Definir' : 'Ver identidad',
-          role == UserRole.coordinator ? configurationTarget : 3,
-        ),
-      );
-    }
-
-    if (items.isEmpty) {
-      return const [
-        _DecisionItem(
-          Icons.verified_outlined,
-          CX.green,
-          'Operacion estable',
-          'La base principal esta lista. El siguiente salto es sostener registros semanales.',
-          'Ver campo',
-          1,
-        ),
-      ];
-    }
-    return items.take(4).toList();
   }
 
   bool _hasAiReadyPlayerProfile(Player player) =>
@@ -1950,11 +1739,6 @@ class _TodayPanel extends StatelessWidget {
     final nextMatchPlan = upcomingMatchPlans.isEmpty
         ? null
         : upcomingMatchPlans.first;
-    final completedSessions = club.sessions
-        .where((session) => session.status == 'completed')
-        .length;
-    final postTrainingDebt = (completedSessions - club.trainingReports.length)
-        .clamp(0, 999);
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: CX.panelDecoration(),
@@ -2636,45 +2420,26 @@ class _IntelligenceStrip extends StatelessWidget {
 class _SectionHeader extends StatelessWidget {
   final String eyebrow;
   final String title;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-  const _SectionHeader({
-    required this.eyebrow,
-    required this.title,
-    this.actionLabel,
-    this.onAction,
-  });
+  const _SectionHeader({required this.eyebrow, required this.title});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                eyebrow,
-                style: const TextStyle(
-                  color: CX.green,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
+        Text(
+          eyebrow,
+          style: const TextStyle(
+            color: CX.green,
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        if (actionLabel != null)
-          TextButton(onPressed: onAction, child: Text(actionLabel!)),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+        ),
       ],
     );
   }

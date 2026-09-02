@@ -23,13 +23,9 @@ class AccessGateScreen extends StatefulWidget {
 class _AccessGateScreenState extends State<AccessGateScreen> {
   late Future<_AccessState> _state;
   String? _selectedClubId;
-  String? _selectedActiveClubId;
   String? _selectedCategoryId;
-  final String _selectedRole = 'coach';
   final _inviteController = TextEditingController();
-  final bool _submitting = false;
   bool _loadingClubContext = false;
-  String? _message;
   ClubMembership? _categoryMembership;
   String? _categoryRoute;
   List<CategorySquad> _categoryOptions = const [];
@@ -65,119 +61,6 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
     final ligaClubs = await ClubAccessService.listLigaClubs();
     if (ligaClubs.isNotEmpty) return ligaClubs;
     return ClubAccessService.listClubs();
-  }
-
-  Future<void> _enter(ClubMembership membership) async {
-    if (_loadingClubContext) return;
-    setState(() => _loadingClubContext = true);
-    ClubAccessService.selectActiveMembership(membership);
-
-    final scope = AppScope.of(context);
-    CanteraClubContext? contextData;
-    String? syncError;
-    try {
-      contextData = await ClubAccessService.loadClubContext(membership);
-    } on ClubContextLoadException catch (_) {
-      syncError = 'No pudimos cargar los datos del club ahora.';
-      contextData = null;
-    } catch (_) {
-      syncError = 'No pudimos cargar los datos del club ahora.';
-      contextData = null;
-    }
-    if (!mounted) return;
-
-    final localClub = scope.loadClub(membership.clubId);
-    List<ClubTacticalRecord> sharedRecords = const [];
-    try {
-      sharedRecords = await ClubAccessService.loadTacticalData(limit: 100);
-    } catch (_) {
-      sharedRecords = const [];
-    }
-    if (!mounted) return;
-
-    final basePlayers = contextData == null
-        ? localClub.players
-        : preservePlayerProfiles(
-            incoming: contextData.players,
-            existing: localClub.players,
-          );
-    final profiledPlayers = applyRemotePlayerProfiles(
-      players: basePlayers,
-      records: sharedRecords,
-    );
-
-    scope.updateClub(
-      localClub.copyWith(
-        id: membership.clubId,
-        name: contextData?.teamName.isNotEmpty == true
-            ? contextData!.teamName
-            : membership.clubName,
-        league: membership.ludTeamId == null
-            ? localClub.league
-            : 'Liga Universitaria',
-        dataSource: contextData?.source ?? localClub.dataSource,
-        seasonYear: contextData?.seasonYear ?? localClub.seasonYear,
-        logoUrl: contextData?.logoUrl.isNotEmpty == true
-            ? contextData!.logoUrl
-            : localClub.logoUrl,
-        syncedAt:
-            contextData?.syncedAt?.toUtc().toIso8601String() ??
-            localClub.syncedAt,
-        categories: contextData?.categories ?? localClub.categories,
-        players: profiledPlayers,
-      ),
-    );
-    final allCategories = contextData?.categories ?? localClub.categories;
-    final categories = membership.accessibleCategories(allCategories);
-    final nextRole =
-      membership.role == 'viewer'
-          ? UserRole.viewer
-          : membership.role == 'club_admin'
-          ? UserRole.coordinator
-          : membership.role == 'platform_admin'
-          ? UserRole.coordinator
-          : UserRole.coach;
-    scope.selectRole(nextRole);
-    if (contextData == null && membership.ludTeamId != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${syncError ?? 'No pudimos cargar los datos del club ahora.'} Estás viendo los datos guardados.',
-          ),
-        ),
-      );
-    } else if (contextData?.source == 'supabase_cache') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Estás viendo los datos guardados del club.'),
-        ),
-      );
-    }
-    if (nextRole != UserRole.coordinator && categories.length > 1) {
-      setState(() {
-        _loadingClubContext = false;
-        _categoryMembership = membership;
-        _categoryRoute = widget.forcePreview ? '/preview-home' : '/home';
-        _categoryOptions = categories;
-        _selectedCategoryId = null;
-      });
-      return;
-    }
-    scope.selectCategory(categories.isEmpty ? null : categories.first.id);
-    await ClubAccessService.prewarmPrimaryLeagueData(
-      membership: membership,
-      categories: categories,
-    );
-    unawaited(
-      ClubAccessService.prewarmAllLeagueData(
-        membership: membership,
-        categories: categories,
-      ),
-    );
-    Navigator.pushReplacementNamed(
-      context,
-      widget.forcePreview ? '/preview-home' : '/home',
-    );
   }
 
   Future<void> _enterPreview(CanteraAccessClub club) async {
@@ -269,7 +152,6 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
           orElse: () => null,
         );
     if (membership == null || route == null || category == null) {
-      setState(() => _message = 'Elegí la categoría que vas a dirigir.');
       return;
     }
     setState(() => _loadingClubContext = true);
@@ -286,10 +168,6 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
     );
     if (!mounted) return;
     Navigator.pushReplacementNamed(context, route);
-  }
-
-  Future<void> _requestAccess() async {
-    setState(() => _message = 'Elegí un club de la lista para continuar.');
   }
 
   Future<void> _leave() async {
@@ -349,13 +227,6 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
                         _selectedCategoryId = null;
                       }),
                     );
-                  }
-                  CanteraAccessClub? selectedClub;
-                  for (final club in state.clubs) {
-                    if (club.id == _selectedClubId) {
-                      selectedClub = club;
-                      break;
-                    }
                   }
                   return _PreviewClubPicker(
                     clubs: state.clubs,

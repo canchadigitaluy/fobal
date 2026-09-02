@@ -53,23 +53,10 @@ class _ReservasScreenState extends State<ReservasScreen> {
   List<LudFixtureMatch> _fixtureMatches = const [];
   final Map<String, _FixtureMemory> _fixtureMemoryByCategory = {};
   final Set<String> _draftHydratedKeys = {};
-  late Future<List<ClubTacticalRecord>> _historyFuture;
 
   final TextEditingController _transcriptController = TextEditingController(
     text: '',
   );
-
-  @override
-  void initState() {
-    super.initState();
-    _historyFuture = ClubAccessService.loadTacticalData();
-  }
-
-  void _refreshHistory() {
-    setState(() {
-      _historyFuture = ClubAccessService.loadTacticalData();
-    });
-  }
 
   @override
   void dispose() {
@@ -160,7 +147,6 @@ class _ReservasScreenState extends State<ReservasScreen> {
         categoryId: category.id,
       );
       if (!mounted) return;
-      if (writeResult.synced) _refreshHistory();
       _markDraftResolved(category.id);
       setState(() {
         _generatedSession = session;
@@ -257,7 +243,6 @@ class _ReservasScreenState extends State<ReservasScreen> {
         categoryId: category.id,
       );
       if (!mounted) return;
-      if (writeResult.synced) _refreshHistory();
       _markDraftResolved(category.id);
       setState(() {
         _generatedTactic = tactic;
@@ -677,35 +662,6 @@ class _ReservasScreenState extends State<ReservasScreen> {
 
   String _draftStorageKey(String key) => 'cantera_os_tactical_draft_$key';
 
-  void _clearLocalDraft(String? categoryId) {
-    final key = _fixtureMemoryKey(categoryId);
-    if (key.isEmpty) return;
-    html.window.localStorage.remove(_draftStorageKey(key));
-    _fixtureMemoryByCategory.remove(key);
-    setState(() {
-      if (_fixtureMemoryKey(_selectedCategoryId) == key) {
-        _objective = '';
-        _problem = '';
-        _space = '';
-        _duration = 75;
-        _players = 18;
-        _sessionDate = DateTime.now().add(const Duration(days: 1));
-        _rivalName = '';
-        _rivalTableContext = '';
-        _rivalStyle = '';
-        _squadProfile = '';
-        _rivalMemory = '';
-        _rivalDangerPlayers = '';
-        _previousMatchNotes = '';
-        _matchDate = DateTime.now().add(const Duration(days: 7));
-        _fixtureContext = '';
-        _fixtureError = null;
-        _generatedSession = null;
-        _generatedTactic = null;
-      }
-    });
-  }
-
   void _markDraftResolved(String? categoryId) {
     final key = _fixtureMemoryKey(categoryId);
     if (key.isEmpty) return;
@@ -971,7 +927,6 @@ class _ReservasScreenState extends State<ReservasScreen> {
       categoryId: report.categoryId,
     );
     if (!mounted) return;
-    if (writeResult.synced) _refreshHistory();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -983,86 +938,6 @@ class _ReservasScreenState extends State<ReservasScreen> {
     );
   }
 
-  void _openHistoryRecord(ClubTacticalRecord record) {
-    if (record.type == 'session' || record.type == 'match_plan') {
-      final session = TrainingSession.fromJson(record.content);
-      setState(() {
-        if (session.categoryId.isNotEmpty) {
-          _selectedCategoryId = session.categoryId;
-        }
-        if (record.type == 'match_plan') {
-          _generatedTactic = session;
-        } else {
-          _generatedSession = session;
-        }
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${record.title} abierto en el asistente.')),
-      );
-      return;
-    }
-
-    final report = TrainingReport.fromJson(record.content);
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(record.title),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ReportLine(
-                  'Asistencia',
-                  '${report.attendanceCount}/${report.totalPlayers}',
-                ),
-                _ReportLine('Objetivo trabajado', report.objectiveWorked),
-                _ReportLine('Funciono bien', report.whatWentWell),
-                _ReportLine('A corregir', report.whatWentWrong),
-                _ReportLine('Proxima recomendacion', report.nextRecommendation),
-                _ReportLine(
-                  'Jugadores destacados',
-                  report.highlightedPlayers.join(', '),
-                ),
-                _ReportLine('Lesiones', report.injuries.join(', ')),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReportLine extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _ReportLine(this.label, this.value);
-
-  @override
-  Widget build(BuildContext context) {
-    if (value.trim().isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 13),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 3),
-          Text(value, style: const TextStyle(color: CX.muted, height: 1.35)),
-        ],
-      ),
-    );
-  }
 }
 
 class _TacticalHistory extends StatefulWidget {

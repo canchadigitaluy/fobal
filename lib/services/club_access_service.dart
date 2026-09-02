@@ -1242,7 +1242,6 @@ class CanteraClubContext {
   }
 
   static String _playerNote(Map<String, dynamic> item) {
-    final id = item['ludPlayerId'];
     return 'Importado desde la liga';
   }
 }

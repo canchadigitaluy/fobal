@@ -18,10 +18,7 @@ class _CuotaScreenState extends State<CuotaScreen> {
   String? _categoryId;
   String? _hydratedClubId;
   bool _syncing = false;
-  bool _syncFailed = false;
-  DateTime? _lastSyncedAt;
   List<TrainingSession> _matchPlans = const [];
-  int _remoteProfilesApplied = 0;
 
   void _scrollTo(GlobalKey key) {
     final target = key.currentContext;
@@ -68,10 +65,7 @@ class _CuotaScreenState extends State<CuotaScreen> {
 
   Future<void> _syncClubPlanning() async {
     if (_syncing) return;
-    setState(() {
-      _syncing = true;
-      _syncFailed = false;
-    });
+    setState(() => _syncing = true);
     try {
       final records = await ClubAccessService.loadTacticalData(limit: 100);
       if (!mounted) return;
@@ -110,17 +104,6 @@ class _CuotaScreenState extends State<CuotaScreen> {
         players: club.players,
         records: records,
       );
-      final appliedProfiles = profiledPlayers.where((player) {
-        final current = club.players.firstWhere(
-          (item) => item.id == player.id,
-          orElse: () => player,
-        );
-        return current.position != player.position ||
-            current.secondaryPositions != player.secondaryPositions ||
-            current.dominantFoot != player.dominantFoot ||
-            current.status != player.status ||
-            current.note != player.note;
-      }).length;
       scope.updateClub(
         club.copyWith(
           players: profiledPlayers,
@@ -139,16 +122,11 @@ class _CuotaScreenState extends State<CuotaScreen> {
       if (!mounted) return;
       setState(() {
         _syncing = false;
-        _lastSyncedAt = DateTime.now();
         _matchPlans = remoteMatchPlans;
-        _remoteProfilesApplied = appliedProfiles;
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _syncing = false;
-        _syncFailed = true;
-      });
+      setState(() => _syncing = false);
     }
   }
 

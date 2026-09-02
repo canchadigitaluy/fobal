@@ -1468,13 +1468,6 @@ class _RealMemberTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = member.status == 'active' ? CX.green : CX.amber;
-    final canEdit = const {
-      'platform_admin',
-      'club_admin',
-      'coach',
-      'assistant',
-      'physical_trainer',
-    }.contains(member.role);
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(Icons.person_outline, color: color),

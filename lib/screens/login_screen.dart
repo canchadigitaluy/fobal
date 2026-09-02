@@ -1235,52 +1235,6 @@ class _AccessPathOption extends StatelessWidget {
   }
 }
 
-class _AccessModeNote extends StatelessWidget {
-  final bool configured;
-  const _AccessModeNote({required this.configured});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: configured
-            ? CX.greenDark.withValues(alpha: .32)
-            : const Color(0xFFFFF6DD),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: configured
-              ? CX.green.withValues(alpha: .22)
-              : const Color(0x66F0BE57),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            configured ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
-            color: configured ? CX.green : CX.amber,
-            size: 18,
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Text(
-              configured
-                  ? 'Acceso real conectado: Supabase valida usuario, club y permisos.'
-                  : 'Supabase no esta configurado en este entorno. Solo el modo demo esta disponible.',
-              style: TextStyle(
-                color: configured ? CX.muted : CX.amber,
-                fontSize: 12,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _RoleOption extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -1442,50 +1396,6 @@ class _ProofPoint extends StatelessWidget {
       ),
     ],
   );
-}
-
-class _PitchPainter extends CustomPainter {
-  const _PitchPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0x0DFFFFFF)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    final field = Rect.fromLTWH(
-      size.width * .19,
-      size.height * .12,
-      size.width * .72,
-      size.height * .5,
-    );
-    canvas.drawRect(field, paint);
-    canvas.drawLine(
-      Offset(field.center.dx, field.top),
-      Offset(field.center.dx, field.bottom),
-      paint,
-    );
-    canvas.drawCircle(field.center, size.shortestSide * .07, paint);
-    canvas.drawRect(
-      Rect.fromCenter(
-        center: Offset(field.left, field.center.dy),
-        width: size.width * .18,
-        height: size.height * .25,
-      ),
-      paint,
-    );
-    canvas.drawRect(
-      Rect.fromCenter(
-        center: Offset(field.right, field.center.dy),
-        width: size.width * .18,
-        height: size.height * .25,
-      ),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _LoginTacticPainter extends CustomPainter {

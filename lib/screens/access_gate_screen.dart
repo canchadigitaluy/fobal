@@ -25,9 +25,9 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
   String? _selectedClubId;
   String? _selectedActiveClubId;
   String? _selectedCategoryId;
-  String _selectedRole = 'coach';
+  final String _selectedRole = 'coach';
   final _inviteController = TextEditingController();
-  bool _submitting = false;
+  final bool _submitting = false;
   bool _loadingClubContext = false;
   String? _message;
   ClubMembership? _categoryMembership;
@@ -376,205 +376,6 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
   }
 }
 
-class _LoadingClubContextCard extends StatelessWidget {
-  const _LoadingClubContextCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return const _MinimalLoadingMark();
-  }
-}
-
-class _MinimalLoadingMark extends StatelessWidget {
-  const _MinimalLoadingMark();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 220,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: CX.green.withValues(alpha: .35)),
-            ),
-            child: const CustomPaint(painter: _AccessIsoPainter()),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Cargando',
-            style: TextStyle(
-              color: CX.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 14),
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: .08, end: 1),
-            duration: Duration(milliseconds: 1800),
-            curve: Curves.easeInOutCubic,
-            builder: (context, value, _) {
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: LinearProgressIndicator(
-                  value: value,
-                  minHeight: 2,
-                  color: CX.green,
-                  backgroundColor: CX.line,
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccessIsoPainter extends CustomPainter {
-  const _AccessIsoPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final line = Paint()
-      ..color = CX.green
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * .07
-      ..strokeCap = StrokeCap.round;
-    final yellow = Paint()
-      ..color = CX.amber
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * .055
-      ..strokeCap = StrokeCap.round;
-    final dot = Paint()..color = CX.green;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * .16, h * .18, w * .68, h * .64),
-        Radius.circular(w * .16),
-      ),
-      line,
-    );
-    canvas.drawCircle(Offset(w * .5, h * .5), w * .15, line);
-    canvas.drawLine(Offset(w * .5, h * .21), Offset(w * .5, h * .79), line);
-    canvas.drawLine(Offset(w * .3, h * .57), Offset(w * .5, h * .25), line);
-    canvas.drawLine(Offset(w * .5, h * .5), Offset(w * .68, h * .42), yellow);
-    for (final point in [
-      Offset(w * .5, h * .24),
-      Offset(w * .3, h * .57),
-      Offset(w * .5, h * .5),
-      Offset(w * .58, h * .79),
-    ]) {
-      canvas.drawCircle(point, w * .06, dot);
-    }
-    canvas.drawCircle(Offset(w * .68, h * .42), w * .055, Paint()..color = CX.amber);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _ActiveClubPicker extends StatelessWidget {
-  final List<ClubMembership> memberships;
-  final List<CanteraAccessClub> clubs;
-  final String? selectedClubId;
-  final bool loading;
-  final ValueChanged<String?> onChanged;
-  final VoidCallback onEnter;
-  final VoidCallback onLeave;
-
-  const _ActiveClubPicker({
-    required this.memberships,
-    required this.clubs,
-    required this.selectedClubId,
-    required this.loading,
-    required this.onChanged,
-    required this.onEnter,
-    required this.onLeave,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final allClubs = clubs.isEmpty
-        ? memberships
-              .map(
-                (membership) => CanteraAccessClub(
-                  id: membership.clubId,
-                  name: membership.clubName,
-                  ludTeamId: membership.ludTeamId,
-                ),
-              )
-              .toList()
-        : clubs;
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: CX.panelDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _AccessBrand(),
-          const SizedBox(height: 24),
-          const Text(
-            'Elegir club',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Selecciona tu club. Luego elegis la categoria que vas a dirigir.',
-            style: TextStyle(color: CX.muted, fontSize: 13, height: 1.4),
-          ),
-          const SizedBox(height: 18),
-          DropdownButtonFormField<String>(
-            initialValue: selectedClubId,
-            decoration: const InputDecoration(
-              labelText: 'Club',
-              prefixIcon: Icon(Icons.shield_outlined),
-            ),
-            dropdownColor: CX.panel2,
-            items: allClubs
-                .map(
-                  (club) => DropdownMenuItem(
-                    value: club.id,
-                    child: Text(club.name),
-                  ),
-                )
-                .toList(),
-            onChanged: loading ? null : onChanged,
-          ),
-          const SizedBox(height: 14),
-          ElevatedButton.icon(
-            onPressed: loading || selectedClubId == null ? null : onEnter,
-            icon: loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.login),
-            label: Text(
-              loading ? 'Cargando club' : 'Entrar al club',
-            ),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: loading ? null : onLeave,
-            icon: const Icon(Icons.logout, size: 18),
-            label: const Text('Cambiar cuenta'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _PreviewClubPicker extends StatefulWidget {
   final List<CanteraAccessClub> clubs;
   final String? selectedClubId;
@@ -674,7 +475,7 @@ class _PreviewClubPickerState extends State<_PreviewClubPicker> {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: filtered.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final club = filtered[index];
                   final active = club.id == selectedClub?.id;
@@ -827,7 +628,7 @@ class _CategoryPicker extends StatelessWidget {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: categories.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final category = categories[index];
                   final active = category.id == selected?.id;
@@ -941,54 +742,6 @@ class _AccessBrand extends StatelessWidget {
   }
 }
 
-class _ClubSourceNote extends StatelessWidget {
-  final CanteraAccessClub club;
-  const _ClubSourceNote({required this.club});
-
-  @override
-  Widget build(BuildContext context) {
-    final linked = club.ludTeamId != null && club.ludTeamId!.trim().isNotEmpty;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: linked
-            ? CX.greenDark.withValues(alpha: .36)
-            : const Color(0xFFFFF6DD),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: linked
-              ? CX.green.withValues(alpha: .24)
-              : const Color(0x66F0BE57),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            linked ? Icons.verified_outlined : Icons.info_outline,
-            color: linked ? CX.green : CX.amber,
-            size: 18,
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Text(
-              linked
-                  ? 'Este club esta vinculado a la liga. Al entrar se cargan categorias y jugadores del equipo.'
-                  : 'Este club esta activo, pero todavia no tiene equipo de la liga vinculado.',
-              style: TextStyle(
-                color: linked ? CX.muted : CX.amber,
-                fontSize: 12,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _AccessState {
   final List<ClubMembership> activeMemberships;
   final ClubMembership? pending;
@@ -997,10 +750,8 @@ class _AccessState {
   final bool localMode;
 
   const _AccessState({
-    this.activeMemberships = const [],
-    this.pending,
     this.clubs = const [],
     this.previewMode = false,
     this.localMode = false,
-  });
+  }) : pending = null, activeMemberships = const [];
 }

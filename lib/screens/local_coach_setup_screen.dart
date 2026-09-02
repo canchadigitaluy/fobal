@@ -334,24 +334,27 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
       ('Asistencia', Icons.fact_check_outlined),
       ('Alineación & citaciones', Icons.view_module_outlined),
     ];
-    return Column(
-      children: options
-          .map(
-            (option) => CheckboxListTile(
-              value: _panelSections.contains(option.$1),
-              onChanged: (value) => setState(() {
-                if (value == true) {
-                  _panelSections.add(option.$1);
-                } else if (_panelSections.length > 1) {
-                  _panelSections.remove(option.$1);
-                }
-              }),
-              secondary: Icon(option.$2, color: CX.green),
-              title: Text(option.$1),
-              controlAffinity: ListTileControlAffinity.trailing,
-            ),
-          )
-          .toList(),
+    return Material(
+      type: MaterialType.transparency,
+      child: Column(
+        children: options
+            .map(
+              (option) => CheckboxListTile(
+                value: _panelSections.contains(option.$1),
+                onChanged: (value) => setState(() {
+                  if (value == true) {
+                    _panelSections.add(option.$1);
+                  } else if (_panelSections.length > 1) {
+                    _panelSections.remove(option.$1);
+                  }
+                }),
+                secondary: Icon(option.$2, color: CX.green),
+                title: Text(option.$1),
+                controlAffinity: ListTileControlAffinity.trailing,
+              ),
+            )
+            .toList(),
+      ),
     );
   }
 

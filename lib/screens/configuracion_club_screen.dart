@@ -1292,7 +1292,9 @@ class _RealClubAccessPanel extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(15),
           decoration: CX.panelDecoration(),
-          child: Column(
+          child: Material(
+            type: MaterialType.transparency,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -1346,6 +1348,7 @@ class _RealClubAccessPanel extends StatelessWidget {
                 ),
               ],
             ],
+          ),
           ),
         );
       },

@@ -468,89 +468,6 @@ class _CuotaScreenState extends State<CuotaScreen> {
   }
 }
 
-class _PlanningSyncBar extends StatelessWidget {
-  final bool syncing;
-  final bool failed;
-  final DateTime? lastSyncedAt;
-  final int profilesApplied;
-  final VoidCallback onRefresh;
-
-  const _PlanningSyncBar({
-    required this.syncing,
-    required this.failed,
-    required this.lastSyncedAt,
-    required this.profilesApplied,
-    required this.onRefresh,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final status = failed
-        ? 'Sin conexión · se mantiene la agenda local'
-        : syncing
-        ? 'Actualizando agenda compartida...'
-        : lastSyncedAt == null
-        ? 'Agenda local lista'
-        : [
-            'Agenda del club actualizada ${_timeLabel(lastSyncedAt!)}',
-            if (profilesApplied > 0) '$profilesApplied perfiles aplicados',
-          ].join(' / ');
-    return Container(
-      padding: const EdgeInsets.fromLTRB(13, 9, 7, 9),
-      decoration: BoxDecoration(
-        color: failed
-            ? CX.amber.withValues(alpha: .08)
-            : CX.green.withValues(alpha: .07),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: failed
-              ? CX.amber.withValues(alpha: .28)
-              : CX.green.withValues(alpha: .18),
-        ),
-      ),
-      child: Row(
-        children: [
-          if (syncing)
-            const SizedBox(
-              width: 17,
-              height: 17,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            Icon(
-              failed ? Icons.cloud_off_outlined : Icons.cloud_done_outlined,
-              color: failed ? CX.amber : CX.green,
-              size: 18,
-            ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Text(
-              status,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Actualizar agenda',
-            onPressed: syncing ? null : onRefresh,
-            icon: const Icon(Icons.refresh, size: 19),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _timeLabel(DateTime date) {
-    final now = DateTime.now();
-    final sameDay =
-        now.year == date.year && now.month == date.month && now.day == date.day;
-    final time =
-        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    return sameDay
-        ? 'hoy a las $time'
-        : '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')} a las $time';
-  }
-}
-
 class _UncategorizedPlayersPanel extends StatelessWidget {
   final List<Player> players;
 
@@ -565,7 +482,9 @@ class _UncategorizedPlayersPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: CX.amber.withValues(alpha: .35)),
       ),
-      child: Column(
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -616,6 +535,7 @@ class _UncategorizedPlayersPanel extends StatelessWidget {
               style: const TextStyle(color: CX.amber, fontSize: 11),
             ),
         ],
+        ),
       ),
     );
   }
@@ -2359,7 +2279,9 @@ class _CompletedSessionsList extends StatelessWidget {
       ..sort((a, b) => b.scheduledDate.compareTo(a.scheduledDate));
     return Container(
       decoration: CX.panelDecoration(),
-      child: Column(
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
         children: ordered.take(4).map((session) {
           final date = DateTime.tryParse(session.scheduledDate);
           final dateLabel = date == null
@@ -2385,6 +2307,7 @@ class _CompletedSessionsList extends StatelessWidget {
                 : null,
           );
         }).toList(),
+        ),
       ),
     );
   }

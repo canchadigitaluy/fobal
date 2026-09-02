@@ -207,7 +207,9 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: CX.panelDecoration(),
-            child: Column(
+            child: Material(
+              type: MaterialType.transparency,
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -263,6 +265,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                   label: const Text('Guardar asistencia'),
                 ),
               ],
+            ),
             ),
           ),
         ],

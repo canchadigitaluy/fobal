@@ -1928,7 +1928,7 @@ class ClubCrest extends StatelessWidget {
           : Image.network(
               imageUrl,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Icon(
+              errorBuilder: (_, _, _) => Icon(
                 Icons.shield_outlined,
                 size: size * .58,
                 color: CX.green,

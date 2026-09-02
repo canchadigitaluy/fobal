@@ -11,7 +11,7 @@ sealed class TrainingSessionEvent {
 class PersistGeneratedTrainingSession extends TrainingSessionEvent {
   final CanteraClub club;
   final TrainingSession session;
-  final String? relatedLudTeamId;
+  final int? relatedLudTeamId;
 
   const PersistGeneratedTrainingSession({
     required this.club,
@@ -52,9 +52,9 @@ class TrainingSessionBloc {
   TrainingSessionState _state = const TrainingSessionIdle();
 
   TrainingSessionBloc({
-    TrainingSessionRepository repository =
+    this._repository =
         const TrainingSessionRepository(),
-  }) : _repository = repository;
+  });
 
   TrainingSessionState get state => _state;
 

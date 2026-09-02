@@ -4,7 +4,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:html' as html;
 
-import '../data/cantera_data.dart';
 import 'club_access_service.dart';
 import 'supabase_auth_service.dart';
 

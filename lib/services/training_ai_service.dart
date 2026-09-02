@@ -368,8 +368,7 @@ class TrainingAiService {
               if (SupabaseAuthService.currentSession?.accessToken
                   case final token?)
                 'authorization': 'Bearer $token',
-              if (PreviewAccessService.token case final previewToken?)
-                'x-cantera-preview-token': previewToken,
+              'x-cantera-preview-token': ?PreviewAccessService.token,
             },
             body: jsonEncode(body),
           )

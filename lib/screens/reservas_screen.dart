@@ -1111,7 +1111,9 @@ class _TacticalHistoryState extends State<_TacticalHistory> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: CX.line),
           ),
-          child: Column(
+          child: Material(
+            type: MaterialType.transparency,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               InkWell(
@@ -1171,6 +1173,7 @@ class _TacticalHistoryState extends State<_TacticalHistory> {
                 ],
               ],
             ],
+          ),
           ),
         );
       },
@@ -1355,45 +1358,6 @@ class _HistoryTile extends StatelessWidget {
     'staff_note' => Icons.assignment_outlined,
     _ => Icons.description_outlined,
   };
-}
-
-class _IntroCard extends StatelessWidget {
-  final CategorySquad category;
-  final List<Player> players;
-
-  const _IntroCard({required this.category, required this.players});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CX.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.auto_awesome, color: CX.green),
-              SizedBox(width: 8),
-              Text(
-                'Motor tactico fobal',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Categoria: ${category.name}. ${players.length} jugadores vinculados. Describe lo que observas en lenguaje de cancha; el asistente cruza ese contexto con metodologia, rival y plantel real.',
-            style: TextStyle(color: CX.muted, height: 1.4),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _MatchPrepForm extends StatefulWidget {
@@ -1687,53 +1651,6 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
   }
 }
 
-class _DraftRestoredBanner extends StatelessWidget {
-  final String categoryName;
-  final VoidCallback onClear;
-
-  const _DraftRestoredBanner({
-    required this.categoryName,
-    required this.onClear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: CX.motion,
-      curve: CX.curve,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: CX.blue.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CX.blue.withValues(alpha: .2)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.history_toggle_off, color: CX.blue, size: 17),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Borrador tactico restaurado para $categoryName',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: CX.muted,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          TextButton.icon(
-            onPressed: onClear,
-            icon: const Icon(Icons.close, size: 14),
-            label: const Text('Limpiar'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _MatchReadiness {
   final bool hasFixtureOrDate;
   final bool hasRival;
@@ -1873,184 +1790,6 @@ class _ScoutingQuality {
       text = text.replaceAll(entry.key, entry.value);
     }
     return text;
-  }
-}
-
-class _MatchReadinessPanel extends StatelessWidget {
-  final _MatchReadiness readiness;
-
-  const _MatchReadinessPanel({required this.readiness});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = readiness.ready ? CX.green : CX.amber;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: .24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                readiness.ready ? Icons.verified_outlined : Icons.rule_outlined,
-                color: color,
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  readiness.ready
-                      ? 'Partido listo para tactica'
-                      : 'Preparacion del partido',
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-              ),
-              Text(
-                '${readiness.completed}/4',
-                style: TextStyle(color: color, fontWeight: FontWeight.w900),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: readiness.progress),
-              duration: CX.motionSlow,
-              curve: CX.curve,
-              builder: (context, value, _) {
-                return LinearProgressIndicator(
-                  value: value,
-                  minHeight: 4,
-                  color: color,
-                  backgroundColor: CX.panel3,
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 7,
-            runSpacing: 7,
-            children: [
-              _ReadinessChip('Fixture', readiness.hasFixtureOrDate),
-              _ReadinessChip('Rival', readiness.hasRival),
-              _ReadinessChip('Scouting', readiness.hasRivalStyle),
-              _ReadinessChip('Plantel', readiness.hasSquadProfile),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _ScoutingQualityPanel(quality: readiness.scouting),
-        ],
-      ),
-    );
-  }
-}
-
-class _ScoutingQualityPanel extends StatelessWidget {
-  final _ScoutingQuality quality;
-
-  const _ScoutingQualityPanel({required this.quality});
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      ('Sistema', quality.hasSystem),
-      ('Presion', quality.hasPressing),
-      ('Salida', quality.hasBuildUp),
-      ('Fortaleza', quality.hasStrength),
-      ('Debilidad', quality.hasWeakness),
-    ];
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: CX.panel2.withValues(alpha: .72),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CX.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.travel_explore, color: CX.green, size: 16),
-              const SizedBox(width: 7),
-              const Expanded(
-                child: Text(
-                  'Calidad del scouting rival',
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
-                ),
-              ),
-              Text(
-                '${quality.completed}/5',
-                style: const TextStyle(
-                  color: CX.green,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: items
-                .map((item) => _ReadinessChip(item.$1, item.$2))
-                .toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReadinessChip extends StatelessWidget {
-  final String label;
-  final bool ready;
-
-  const _ReadinessChip(this.label, this.ready);
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: CX.motionFast,
-      curve: CX.curve,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: ready ? CX.greenDark : CX.panel2,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: ready ? CX.green.withValues(alpha: .28) : CX.line,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            ready ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: ready ? CX.green : CX.faint,
-            size: 14,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              color: ready ? CX.white : CX.muted,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

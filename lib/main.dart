@@ -1572,6 +1572,11 @@ class _DesktopSidebar extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 10),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: _DataStatusChip(),
+              ),
               if (scope.role != UserRole.coordinator &&
                   ClubAccessService.accessibleCategories(
                     scope.fullClub.categories,
@@ -1923,7 +1928,7 @@ class _MobileClubContextBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${scope.club.name} / ${_roleLabel(scope.role)}',
+                    scope.club.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1933,6 +1938,8 @@ class _MobileClubContextBar extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(width: 10),
+                const _DataStatusChip(compact: true),
                 PopupMenuButton<String>(
                   tooltip: 'Opciones del club',
                   icon: const Icon(Icons.more_vert, size: 20),
@@ -1999,6 +2006,95 @@ String _roleLabel(UserRole role) => switch (role) {
   UserRole.coach => 'Entrenador',
   UserRole.viewer => 'Solo lectura',
 };
+
+String _relativeTime(DateTime time) {
+  final diff = DateTime.now().difference(time);
+  if (diff.isNegative || diff.inMinutes < 1) return 'recién';
+  if (diff.inMinutes < 60) return 'hace ${diff.inMinutes} min';
+  if (diff.inHours < 24) return 'hace ${diff.inHours} h';
+  return 'hace ${diff.inDays} d';
+}
+
+/// Single, consistent read on where the coach's data stands: offline, saving,
+/// or synced (with how long ago). Backed by the real offline queue and the
+/// browser's connectivity, so it never claims "synced" while writes are stuck.
+class _DataStatusChip extends StatefulWidget {
+  final bool compact;
+  const _DataStatusChip({this.compact = false});
+
+  @override
+  State<_DataStatusChip> createState() => _DataStatusChipState();
+}
+
+class _DataStatusChipState extends State<_DataStatusChip> {
+  final _subs = <StreamSubscription<dynamic>>[];
+  bool _online = true;
+  int _pending = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _online = html.window.navigator.onLine ?? true;
+    _pending = OfflineMutationService.instance.queue.length;
+    _subs.add(
+      html.window.onOnline.listen((_) {
+        if (mounted) setState(() => _online = true);
+      }),
+    );
+    _subs.add(
+      html.window.onOffline.listen((_) {
+        if (mounted) setState(() => _online = false);
+      }),
+    );
+    _subs.add(
+      OfflineMutationService.instance.queueStream.listen((queue) {
+        if (mounted) setState(() => _pending = queue.length);
+      }),
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final sub in _subs) {
+      sub.cancel();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final syncedAt = DateTime.tryParse(AppScope.of(context).club.syncedAt);
+    final (IconData icon, Color color, String text) = !_online
+        ? (Icons.cloud_off_outlined, CX.amber, 'Trabajando sin conexión')
+        : _pending > 0
+        ? (Icons.sync, CX.blue, 'Guardando cambios…')
+        : (
+            Icons.cloud_done_outlined,
+            CX.green,
+            syncedAt == null
+                ? 'Sincronizado'
+                : 'Sincronizado · ${_relativeTime(syncedAt)}',
+          );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: color),
+        const SizedBox(width: 5),
+        Text(
+          text,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: color,
+            fontSize: widget.compact ? 10 : 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class _BrandMark extends StatelessWidget {
   final bool compact;

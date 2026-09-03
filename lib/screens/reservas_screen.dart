@@ -2617,6 +2617,8 @@ class _GeneratedSessionCard extends StatelessWidget {
             style: TextStyle(color: CX.muted, height: 1.35),
           ),
           const SizedBox(height: 12),
+          _WhySessionPanel(session: session),
+          const SizedBox(height: 12),
           _OperationalScoreBanner(session: session),
           const SizedBox(height: 12),
           _GeneratedSessionBrief(session: session),
@@ -2634,23 +2636,8 @@ class _GeneratedSessionCard extends StatelessWidget {
           _DetailBlock('Consignas del entrenador', session.coachCues),
           const SizedBox(height: 10),
           _DetailBlock('Indicadores de exito', session.successIndicators),
-          if (session.contextSources.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _DetailBlock('Datos utilizados', session.contextSources),
-          ],
-          if (session.limitations.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _DetailBlock('Limitaciones de los datos', session.limitations),
-          ],
           const SizedBox(height: 10),
           _DetailBlock('Auditoria operativa', session.operationalAuditItems),
-          if (session.confidence.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _ConfidenceBadge(
-              session.confidence,
-              limitations: session.limitations.length,
-            ),
-          ],
           const SizedBox(height: 14),
           Wrap(
             spacing: 10,
@@ -2990,44 +2977,142 @@ class _ExecutionStep {
   const _ExecutionStep(this.icon, this.title, this.detail);
 }
 
-class _ConfidenceBadge extends StatelessWidget {
-  final String confidence;
-  final int limitations;
+class _WhySessionPanel extends StatelessWidget {
+  final TrainingSession session;
 
-  const _ConfidenceBadge(this.confidence, {required this.limitations});
+  const _WhySessionPanel({required this.session});
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (confidence) {
-      'high' => ('Confianza alta', CX.green),
-      'medium' => ('Confianza media', CX.amber),
-      _ => ('Confianza baja', CX.red),
+    final (label, color, blurb) = switch (session.confidence) {
+      'high' => (
+        'Confianza alta',
+        CX.green,
+        'La sesión se armó con datos suficientes y trazables.',
+      ),
+      'low' => (
+        'Confianza baja',
+        CX.red,
+        'Faltan datos clave: tomala como punto de partida y ajustá en cancha.',
+      ),
+      _ => (
+        'Confianza media',
+        CX.amber,
+        'Sirve como base. Sumá contexto para que quede más fina.',
+      ),
     };
-    final detail = limitations == 0
-        ? 'Sin limitaciones declaradas'
-        : '$limitations limitaciones de datos';
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(Icons.fact_check_outlined, color: color, size: 17),
-        const SizedBox(width: 7),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: CX.panel,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: .32)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                label,
-                style: TextStyle(color: color, fontWeight: FontWeight.w800),
+              Icon(Icons.insights_outlined, size: 16, color: color),
+              const SizedBox(width: 7),
+              const Text(
+                'Por qué esta sesión',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
               ),
-              Text(
-                detail,
-                style: TextStyle(
-                  color: CX.muted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            blurb,
+            style: const TextStyle(color: CX.muted, fontSize: 11, height: 1.35),
+          ),
+          if (session.contextSources.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _WhyList(
+              title: 'En qué se basó',
+              icon: Icons.check_circle_outline,
+              color: CX.green,
+              items: session.contextSources,
+            ),
+          ],
+          if (session.limitations.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _WhyList(
+              title: 'Qué le faltó',
+              icon: Icons.error_outline,
+              color: CX.amber,
+              items: session.limitations,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WhyList extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final List<String> items;
+
+  const _WhyList({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.items,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            color: CX.faint,
+            letterSpacing: .4,
+          ),
+        ),
+        const SizedBox(height: 4),
+        ...items.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(bottom: 3),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(icon, size: 13, color: color),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    item,
+                    style: const TextStyle(fontSize: 12, height: 1.35),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],

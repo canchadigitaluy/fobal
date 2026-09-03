@@ -2110,7 +2110,7 @@ class _ContextSuggestion extends StatelessWidget {
   }
 }
 
-class _GeneratorForm extends StatelessWidget {
+class _GeneratorForm extends StatefulWidget {
   final String objective;
   final String problem;
   final String space;
@@ -2150,7 +2150,17 @@ class _GeneratorForm extends StatelessWidget {
   });
 
   @override
+  State<_GeneratorForm> createState() => _GeneratorFormState();
+}
+
+class _GeneratorFormState extends State<_GeneratorForm> {
+  // Opens itself if the coach already put context in on a previous visit, so a
+  // half-filled plan is never hidden.
+  late bool _showContext = widget.problem.trim().isNotEmpty;
+
+  @override
   Widget build(BuildContext context) {
+    final w = widget;
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -2160,85 +2170,106 @@ class _GeneratorForm extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _PlanningDateField(
-            label: 'Fecha de la sesion',
-            date: scheduledDate,
-            onChanged: onScheduledDate,
-          ),
-          if (automaticSquadContext) ...[
-            const SizedBox(height: 10),
-            const _AutopilotNotice(
-              title: 'Sesion con plantel contextual',
-              message:
-                  'fobal va a cruzar el objetivo con posiciones reales, disponibilidad y notas guardadas de la categoria.',
-            ),
-          ],
-          const SizedBox(height: 10),
           TextFormField(
-            initialValue: objective,
+            initialValue: w.objective,
             decoration: const InputDecoration(
               labelText: 'Objetivo principal',
               hintText: 'Que comportamiento concreto queres mejorar',
             ),
-            onChanged: onObjective,
+            onChanged: w.onObjective,
           ),
           const SizedBox(height: 10),
           TextFormField(
-            initialValue: problem,
-            decoration: const InputDecoration(
-              labelText: 'Problema detectado',
-              hintText:
-                  'Que observaste, cuando ocurre y que consecuencia genera',
-            ),
-            onChanged: onProblem,
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            initialValue: space,
+            initialValue: w.space,
             decoration: const InputDecoration(labelText: 'Espacio disponible'),
-            onChanged: onSpace,
+            onChanged: w.onSpace,
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _StepperBox(
-                  'Duracion',
-                  duration,
-                  onDuration,
-                  min: 45,
-                  max: 120,
-                  step: 5,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StepperBox(
-                  'Jugadores',
-                  players,
-                  onPlayers,
-                  min: 6,
-                  max: 28,
-                ),
-              ),
-            ],
+          _StepperBox(
+            'Duracion',
+            w.duration,
+            w.onDuration,
+            min: 45,
+            max: 120,
+            step: 5,
           ),
-          if (suggestedPlayers > 0 && suggestedPlayers != players) ...[
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: () =>
-                    onPlayers(suggestedPlayers.clamp(6, 28).toInt()),
-                icon: const Icon(Icons.groups_2_outlined, size: 17),
-                label: Text('Usar plantel cargado ($suggestedPlayers)'),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _showContext = !_showContext),
+              icon: Icon(
+                _showContext ? Icons.expand_less : Icons.expand_more,
+                size: 18,
+              ),
+              label: Text(
+                _showContext ? 'Ocultar contexto' : 'Agregar contexto (opcional)',
               ),
             ),
-          ],
+          ),
+          AnimatedSize(
+            duration: CX.motion,
+            curve: CX.curve,
+            alignment: Alignment.topCenter,
+            child: _showContext
+                ? Column(
+                    children: [
+                      const SizedBox(height: 4),
+                      _PlanningDateField(
+                        label: 'Fecha de la sesion',
+                        date: w.scheduledDate,
+                        onChanged: w.onScheduledDate,
+                      ),
+                      if (w.automaticSquadContext) ...[
+                        const SizedBox(height: 10),
+                        const _AutopilotNotice(
+                          title: 'Sesion con plantel contextual',
+                          message:
+                              'fobal va a cruzar el objetivo con posiciones reales, disponibilidad y notas guardadas de la categoria.',
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        initialValue: w.problem,
+                        decoration: const InputDecoration(
+                          labelText: 'Problema detectado',
+                          hintText:
+                              'Que observaste, cuando ocurre y que consecuencia genera',
+                        ),
+                        onChanged: w.onProblem,
+                      ),
+                      const SizedBox(height: 12),
+                      _StepperBox(
+                        'Jugadores',
+                        w.players,
+                        w.onPlayers,
+                        min: 6,
+                        max: 28,
+                      ),
+                      if (w.suggestedPlayers > 0 &&
+                          w.suggestedPlayers != w.players) ...[
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: () => w.onPlayers(
+                              w.suggestedPlayers.clamp(6, 28).toInt(),
+                            ),
+                            icon: const Icon(Icons.groups_2_outlined, size: 17),
+                            label: Text(
+                              'Usar plantel cargado (${w.suggestedPlayers})',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
           const SizedBox(height: 14),
           ElevatedButton.icon(
-            onPressed: generating || !canGenerate ? null : onGenerate,
-            icon: generating
+            onPressed: w.generating || !w.canGenerate ? null : w.onGenerate,
+            icon: w.generating
                 ? const SizedBox(
                     width: 18,
                     height: 18,
@@ -2248,9 +2279,9 @@ class _GeneratorForm extends StatelessWidget {
                     ),
                   )
                 : const Icon(Icons.auto_awesome),
-            label: Text(generating ? 'Pensando sesion...' : 'Generar sesion'),
+            label: Text(w.generating ? 'Pensando sesion...' : 'Generar sesion'),
           ),
-          if (!canGenerate) ...[
+          if (!w.canGenerate) ...[
             const SizedBox(height: 9),
             const _ReadOnlyNotice(),
           ],

@@ -96,7 +96,14 @@ class AppScope extends InheritedWidget {
   final ValueChanged<UserRole> selectRole;
   final ValueChanged<String?> selectCategory;
   final ValueChanged<CanteraClub> updateClub;
+
+  /// Wholesale replace of the active space by a user action (import). Marks the
+  /// club dirty so it syncs to the cloud.
   final ValueChanged<CanteraClub> replaceClub;
+
+  /// Wholesale replace by an incoming cloud document. Does NOT mark dirty (the
+  /// data just came from the server).
+  final ValueChanged<CanteraClub> adoptClub;
   final CanteraClub Function(String clubId) loadClub;
 
   const AppScope({
@@ -109,6 +116,7 @@ class AppScope extends InheritedWidget {
     required this.selectCategory,
     required this.updateClub,
     required this.replaceClub,
+    required this.adoptClub,
     required this.loadClub,
     required super.child,
   });
@@ -175,12 +183,59 @@ class _CanteraAppState extends State<CanteraApp> {
   late CanteraClub _club;
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   bool _recoveredFromBackup = false;
+  final Map<String, Timer> _pushDebounce = {};
+  StreamSubscription<ClubSyncEvent>? _syncEventsSub;
 
   @override
   void initState() {
     super.initState();
     _club = _loadClub();
     _selectedCategoryId = _storedCategoryId(_club);
+    _syncEventsSub = ClubSyncService.events.listen(_onSyncEvent);
+  }
+
+  @override
+  void dispose() {
+    for (final timer in _pushDebounce.values) {
+      timer.cancel();
+    }
+    _syncEventsSub?.cancel();
+    super.dispose();
+  }
+
+  /// A conflict was resolved by the sync layer adopting the server version into
+  /// the local blob. Reload it into memory and tell the user their copy was
+  /// kept as a backup. Full conflict UX is Phase 2c.
+  void _onSyncEvent(ClubSyncEvent event) {
+    if (!mounted) return;
+    if (event.type == ClubSyncEventType.conflict &&
+        event.clubId == _club.id) {
+      setState(() => _club = _loadClubById(event.clubId));
+      _messengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          duration: Duration(seconds: 6),
+          content: Text(
+            'Se cargó una versión más nueva desde otro dispositivo. '
+            'Tu copia anterior quedó respaldada.',
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Marks [clubId] dirty and (debounced) queues a cloud push. No-op without a
+  /// session — edits stay local, exactly as before Phase 2b.
+  void _schedulePush(String clubId) {
+    if (!SupabaseAuthService.isConfigured ||
+        SupabaseAuthService.currentSession == null) {
+      return;
+    }
+    ClubSyncService.markDirty(clubId);
+    _pushDebounce[clubId]?.cancel();
+    _pushDebounce[clubId] = Timer(const Duration(seconds: 3), () {
+      _pushDebounce.remove(clubId);
+      OfflineMutationService.instance.enqueueClubDocumentPush(clubId);
+    });
   }
 
   CanteraClub _loadClub() {
@@ -340,12 +395,14 @@ class _CanteraAppState extends State<CanteraApp> {
       _club = nextClub;
       if (changingClub) _selectedCategoryId = _storedCategoryId(nextClub);
     });
+    _schedulePush(nextClub.id);
   }
 
-  /// Wholesale replacement of the active space, used by "Importar datos". Mirrors
-  /// the club-switch branch of [_updateClub] (durable write + active-club
-  /// pointer) without going through the per-category merge.
-  void _replaceClub(CanteraClub club) {
+  /// Durable write of a whole-club replacement (import or cloud adoption).
+  /// Mirrors the club-switch branch of [_updateClub] without the per-category
+  /// merge. When [sync] is true the club is marked dirty and queued for cloud
+  /// push; cloud adoption passes false (the data already came from the server).
+  void _writeWholeClub(CanteraClub club, {required bool sync}) {
     ClubBackupService.rotateSnapshot(club.id);
     html.window.localStorage['$_storagePrefix${club.id}'] = jsonEncode(
       club.toJson(),
@@ -356,7 +413,12 @@ class _CanteraAppState extends State<CanteraApp> {
       _club = club;
       _selectedCategoryId = _storedCategoryId(club);
     });
+    if (sync) _schedulePush(club.id);
   }
+
+  void _replaceClub(CanteraClub club) => _writeWholeClub(club, sync: true);
+
+  void _adoptCloudClub(CanteraClub club) => _writeWholeClub(club, sync: false);
 
   void _selectRole(UserRole role) {
     setState(() {
@@ -404,6 +466,7 @@ class _CanteraAppState extends State<CanteraApp> {
       selectCategory: _selectCategory,
       updateClub: _updateClub,
       replaceClub: _replaceClub,
+      adoptClub: _adoptCloudClub,
       loadClub: _loadClubById,
       child: MaterialApp(
         title: 'fobal',
@@ -647,7 +710,7 @@ class _CloudDocGateState extends State<_CloudDocGate> {
       if (doc.version <= ClubSyncService.knownServerVersion(widget.clubId)) {
         return;
       }
-      AppScope.of(context).replaceClub(doc.club);
+      AppScope.of(context).adoptClub(doc.club);
       ClubSyncService.rememberVersion(widget.clubId, doc.version);
     } catch (_) {
       // Offline / transient: keep the local copy.
@@ -754,7 +817,7 @@ class _MembershipHydratorState extends State<_MembershipHydrator> {
             doc != null &&
             doc.club.id == clubId &&
             doc.version > ClubSyncService.knownServerVersion(clubId)) {
-          scope.replaceClub(doc.club);
+          scope.adoptClub(doc.club);
           ClubSyncService.rememberVersion(clubId, doc.version);
         }
       } catch (_) {
@@ -2117,6 +2180,11 @@ class _DataStatusChipState extends State<_DataStatusChip> {
         if (mounted) setState(() => _pending = queue.length);
       }),
     );
+    _subs.add(
+      ClubSyncService.events.listen((_) {
+        if (mounted) setState(() {});
+      }),
+    );
   }
 
   @override
@@ -2129,10 +2197,13 @@ class _DataStatusChipState extends State<_DataStatusChip> {
 
   @override
   Widget build(BuildContext context) {
-    final syncedAt = DateTime.tryParse(AppScope.of(context).club.syncedAt);
+    final clubId = AppScope.of(context).fullClub.id;
+    final dirty = ClubSyncService.isDirty(clubId);
+    final syncedAt = ClubSyncService.lastPushedAt(clubId) ??
+        DateTime.tryParse(AppScope.of(context).club.syncedAt);
     final (IconData icon, Color color, String text) = !_online
         ? (Icons.cloud_off_outlined, CX.amber, 'Trabajando sin conexión')
-        : _pending > 0
+        : (_pending > 0 || dirty)
         ? (Icons.sync, CX.blue, 'Guardando cambios…')
         : (
             Icons.cloud_done_outlined,

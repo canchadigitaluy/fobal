@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:html' as html;
 
 import 'club_access_service.dart';
+import 'club_sync_service.dart';
 import 'supabase_auth_service.dart';
 
 enum OfflineWriteStatus { synced, queued }
@@ -147,6 +148,31 @@ class OfflineMutationService {
     );
   }
 
+  /// Queues a "mirror the whole club document" mutation. Coalesced: at most one
+  /// pending push per [clubId] — a newer edit replaces the older pending one so
+  /// the flush always sends the latest local blob. When offline / logged out
+  /// the mutation just stays in the durable queue and flushes later.
+  void enqueueClubDocumentPush(String clubId) {
+    final queue = _readQueue()
+        .where(
+          (m) => !(m.type == 'club_document.push' &&
+              m.payload['clubId'] == clubId),
+        )
+        .toList();
+    queue.add(
+      OfflineMutation(
+        id: 'mutation-${DateTime.now().microsecondsSinceEpoch}',
+        type: 'club_document.push',
+        createdAt: DateTime.now().toUtc(),
+        // Stamp the owner so a push queued before a sign-out is never sent
+        // under a different account.
+        payload: {'clubId': clubId, 'userId': SupabaseAuthService.currentUserId},
+      ),
+    );
+    _writeQueue(queue);
+    unawaited(flush());
+  }
+
   Future<void> flush() async {
     if (_flushing || !_canAttemptRemoteWrite) return;
     _flushing = true;
@@ -180,6 +206,15 @@ class OfflineMutationService {
     switch (mutation.type) {
       case 'club_tactical_data.upsert':
         return _syncTacticalData(mutation);
+      case 'club_document.push':
+        final clubId = mutation.payload['clubId'] as String? ?? '';
+        if (clubId.isEmpty) return true;
+        final owner = mutation.payload['userId'] as String?;
+        if (owner != null && owner != SupabaseAuthService.currentUserId) {
+          return true; // queued under another account — drop it
+        }
+        final outcome = await ClubSyncService.pushCurrentLocal(clubId);
+        return outcome == ClubQueueOutcome.drop;
       default:
         return false;
     }

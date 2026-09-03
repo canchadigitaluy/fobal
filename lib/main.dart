@@ -1293,7 +1293,7 @@ class _MainShellState extends State<MainShell> {
     html.window.dispatchEvent(html.CustomEvent('cantera-install-pwa'));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Si el navegador lo permite, se abrira la instalacion.'),
+        content: Text('Si el navegador lo permite, se abre la instalación.'),
       ),
     );
   }
@@ -1323,9 +1323,9 @@ class _MainShellState extends State<MainShell> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cerrar sesion'),
+        title: const Text('Cerrar sesión'),
         content: const Text(
-          'Se cerrara tu acceso actual. Los datos del club quedan guardados y separados.',
+          'Se cierra tu acceso actual. Los datos del club quedan guardados y separados.',
         ),
         actions: [
           TextButton(
@@ -1334,7 +1334,7 @@ class _MainShellState extends State<MainShell> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Cerrar sesion'),
+            child: const Text('Cerrar sesión'),
           ),
         ],
       ),
@@ -1709,7 +1709,7 @@ class _DesktopSidebar extends StatelessWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: IconButton.outlined(
-                              tooltip: 'Cerrar sesion',
+                              tooltip: 'Cerrar sesión',
                               onPressed: onSignOut,
                               icon: const Icon(Icons.logout, size: 18),
                             ),
@@ -1841,7 +1841,7 @@ class _CategoryScopeSelector extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'MI CATEGORIA',
+            'MI CATEGORÍA',
             style: TextStyle(
               color: CX.green,
               fontSize: 10,
@@ -1872,7 +1872,7 @@ class _CategoryScopeSelector extends StatelessWidget {
           ),
           const SizedBox(height: 7),
           const Text(
-            'La app muestra solo esta categoria.',
+            'La app muestra solo esta categoría.',
             style: TextStyle(color: CX.faint, fontSize: 10, height: 1.25),
           ),
         ],
@@ -1987,7 +1987,7 @@ class _MobileClubContextBar extends StatelessWidget {
                       value: 'logout',
                       child: ListTile(
                         leading: Icon(Icons.logout),
-                        title: Text('Cerrar sesion'),
+                        title: Text('Cerrar sesión'),
                       ),
                     ),
                   ],
@@ -2249,7 +2249,7 @@ class _MobileCategoryScopeBar extends StatelessWidget {
         value: selected,
         isExpanded: true,
         decoration: const InputDecoration(
-          labelText: 'Mi categoria',
+          labelText: 'Mi categoría',
           isDense: true,
           prefixIcon: Icon(Icons.groups_2_outlined),
         ),

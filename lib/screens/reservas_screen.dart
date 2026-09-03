@@ -71,7 +71,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
     if (club.categories.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Crea una categoria antes de planificar.'),
+          content: Text('Creá una categoría en Configurar antes de planificar.'),
         ),
       );
       return;
@@ -170,7 +170,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _sessionError = 'No se pudo generar la sesion. Intenta nuevamente.';
+        _sessionError = 'No pudimos generar la sesión. Ajustá el objetivo y probá de nuevo.';
         _generating = false;
       });
     }
@@ -180,7 +180,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
     if (club.categories.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Crea una categoria antes de preparar el partido.'),
+          content: Text('Creá una categoría en Configurar antes de preparar el partido.'),
         ),
       );
       return;
@@ -268,7 +268,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _tacticError = 'No se pudo generar la tactica. Intenta nuevamente.';
+        _tacticError = 'No pudimos generar la táctica. Sumá contexto del rival y probá de nuevo.';
         _generatingTactic = false;
       });
     }
@@ -1030,7 +1030,7 @@ class _TacticalHistoryState extends State<_TacticalHistory> {
                   )
                 else if (records.isEmpty)
                   const Text(
-                    'Todavia no hay sesiones, planes o registros compartidos para este club.',
+                    'Todavía no hay sesiones, planes ni registros compartidos para este club.',
                     style: TextStyle(color: CX.muted, fontSize: 12),
                   )
                 else ...[
@@ -1509,8 +1509,8 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
                 : const Icon(Icons.sports_soccer),
             label: Text(
               widget.generating
-                  ? 'Pensando tactica...'
-                  : 'Generar tactica de partido',
+                  ? 'Pensando la táctica…'
+                  : 'Generar táctica de partido',
             ),
           ),
           if (!widget.canGenerate) ...[
@@ -1764,7 +1764,7 @@ class _FixturePanel extends StatelessWidget {
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
-                  'Fixture de la categoria',
+                  'Fixture de la categoría',
                   style: TextStyle(fontWeight: FontWeight.w900),
                 ),
               ),
@@ -2216,7 +2216,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                     children: [
                       const SizedBox(height: 4),
                       _PlanningDateField(
-                        label: 'Fecha de la sesion',
+                        label: 'Fecha de la sesión',
                         date: w.scheduledDate,
                         onChanged: w.onScheduledDate,
                       ),
@@ -2225,7 +2225,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                         const _AutopilotNotice(
                           title: 'Sesion con plantel contextual',
                           message:
-                              'fobal va a cruzar el objetivo con posiciones reales, disponibilidad y notas guardadas de la categoria.',
+                              'fobal cruza el objetivo con las posiciones reales, la disponibilidad y las notas guardadas de la categoría.',
                         ),
                       ],
                       const SizedBox(height: 10),
@@ -2279,7 +2279,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                     ),
                   )
                 : const Icon(Icons.auto_awesome),
-            label: Text(w.generating ? 'Pensando sesion...' : 'Generar sesion'),
+            label: Text(w.generating ? 'Pensando la sesión…' : 'Generar sesión'),
           ),
           if (!w.canGenerate) ...[
             const SizedBox(height: 9),

@@ -314,7 +314,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             _Metric(
                               'Sesiones',
                               '$planned',
-                              'Proximas planificadas',
+                              'Próximas planificadas',
                               Icons.calendar_today_outlined,
                               const Color(0xFFC09BFF),
                             ),
@@ -350,7 +350,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 26),
                       const _SectionHeader(
-                        eyebrow: 'OPERACION DEPORTIVA',
+                        eyebrow: 'TU SEMANA',
                         title: 'Lo importante, en un solo lugar',
                       ),
                       const SizedBox(height: 12),
@@ -533,7 +533,7 @@ class _CommandHero extends StatelessWidget {
                     child: Text(
                       configured
                           ? 'CLUB OPERATIVO'
-                          : 'PUESTA EN MARCHA  -  $readiness%',
+                          : 'PUESTA EN MARCHA · $readiness%',
                       style: TextStyle(
                         color: configured ? CX.green : CX.muted,
                         fontSize: 10,
@@ -547,7 +547,7 @@ class _CommandHero extends StatelessWidget {
               Text(
                 configured
                     ? 'Todo el club, bajo una misma idea.'
-                    : 'Construye la base deportiva de tu club.',
+                    : 'Armá la base deportiva de tu club.',
                 style: TextStyle(
                   fontSize: narrow ? 25 : 34,
                   height: 1.08,
@@ -559,8 +559,8 @@ class _CommandHero extends StatelessWidget {
                 constraints: const BoxConstraints(maxWidth: 620),
                 child: Text(
                   configured
-                      ? 'Planifica, observa y toma decisiones con el contexto completo de cada categoria.'
-                      : 'Carga identidad, categorias, planteles y metodologia. fobal usara esa informacion para conectar cada decision.',
+                      ? 'Planificá, observá y decidí con el contexto completo de cada categoría.'
+                      : 'Cargá identidad, categorías, planteles y forma de jugar. fobal usa esos datos para conectar cada decisión.',
                   style: const TextStyle(
                     color: CX.muted,
                     height: 1.45,
@@ -578,7 +578,7 @@ class _CommandHero extends StatelessWidget {
                     size: 18,
                   ),
                   label: Text(
-                    configured ? 'Abrir asistente' : 'Continuar configuracion',
+                    configured ? 'Abrir asistente' : 'Continuar configuración',
                   ),
                 ),
               ),

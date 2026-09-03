@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
+import '../services/club_backup_service.dart';
 import '../services/supabase_auth_service.dart';
 
 class ConfiguracionClubScreen extends StatefulWidget {
@@ -657,6 +658,12 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
                     key: ValueKey(_sectionIndex),
                     child: sections[_sectionIndex],
                   ),
+                ),
+                const SizedBox(height: 16),
+                _ClubDataCard(
+                  onExport: () =>
+                      ClubBackupService.downloadJson(AppScope.of(context).fullClub),
+                  onImport: () => importClubFromFile(context),
                 ),
               ],
             ),
@@ -1807,4 +1814,67 @@ class _SetupStep {
     required this.completed,
     required this.fields,
   });
+}
+
+class _ClubDataCard extends StatelessWidget {
+  final VoidCallback onExport;
+  final VoidCallback onImport;
+
+  const _ClubDataCard({required this.onExport, required this.onImport});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: CX.panel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: CX.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Datos del club',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Guardá una copia de todo tu espacio (plantel, categorías, sesiones, '
+            'metodología, calendario y asistencia) o restaurala desde un archivo. '
+            'fobal también conserva respaldos automáticos de tus últimos cambios.',
+            style: TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 460;
+              final export = OutlinedButton.icon(
+                onPressed: onExport,
+                icon: const Icon(Icons.download_outlined, size: 17),
+                label: const Text('Exportar datos'),
+              );
+              final import = OutlinedButton.icon(
+                onPressed: onImport,
+                icon: const Icon(Icons.upload_outlined, size: 17),
+                label: const Text('Importar datos'),
+              );
+              if (compact) {
+                return Column(
+                  children: [export, const SizedBox(height: 8), import],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: export),
+                  const SizedBox(width: 10),
+                  Expanded(child: import),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }

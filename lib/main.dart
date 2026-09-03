@@ -22,6 +22,7 @@ import 'screens/mi_equipo_screen.dart';
 import 'screens/tactica_screen.dart';
 import 'screens/estadisticas_screen.dart';
 import 'services/club_access_service.dart';
+import 'services/club_backup_service.dart';
 import 'services/offline_mutation_service.dart';
 import 'services/preview_access_service.dart';
 import 'services/supabase_auth_service.dart';
@@ -94,6 +95,7 @@ class AppScope extends InheritedWidget {
   final ValueChanged<UserRole> selectRole;
   final ValueChanged<String?> selectCategory;
   final ValueChanged<CanteraClub> updateClub;
+  final ValueChanged<CanteraClub> replaceClub;
   final CanteraClub Function(String clubId) loadClub;
 
   const AppScope({
@@ -105,6 +107,7 @@ class AppScope extends InheritedWidget {
     required this.selectRole,
     required this.selectCategory,
     required this.updateClub,
+    required this.replaceClub,
     required this.loadClub,
     required super.child,
   });
@@ -169,6 +172,8 @@ class _CanteraAppState extends State<CanteraApp> {
   UserRole _role = UserRole.coach;
   String? _selectedCategoryId;
   late CanteraClub _club;
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
+  bool _recoveredFromBackup = false;
 
   @override
   void initState() {
@@ -191,13 +196,21 @@ class _CanteraAppState extends State<CanteraApp> {
   }
 
   CanteraClub _loadClubById(String clubId) {
+    final raw = html.window.localStorage['$_storagePrefix$clubId'];
+    if (raw == null || raw.isEmpty) {
+      return canteraDemoClub.copyWith(id: clubId);
+    }
     try {
-      final raw = html.window.localStorage['$_storagePrefix$clubId'];
-      if (raw == null || raw.isEmpty) {
-        return canteraDemoClub.copyWith(id: clubId);
-      }
       return CanteraClub.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (_) {
+      // The main blob is unreadable: recover the newest valid snapshot instead
+      // of silently dropping to the demo club, and flag it so the shell can
+      // tell the user what happened.
+      final recovered = ClubBackupService.recoverCorruptMain(clubId);
+      if (recovered != null) {
+        _recoveredFromBackup = true;
+        return recovered;
+      }
       return canteraDemoClub.copyWith(id: clubId);
     }
   }
@@ -313,6 +326,7 @@ class _CanteraAppState extends State<CanteraApp> {
   void _updateClub(CanteraClub club) {
     final changingClub = club.id != _club.id;
     final nextClub = changingClub ? club : _mergeScopedClub(club);
+    ClubBackupService.rotateSnapshot(nextClub.id);
     html.window.localStorage['$_storagePrefix${nextClub.id}'] = jsonEncode(
       nextClub.toJson(),
     );
@@ -324,6 +338,22 @@ class _CanteraAppState extends State<CanteraApp> {
     setState(() {
       _club = nextClub;
       if (changingClub) _selectedCategoryId = _storedCategoryId(nextClub);
+    });
+  }
+
+  /// Wholesale replacement of the active space, used by "Importar datos". Mirrors
+  /// the club-switch branch of [_updateClub] (durable write + active-club
+  /// pointer) without going through the per-category merge.
+  void _replaceClub(CanteraClub club) {
+    ClubBackupService.rotateSnapshot(club.id);
+    html.window.localStorage['$_storagePrefix${club.id}'] = jsonEncode(
+      club.toJson(),
+    );
+    html.window.localStorage[_activeClubKey] = club.id;
+    ClubAccessService.selectActiveClub(club.id);
+    setState(() {
+      _club = club;
+      _selectedCategoryId = _storedCategoryId(club);
     });
   }
 
@@ -350,6 +380,20 @@ class _CanteraAppState extends State<CanteraApp> {
   Widget build(BuildContext context) {
     final baseText = GoogleFonts.interTextTheme(ThemeData.light().textTheme);
     final visibleClub = _visibleClub();
+    if (_recoveredFromBackup) {
+      _recoveredFromBackup = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _messengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            duration: Duration(seconds: 6),
+            content: Text(
+              'Tus datos estaban dañados. Los recuperamos desde un respaldo '
+              'automático reciente.',
+            ),
+          ),
+        );
+      });
+    }
     return AppScope(
       club: visibleClub,
       fullClub: _club,
@@ -358,10 +402,12 @@ class _CanteraAppState extends State<CanteraApp> {
       selectRole: _selectRole,
       selectCategory: _selectCategory,
       updateClub: _updateClub,
+      replaceClub: _replaceClub,
       loadClub: _loadClubById,
       child: MaterialApp(
         title: 'fobal',
         debugShowCheckedModeBanner: false,
+        scaffoldMessengerKey: _messengerKey,
         scrollBehavior: const CanteraScrollBehavior(),
         theme: ThemeData(
           useMaterial3: true,
@@ -967,6 +1013,54 @@ class _TextPromptDialogState extends State<_TextPromptDialog> {
   }
 }
 
+/// Shared "Importar datos" flow: pick a file, confirm the replacement, then
+/// swap the active space. Used from the club menu (both LUD and No-LUD) and
+/// from Configurar.
+Future<void> importClubFromFile(BuildContext context) async {
+  final scope = AppScope.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  CanteraClub incoming;
+  try {
+    incoming = await ClubBackupService.pickAndParse();
+  } on ClubBackupException catch (error) {
+    messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    return;
+  } catch (_) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('No pudimos leer el archivo. Probá de nuevo.')),
+    );
+    return;
+  }
+  if (!context.mounted) return;
+  final name = incoming.name.trim().isEmpty ? 'sin nombre' : incoming.name.trim();
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Importar datos'),
+      content: Text(
+        'Vas a reemplazar los datos actuales de este espacio con los del '
+        'archivo ($name: ${incoming.categories.length} categorías, '
+        '${incoming.players.length} jugadores). Esta acción no se puede deshacer.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Importar'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+  scope.replaceClub(incoming);
+  messenger.showSnackBar(
+    const SnackBar(content: Text('Datos importados.')),
+  );
+}
+
 class CanteraScrollBehavior extends MaterialScrollBehavior {
   const CanteraScrollBehavior();
 
@@ -1469,6 +1563,33 @@ class _DesktopSidebar extends StatelessWidget {
                 icon: const Icon(Icons.install_mobile, size: 17),
                 label: const Text('Instalar app'),
               ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: () => ClubBackupService.downloadJson(
+                        AppScope.of(context).fullClub,
+                      ),
+                      icon: const Icon(Icons.download_outlined, size: 15),
+                      label: const Text(
+                        'Exportar',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: () => importClubFromFile(context),
+                      icon: const Icon(Icons.upload_outlined, size: 15),
+                      label: const Text(
+                        'Importar',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -1778,6 +1899,12 @@ class _MobileClubContextBar extends StatelessWidget {
                     if (value == 'club') onSwitchClub();
                     if (value == 'install') onInstallPwa();
                     if (value == 'logout') onSignOut();
+                    if (value == 'export') {
+                      ClubBackupService.downloadJson(
+                        AppScope.of(context).fullClub,
+                      );
+                    }
+                    if (value == 'import') importClubFromFile(context);
                   },
                   itemBuilder: (context) => const [
                     PopupMenuItem(
@@ -1785,6 +1912,20 @@ class _MobileClubContextBar extends StatelessWidget {
                       child: ListTile(
                         leading: Icon(Icons.install_mobile),
                         title: Text('Instalar app'),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'export',
+                      child: ListTile(
+                        leading: Icon(Icons.download_outlined),
+                        title: Text('Exportar datos'),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'import',
+                      child: ListTile(
+                        leading: Icon(Icons.upload_outlined),
+                        title: Text('Importar datos'),
                       ),
                     ),
                     PopupMenuItem(

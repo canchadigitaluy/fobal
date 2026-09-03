@@ -89,14 +89,40 @@ class TacticaScreenState extends State<TacticaScreen> {
         // They each render their own Scaffold and a real empty state, so a
         // missing plantel or category never leaves this area blank.
         Expanded(
-          child: KeyedSubtree(
-            key: ValueKey('tactica-section-$selectedSection-$external'),
-            child: switch (selectedSection) {
-              0 => const CuotaScreen(),
-              1 => external ? const ReservasScreen() : const AsistenciaScreen(),
-              2 => external ? const PerfilScreen() : const ReservasScreen(),
-              _ => const PerfilScreen(),
-            },
+          child: AnimatedSwitcher(
+            duration: (MediaQuery.maybeOf(context)?.disableAnimations ?? false)
+                ? Duration.zero
+                : CX.motion,
+            switchInCurve: CX.curve,
+            switchOutCurve: CX.curve,
+            layoutBuilder: (currentChild, previousChildren) => Stack(
+              fit: StackFit.expand,
+              children: [
+                ...previousChildren,
+                ?currentChild,
+              ],
+            ),
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, .02),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            ),
+            child: KeyedSubtree(
+              key: ValueKey('tactica-section-$selectedSection-$external'),
+              child: switch (selectedSection) {
+                0 => const CuotaScreen(),
+                1 => external
+                    ? const ReservasScreen()
+                    : const AsistenciaScreen(),
+                2 => external ? const PerfilScreen() : const ReservasScreen(),
+                _ => const PerfilScreen(),
+              },
+            ),
           ),
         ),
       ],

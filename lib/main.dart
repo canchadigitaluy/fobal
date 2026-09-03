@@ -1123,12 +1123,38 @@ class _CanteraPageTransitionsBuilder extends PageTransitionsBuilder {
 class CanteraMotion {
   const CanteraMotion._();
 
+  /// Wraps each visible child in a short staggered fade + rise. Call sites are
+  /// unchanged; small spacer [SizedBox]es pass through untouched so the stagger
+  /// index tracks real rows and the final layout is identical.
   static List<Widget> stagger(
     List<Widget> children, {
     int intervalMs = 34,
     double distance = 10,
   }) {
-    return children;
+    final out = <Widget>[];
+    var revealIndex = 0;
+    for (final child in children) {
+      final isSpacer = child is SizedBox &&
+          child.child == null &&
+          (child.height ?? 0) <= 40 &&
+          (child.width ?? 0) <= 40;
+      if (isSpacer) {
+        out.add(child);
+        continue;
+      }
+      // Only the first rows stagger; anything that mounts later (lazy list rows
+      // scrolled into view) appears at once so it never flashes blank.
+      final delayMs = revealIndex < 8 ? intervalMs * revealIndex : 0;
+      out.add(
+        _StaggeredReveal(
+          delay: Duration(milliseconds: delayMs),
+          distance: distance,
+          child: child,
+        ),
+      );
+      revealIndex++;
+    }
+    return out;
   }
 }
 
@@ -1149,25 +1175,40 @@ class _StaggeredReveal extends StatefulWidget {
 
 class _StaggeredRevealState extends State<_StaggeredReveal> {
   bool _visible = false;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(widget.delay, () {
-      if (mounted) setState(() => _visible = true);
-    });
+    if (widget.delay == Duration.zero) {
+      _visible = true;
+    } else {
+      _timer = Timer(widget.delay, () {
+        if (mounted) setState(() => _visible = true);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Honour the OS "reduce motion" setting: show the row as-is, no delay.
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
+      return widget.child;
+    }
     final offset = _visible ? Offset.zero : Offset(0, widget.distance / 100);
-    return AnimatedOpacity(
-      opacity: _visible ? 1 : 0,
-      duration: CX.motionSlow,
+    return AnimatedSlide(
+      offset: offset,
+      duration: CX.motion,
       curve: CX.curve,
-      child: AnimatedSlide(
-        offset: offset,
-        duration: CX.motionSlow,
+      child: AnimatedOpacity(
+        opacity: _visible ? 1 : 0,
+        duration: CX.motion,
         curve: CX.curve,
         child: widget.child,
       ),

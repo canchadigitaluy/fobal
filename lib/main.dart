@@ -23,6 +23,7 @@ import 'screens/tactica_screen.dart';
 import 'screens/estadisticas_screen.dart';
 import 'services/club_access_service.dart';
 import 'services/club_backup_service.dart';
+import 'services/club_sync_service.dart';
 import 'services/offline_mutation_service.dart';
 import 'services/preview_access_service.dart';
 import 'services/supabase_auth_service.dart';
@@ -608,8 +609,53 @@ class _LocalHomeRoute extends StatelessWidget {
     if (localClubId == null || localClubId.isEmpty) {
       return const _AccessRedirect(route: '/local-setup');
     }
-    return MainShell(initialIndex: initialIndex);
+    return _CloudDocGate(
+      clubId: localClubId,
+      child: MainShell(initialIndex: initialIndex),
+    );
   }
+}
+
+/// Phase 2a (read-only) cloud pull for the No-LUD flow, which has no
+/// [_MembershipHydrator]. Renders the shell immediately and adopts the stored
+/// document in the background if one exists and there is no unsynced local
+/// work. Does nothing when there is no cloud document — the common case today —
+/// so the app behaves exactly as before.
+class _CloudDocGate extends StatefulWidget {
+  final String clubId;
+  final Widget child;
+
+  const _CloudDocGate({required this.clubId, required this.child});
+
+  @override
+  State<_CloudDocGate> createState() => _CloudDocGateState();
+}
+
+class _CloudDocGateState extends State<_CloudDocGate> {
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(_sync);
+  }
+
+  Future<void> _sync() async {
+    if (ClubSyncService.isDirty(widget.clubId)) return;
+    try {
+      final doc = await ClubSyncService.pull(widget.clubId);
+      if (!mounted || doc == null) return;
+      if (doc.club.id != widget.clubId) return;
+      if (doc.version <= ClubSyncService.knownServerVersion(widget.clubId)) {
+        return;
+      }
+      AppScope.of(context).replaceClub(doc.club);
+      ClubSyncService.rememberVersion(widget.clubId, doc.version);
+    } catch (_) {
+      // Offline / transient: keep the local copy.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _PreviewAccessRoute extends StatelessWidget {
@@ -696,6 +742,26 @@ class _MembershipHydratorState extends State<_MembershipHydrator> {
   Future<void> _hydrate() async {
     final scope = AppScope.of(context);
     ClubAccessService.selectActiveMembership(widget.membership);
+
+    // Phase 2a (read-only): adopt the stored cloud document before the LUD /
+    // shared-record overlay runs on top of it. Never pushes, never backfills,
+    // never overwrites unsynced local work.
+    final clubId = widget.membership.clubId;
+    if (!ClubSyncService.isDirty(clubId)) {
+      try {
+        final doc = await ClubSyncService.pull(clubId);
+        if (mounted &&
+            doc != null &&
+            doc.club.id == clubId &&
+            doc.version > ClubSyncService.knownServerVersion(clubId)) {
+          scope.replaceClub(doc.club);
+          ClubSyncService.rememberVersion(clubId, doc.version);
+        }
+      } catch (_) {
+        // Offline / transient: fall through and hydrate from local as before.
+      }
+    }
+
     final localClub = scope.loadClub(widget.membership.clubId);
 
     CanteraClubContext? contextData;

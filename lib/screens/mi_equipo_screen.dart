@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../services/player_profile_service.dart';
 import '../ui/ui_kit.dart';
 import 'player_availability_dialog.dart';
 import 'player_profile_screen.dart';
@@ -193,6 +194,15 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
             _SquadProgress(players: players),
             const SizedBox(height: 18),
           ],
+          if (squadGoalTracker(players).isNotEmpty) ...[
+            const PremiumSectionHeader(
+              eyebrow: 'Seguimiento',
+              title: 'Objetivos del plantel',
+            ),
+            const SizedBox(height: 10),
+            _SquadGoalsPanel(entries: squadGoalTracker(players)),
+            const SizedBox(height: 18),
+          ],
           const PremiumSectionHeader(
             eyebrow: 'Plantel',
             title: 'Jugadores',
@@ -272,6 +282,78 @@ class _SquadProgress extends StatelessWidget {
           accent: CX.green,
         ),
       ],
+    );
+  }
+}
+
+class _SquadGoalsPanel extends StatelessWidget {
+  final List<PlayerGoalEntry> entries;
+  const _SquadGoalsPanel({required this.entries});
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = entries.take(6).toList();
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: CX.panelDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final entry in visible) ...[
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => openPlayerProfile(context, entry.player),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: switch (entry.goal.priority) {
+                          PlayerGoalPriority.alta => CX.red,
+                          PlayerGoalPriority.media => CX.amber,
+                          PlayerGoalPriority.baja => CX.muted,
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${entry.player.firstName} ${entry.player.lastName}',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                          ),
+                          Text(
+                            formatPlayerGoalLine(entry.goal),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: CX.muted, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, color: CX.muted, size: 18),
+                  ],
+                ),
+              ),
+            ),
+            if (entry != visible.last)
+              const Divider(height: 1, color: Color(0x14FFFFFF)),
+          ],
+          if (entries.length > visible.length) ...[
+            const SizedBox(height: 4),
+            Text(
+              '+ ${entries.length - visible.length} objetivos más en curso',
+              style: const TextStyle(color: CX.muted, fontSize: 11, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

@@ -4,12 +4,13 @@ import 'package:cantera_os/data/cantera_data.dart';
 import 'package:cantera_os/services/player_profile_service.dart';
 
 Player _player({
+  String id = 'p1',
   bool hasStats = false,
   String status = '',
   List<PlayerGoal> goals = const [],
 }) {
   return Player(
-    id: 'p1',
+    id: id,
     categoryId: 'cat-1',
     firstName: 'Juan',
     lastName: 'Pérez',
@@ -145,6 +146,40 @@ void main() {
   group('newPlayerGoalId', () {
     test('is never empty', () {
       expect(newPlayerGoalId(), isNotEmpty);
+    });
+  });
+
+  group('squadGoalTracker', () {
+    test('flattens active goals across players, ordered by priority (alta first)', () {
+      final low = _player(
+        id: 'p-low',
+        goals: [
+          const PlayerGoal(id: 'g1', title: 'Bajo', priority: PlayerGoalPriority.baja),
+        ],
+      );
+      final high = _player(
+        id: 'p-high',
+        goals: [
+          const PlayerGoal(id: 'g2', title: 'Alto', priority: PlayerGoalPriority.alta),
+        ],
+      );
+      final result = squadGoalTracker([low, high]);
+      expect(result.length, 2);
+      expect(result.first.player.id, 'p-high');
+      expect(result.last.player.id, 'p-low');
+    });
+
+    test('drops logrado/pausado goals — only active ones are tracked', () {
+      final player = _player(
+        goals: [
+          const PlayerGoal(id: 'g1', title: 'Listo', status: PlayerGoalStatus.logrado),
+        ],
+      );
+      expect(squadGoalTracker([player]), isEmpty);
+    });
+
+    test('empty squad yields an empty tracker', () {
+      expect(squadGoalTracker(const []), isEmpty);
     });
   });
 }

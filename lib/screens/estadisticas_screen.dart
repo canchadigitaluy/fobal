@@ -1057,11 +1057,18 @@ class _AutomaticReading extends StatelessWidget {
 
 class _PlayerLeaders extends StatelessWidget {
   final List<_PlayerStat> players;
-  const _PlayerLeaders({required this.players});
+  /// False for No-LUD categories: minutos/asistencias/amarillas nunca se
+  /// cargan a mano ahí, así que mostrarlas sería un 0 que parece un dato
+  /// real cuando en verdad nunca se registró. Solo Goles/PJ, que desde esta
+  /// ronda sí son reales para categorías manuales.
+  final bool showFullColumns;
+  const _PlayerLeaders({required this.players, this.showFullColumns = true});
 
   @override
   Widget build(BuildContext context) {
-    final withData = players.where((p) => p.hasData).toList();
+    final withData = players.where(
+      (p) => showFullColumns ? p.hasData : (p.goals > 0 || p.matches > 0),
+    ).toList();
     if (withData.isEmpty) {
       return const _Panel(
         title: 'Jugadores',
@@ -1084,12 +1091,16 @@ class _PlayerLeaders extends StatelessWidget {
       child: Column(
         children: [
           Row(
-            children: const [
-              Spacer(),
-              _ColHead('G', 34),
-              _ColHead('A', 34),
-              _ColHead('PJ', 40),
-              _ColHead('min', 56),
+            children: [
+              const Spacer(),
+              const _ColHead('G', 34),
+              if (showFullColumns) ...const [
+                _ColHead('A', 34),
+              ],
+              const _ColHead('PJ', 40),
+              if (showFullColumns) ...const [
+                _ColHead('min', 56),
+              ],
             ],
           ),
           const SizedBox(height: 4),
@@ -1136,9 +1147,13 @@ class _PlayerLeaders extends StatelessWidget {
                     ),
                   ),
                   _Cell('${player.goals}', 34, bold: player.goals > 0),
-                  _Cell('${player.assists}', 34),
+                  if (showFullColumns) ...[
+                    _Cell('${player.assists}', 34),
+                  ],
                   _Cell('${player.matches}', 40),
-                  _Cell('${player.minutes}', 56),
+                  if (showFullColumns) ...[
+                    _Cell('${player.minutes}', 56),
+                  ],
                 ],
               ),
             );
@@ -1381,6 +1396,26 @@ class _NoLudStatsBody extends StatelessWidget {
             title: 'Forma reciente',
           ),
           _NoLudForm(summary: summary),
+          const SizedBox(height: 20),
+          const PremiumSectionHeader(
+            eyebrow: 'Plantel',
+            title: 'Goleadores',
+          ),
+          _PlayerLeaders(
+            showFullColumns: false,
+            players: [
+              for (final player in players)
+                _PlayerStat(
+                  name: player.fullName.trim(),
+                  position: player.position.trim(),
+                  matches: player.matchesPlayed,
+                  minutes: player.minutesPlayed,
+                  goals: player.goals,
+                  assists: player.assists,
+                  yellowCards: player.yellowCards,
+                ),
+            ],
+          ),
           const SizedBox(height: 20),
           const PremiumSectionHeader(
             eyebrow: 'Historial',

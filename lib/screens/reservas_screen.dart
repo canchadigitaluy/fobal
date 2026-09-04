@@ -8,9 +8,12 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
+import '../services/export_download_service.dart';
+import '../services/export_text_service.dart';
 import '../services/offline_mutation_service.dart';
 import '../services/training_ai_service.dart';
 import '../ui/exercise_animation_preview.dart';
+import '../ui/export_preview_dialog.dart';
 
 const _fixtureStylePlaceholder =
     'Fixture detectado desde la liga. Completar observaciones del rival sin inventar: sistema, presion, salida, zonas fuertes y debilidades vistas.';
@@ -448,7 +451,11 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   const SizedBox(height: 18),
                   _SectionTitle('Plan de partido'),
                   const SizedBox(height: 10),
-                  _GeneratedSessionCard(session: _generatedTactic!),
+                  _GeneratedSessionCard(
+                    session: _generatedTactic!,
+                    clubName: club.name,
+                    categoryName: category.name,
+                  ),
                 ],
                 const SizedBox(height: 16),
                 _SectionTitle('Preparar entrenamiento'),
@@ -487,7 +494,11 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   const SizedBox(height: 18),
                   _SectionTitle('Sesión generada'),
                   const SizedBox(height: 10),
-                  _GeneratedSessionCard(session: _generatedSession!),
+                  _GeneratedSessionCard(
+                    session: _generatedSession!,
+                    clubName: club.name,
+                    categoryName: category.name,
+                  ),
                 ],
                 const SizedBox(height: 18),
                 _SectionTitle('Registro rapido post-entreno'),
@@ -2582,8 +2593,51 @@ class _StepperBox extends StatelessWidget {
 
 class _GeneratedSessionCard extends StatelessWidget {
   final TrainingSession session;
+  final String clubName;
+  final String categoryName;
 
-  const _GeneratedSessionCard({required this.session});
+  const _GeneratedSessionCard({
+    required this.session,
+    this.clubName = '',
+    this.categoryName = '',
+  });
+
+  void _shareText(BuildContext context) {
+    final content = formatSessionText(
+      title: session.title,
+      categoryName: categoryName,
+      scheduledDate: session.scheduledDate,
+      duration: session.duration,
+      playerCount: session.playerCount,
+      space: session.space,
+      objective: session.objective,
+      blocks: [
+        for (final block in session.blocks)
+          (name: block.name, duration: block.duration, description: block.description),
+      ],
+      coachCues: session.coachCues,
+      successIndicators: session.successIndicators,
+      limitations: session.limitations,
+    );
+    final fileName = buildExportFileName(
+      club: clubName,
+      category: categoryName,
+      type: 'sesion',
+      extension: 'txt',
+    );
+    showExportPreviewDialog(
+      context,
+      title: 'Sesión de entrenamiento',
+      content: content,
+      fileName: fileName,
+      onDownload: (name, text) {
+        ExportDownloadService.downloadText(name, text);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sesión descargada: $name')),
+        );
+      },
+    );
+  }
 
   Future<void> _exportPng(BuildContext context) async {
     final escape = const HtmlEscape().convert;
@@ -2672,13 +2726,18 @@ class _GeneratedSessionCard extends StatelessWidget {
       ..scale(2, 2)
       ..drawImage(image, 0, 0);
     final png = canvas.toDataUrl('image/png');
+    final fileName = buildExportFileName(
+      club: clubName,
+      category: categoryName,
+      type: 'sesion',
+      extension: 'png',
+    );
     html.AnchorElement(href: png)
-      ..download =
-          '${session.title.replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '_')}.png'
+      ..download = fileName
       ..click();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Sesión exportada como PNG.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Sesión exportada: $fileName')),
+    );
   }
 
   List<String> _wrapLine(String value, int max) {
@@ -2768,6 +2827,11 @@ class _GeneratedSessionCard extends StatelessWidget {
                 onPressed: () => _exportPng(context),
                 icon: const Icon(Icons.image_outlined),
                 label: const Text('Exportar PNG'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _shareText(context),
+                icon: const Icon(Icons.notes_outlined),
+                label: const Text('Compartir texto'),
               ),
             ],
           ),

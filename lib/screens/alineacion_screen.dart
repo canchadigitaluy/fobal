@@ -10,8 +10,11 @@ import 'package:flutter/rendering.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../services/export_download_service.dart';
+import '../services/export_text_service.dart';
 import '../services/offline_mutation_service.dart';
 import '../state/section_handoff.dart';
+import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
 
 class AlineacionScreen extends StatefulWidget {
@@ -268,7 +271,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     );
   }
 
-  Future<void> _exportImage(CategorySquad category) async {
+  Future<void> _exportImage(CanteraClub club, CategorySquad category) async {
     final boundary =
         _captureKey.currentContext?.findRenderObject()
             as RenderRepaintBoundary?;
@@ -278,43 +281,64 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     if (bytes == null) return;
     final blob = html.Blob([bytes.buffer.asUint8List()], 'image/png');
     final url = html.Url.createObjectUrlFromBlob(blob);
+    final fileName = buildExportFileName(
+      club: club.name,
+      category: category.name,
+      type: 'alineacion',
+      extension: 'png',
+    );
     html.AnchorElement(href: url)
-      ..download = 'alineacion_${category.name.replaceAll(' ', '_')}.png'
+      ..download = fileName
       ..click();
     html.Url.revokeObjectUrl(url);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Imagen descargada: $fileName')),
+    );
   }
 
-  void _exportCitation(CategorySquad category, List<Player> players) {
+  void _exportCitation(
+    CanteraClub club,
+    CategorySquad category,
+    List<Player> players,
+  ) {
     final names = {for (final player in players) player.id: player.fullName};
-    final title = _titleController.text.trim().isEmpty
-        ? 'Citación ${category.name}'
-        : _titleController.text.trim();
-    final selected = [
-      ..._xi.whereType<String>(),
-      ..._subs.whereType<String>(),
+    final titulares = [
+      for (var i = 0; i < _xi.length; i++)
+        if (_xi[i] != null) '${_spots[i].label} — ${names[_xi[i]] ?? '-'}',
     ];
-    final content = [
-      title,
-      if (_rivalController.text.trim().isNotEmpty)
-        'Rival: ${_rivalController.text.trim()}',
-      if (_dateController.text.trim().isNotEmpty)
-        'Fecha: ${_dateController.text.trim()}',
-      'Categoría: ${category.name}',
-      '',
-      'Convocados',
-      ...selected.asMap().entries.map(
-            (entry) => '${entry.key + 1}. ${names[entry.value] ?? '-'}',
-          ),
-      '',
-      'Mensaje',
-      'Quedan citados para el próximo compromiso. Confirmar disponibilidad.',
-    ].join('\n');
-    final blob = html.Blob([content], 'text/plain;charset=utf-8');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    html.AnchorElement(href: url)
-      ..download = 'citacion_${category.name.replaceAll(' ', '_')}.txt'
-      ..click();
-    html.Url.revokeObjectUrl(url);
+    final suplentes = [
+      for (final id in _subs)
+        if (id != null) names[id] ?? '-',
+    ];
+    final content = formatCitationText(
+      title: _titleController.text.trim().isEmpty
+          ? '${category.name} vs ${_rivalController.text.trim()}'
+          : _titleController.text.trim(),
+      categoryName: category.name,
+      rival: _rivalController.text.trim(),
+      date: _dateController.text.trim(),
+      titulares: titulares,
+      suplentes: suplentes,
+    );
+    final fileName = buildExportFileName(
+      club: club.name,
+      category: category.name,
+      type: 'citacion',
+      extension: 'txt',
+    );
+    showExportPreviewDialog(
+      context,
+      title: 'Citación',
+      content: content,
+      fileName: fileName,
+      onDownload: (name, text) {
+        ExportDownloadService.downloadText(name, text);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Citación descargada: $name')),
+        );
+      },
+    );
   }
 
   void _openSaved(_SavedAlignment saved) {
@@ -561,7 +585,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                   SizedBox(
                     width: 190,
                     child: OutlinedButton.icon(
-                      onPressed: () => _exportImage(category),
+                      onPressed: () => _exportImage(club, category),
                       icon: const Icon(Icons.download_outlined),
                       label: const Text('Exportar PNG'),
                     ),
@@ -569,7 +593,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                   SizedBox(
                     width: 190,
                     child: OutlinedButton.icon(
-                      onPressed: () => _exportCitation(category, players),
+                      onPressed: () => _exportCitation(club, category, players),
                       icon: const Icon(Icons.outgoing_mail),
                       label: const Text('Citación'),
                     ),

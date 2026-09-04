@@ -8,8 +8,11 @@ import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../services/export_download_service.dart';
+import '../services/export_text_service.dart';
 import '../services/offline_mutation_service.dart';
 import '../state/section_handoff.dart';
+import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
 
 class AsistenciaScreen extends StatefulWidget {
@@ -89,6 +92,46 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     ));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Asistencia guardada.')),
+    );
+  }
+
+  void _shareAttendance(
+    CanteraClub club,
+    CategorySquad category,
+    List<Player> players,
+  ) {
+    final present = <String>[];
+    final absent = <String>[];
+    for (final player in players) {
+      (_presentIds.contains(player.id) ? present : absent)
+          .add(player.fullName.trim());
+    }
+    final today = DateTime.now();
+    final dateLabel = '${today.day.toString().padLeft(2, '0')}/'
+        '${today.month.toString().padLeft(2, '0')}/${today.year}';
+    final content = formatAttendanceText(
+      categoryName: category.name,
+      date: dateLabel,
+      present: present,
+      absent: absent,
+    );
+    final fileName = buildExportFileName(
+      club: club.name,
+      category: category.name,
+      type: 'asistencia',
+      extension: 'txt',
+    );
+    showExportPreviewDialog(
+      context,
+      title: 'Asistencia',
+      content: content,
+      fileName: fileName,
+      onDownload: (name, text) {
+        ExportDownloadService.downloadText(name, text);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Asistencia descargada: $name')),
+        );
+      },
     );
   }
 
@@ -237,6 +280,11 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                       onPressed: () => _addPlayer(club, category),
                       icon: const Icon(Icons.person_add_alt_outlined, size: 17),
                       label: const Text('Jugador'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => _shareAttendance(club, category, players),
+                      icon: const Icon(Icons.ios_share_outlined, size: 17),
+                      label: const Text('Compartir'),
                     ),
                   ],
                 ),

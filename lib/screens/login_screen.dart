@@ -288,6 +288,48 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
+/// Practical, honest guidance — never a fake "reset password" flow that
+/// doesn't exist, just what actually solves the two real causes of a failed
+/// login: a mismatched credential or the wrong access path (LUD vs club
+/// independiente).
+void _showLoginHelp(BuildContext context, {required bool ludMode}) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('¿No podés entrar?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            ludMode
+                ? 'Revisá que el correo y la contraseña sean los mismos con '
+                    'los que te diste de alta en la liga universitaria.'
+                : 'Revisá que el correo y la contraseña sean los mismos con '
+                    'los que creaste tu club en fobal.',
+          ),
+          const SizedBox(height: 10),
+          Text(
+            ludMode
+                ? 'Si tu club no juega en la liga universitaria, elegí '
+                    '"No soy DT de Liga" arriba.'
+                : 'Si tu categoría juega en la liga universitaria, elegí '
+                    '"Soy DT de Liga" arriba e ingresá con esas credenciales.',
+          ),
+          const SizedBox(height: 10),
+          const Text('También podés ingresar con Google o crear una cuenta nueva.'),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Entendido'),
+        ),
+      ],
+    ),
+  );
+}
+
 class _ModernLoginView extends StatelessWidget {
   final bool ludMode;
   final TextEditingController emailController;
@@ -376,13 +418,18 @@ class _ModernLoginView extends StatelessWidget {
               controlAffinity: ListTileControlAffinity.leading,
               title: const Text('Recordarme', style: TextStyle(fontWeight: FontWeight.w700)),
             ),
-            OutlinedButton(
+            ElevatedButton(
               onPressed: onSubmit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: CX.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
               child: Text(loading ? 'Ingresando...' : ludMode ? 'Iniciar sesión' : 'Continuar'),
             ),
             const SizedBox(height: 10),
             TextButton(
-              onPressed: null,
+              onPressed: () => _showLoginHelp(context, ludMode: ludMode),
               child: const Text('¿Problemas para iniciar sesión?'),
             ),
             const SizedBox(height: 8),
@@ -395,7 +442,6 @@ class _ModernLoginView extends StatelessWidget {
             const SizedBox(height: 12),
             Center(
               child: _SocialCircle(
-                icon: Icons.g_mobiledata,
                 loading: googleLoading,
                 onTap: onGoogle,
               ),
@@ -403,9 +449,8 @@ class _ModernLoginView extends StatelessWidget {
             const SizedBox(height: 20),
             const Divider(),
             const SizedBox(height: 18),
-            ElevatedButton(
+            OutlinedButton(
               onPressed: onCreateAccount,
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF183D49), foregroundColor: Colors.white),
               child: const Text('Crear cuenta nueva'),
             ),
             if (message != null) ...[
@@ -547,7 +592,6 @@ class _CreateAccountView extends StatelessWidget {
                         const SizedBox(height: 24),
                         Center(
                           child: _SocialCircle(
-                            icon: Icons.g_mobiledata,
                             loading: false,
                             onTap: onGoogle,
                           ),
@@ -611,12 +655,14 @@ class _CreateAccountView extends StatelessWidget {
   }
 }
 
+/// "Continuar con Google" affordance. Renders the real four-color "G" mark
+/// instead of a generic Material icon, so it reads as an actual Google
+/// sign-in button rather than a placeholder.
 class _SocialCircle extends StatelessWidget {
-  final IconData icon;
   final bool loading;
   final VoidCallback? onTap;
 
-  const _SocialCircle({required this.icon, required this.loading, required this.onTap});
+  const _SocialCircle({required this.loading, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -626,20 +672,58 @@ class _SocialCircle extends StatelessWidget {
       child: Container(
         width: 56,
         height: 56,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: CX.lineStrong),
-          color: CX.panel,
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2)),
+          ],
         ),
         child: loading
             ? const Padding(
                 padding: EdgeInsets.all(16),
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : Icon(icon, color: CX.green, size: 34),
+            : const Padding(
+                padding: EdgeInsets.all(15),
+                child: CustomPaint(painter: _GoogleGPainter()),
+              ),
       ),
     );
   }
+}
+
+class _GoogleGPainter extends CustomPainter {
+  const _GoogleGPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+    final stroke = size.width * .34;
+    Paint arc(Color color) => Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke;
+    final rect = Rect.fromCircle(center: center, radius: radius - stroke / 2);
+    const twoPi = 6.28318530718;
+    const quarter = twoPi / 4;
+    // Four quarter-arcs, one per Google brand color, matching the familiar
+    // ring-with-a-notch "G" composition.
+    canvas.drawArc(rect, -quarter * .18, quarter, false, arc(const Color(0xFF4285F4)));
+    canvas.drawArc(rect, quarter * .82, quarter, false, arc(const Color(0xFF34A853)));
+    canvas.drawArc(rect, quarter * 1.82, quarter, false, arc(const Color(0xFFFBBC05)));
+    canvas.drawArc(rect, quarter * 2.82, quarter * 1.18, false, arc(const Color(0xFFEA4335)));
+    // The bar that closes the ring into a "G": a blue square filling the
+    // notch on the right, matching the arc's own thickness.
+    canvas.drawRect(
+      Rect.fromLTWH(center.dx, center.dy - stroke / 2, radius, stroke),
+      Paint()..color = const Color(0xFF4285F4),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _AuthMessage extends StatelessWidget {

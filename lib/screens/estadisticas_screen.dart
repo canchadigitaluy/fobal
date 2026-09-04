@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
+import '../state/section_handoff.dart';
 import 'match_result_dialog.dart';
 
 class EstadisticasScreen extends StatefulWidget {
@@ -469,12 +470,80 @@ class _WeekReading extends StatelessWidget {
       if (avg == null) 'Sin tabla completa de la categoría para comparar.',
     ];
 
+    final recent5 = played.take(5).toList();
+    final rec = _record(recent5);
+    final focus = deriveSessionFocus(
+      scoring: scoring,
+      conceding: conceding,
+      leagueScoring: avg?.goalsForPerGame,
+      leagueConceding: avg?.goalsAgainstPerGame,
+      played: row.played,
+      formSummary: recent5.isEmpty
+          ? '${row.rank}° en la tabla'
+          : '${row.rank}° · últimos ${recent5.length}: ${rec.w}G ${rec.d}E ${rec.l}P',
+    );
+    final atRisk = data.players.where((p) => p.yellowCards >= 4).toList();
+
     return _shell(
       title: title,
       confidence: confidence,
       lines: lines,
       limits: limits,
+      actions: _readingActions(
+        focus: focus,
+        offerMatchPrep: isLud,
+        suspensionRisk: atRisk,
+      ),
     );
+  }
+
+  List<_ReadingAction> _readingActions({
+    required SessionFocusHandoff? focus,
+    required bool offerMatchPrep,
+    required List<_PlayerStat> suspensionRisk,
+  }) {
+    final actions = <_ReadingAction>[];
+    if (focus != null) {
+      actions.add(
+        _ReadingAction(
+          label: 'Preparar entrenamiento con este foco',
+          icon: Icons.auto_awesome,
+          primary: true,
+          run: (context) =>
+              ShellActions.of(context).openPlannerWithFocus(focus),
+        ),
+      );
+    }
+    // One secondary at most. Suspension risk is the more time-sensitive nudge.
+    if (suspensionRisk.isNotEmpty) {
+      actions.add(
+        _ReadingAction(
+          label: 'Revisar citación',
+          icon: Icons.how_to_reg_outlined,
+          primary: false,
+          run: (context) => ShellActions.of(context).openLineup(
+            LineupHint(
+              reason: suspensionRisk.length == 1
+                  ? '${suspensionRisk.first.name} en riesgo de suspensión'
+                  : '${suspensionRisk.length} jugadores con 4+ amarillas',
+              players: suspensionRisk.map((p) => p.name).toList(),
+            ),
+          ),
+        ),
+      );
+    } else if (offerMatchPrep) {
+      actions.add(
+        _ReadingAction(
+          label: 'Preparar el próximo partido',
+          icon: Icons.sports_soccer_outlined,
+          primary: false,
+          run: (context) => ShellActions.of(context).openMatchPrep(
+            const MatchPrepHandoff(origin: 'Lectura de la semana'),
+          ),
+        ),
+      );
+    }
+    return actions;
   }
 
   /// "sobre" / "bajo" / "en" [reference], comparing [value].
@@ -488,6 +557,7 @@ class _WeekReading extends StatelessWidget {
     required _Confidence? confidence,
     required List<String> lines,
     List<String> limits = const [],
+    List<_ReadingAction> actions = const [],
     String? empty,
   }) {
     const fg = Color(0xFFE8F1ED);
@@ -581,8 +651,60 @@ class _WeekReading extends StatelessWidget {
               ),
             ),
           ],
+          if (actions.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: Color(0x33FFFFFF)),
+            const SizedBox(height: 10),
+            _ReadingActionsRow(actions: actions),
+          ],
         ],
       ),
+    );
+  }
+}
+
+/// One contextual action offered under a reading.
+class _ReadingAction {
+  final String label;
+  final IconData icon;
+  final bool primary;
+  final void Function(BuildContext context) run;
+
+  const _ReadingAction({
+    required this.label,
+    required this.icon,
+    required this.primary,
+    required this.run,
+  });
+}
+
+class _ReadingActionsRow extends StatelessWidget {
+  final List<_ReadingAction> actions;
+  const _ReadingActionsRow({required this.actions});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: actions.map((action) {
+        if (action.primary) {
+          return ElevatedButton.icon(
+            onPressed: () => action.run(context),
+            icon: Icon(action.icon, size: 17),
+            label: Text(action.label),
+          );
+        }
+        return OutlinedButton.icon(
+          onPressed: () => action.run(context),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF6EF2C7),
+            side: const BorderSide(color: Color(0x556EF2C7)),
+          ),
+          icon: Icon(action.icon, size: 16),
+          label: Text(action.label),
+        );
+      }).toList(),
     );
   }
 }
@@ -1503,6 +1625,18 @@ class _NoLudReading extends StatelessWidget {
       }
     }
 
+    final focus = summary.played >= 2
+        ? deriveSessionFocus(
+            scoring: summary.scoring,
+            conceding: summary.conceding,
+            played: summary.played,
+            formSummary: 'Últimos ${summary.last5.length}: '
+                '${summary.last5.where((o) => o == 'G').length}G '
+                '${summary.last5.where((o) => o == 'E').length}E '
+                '${summary.last5.where((o) => o == 'P').length}P',
+          )
+        : null;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1573,6 +1707,22 @@ class _NoLudReading extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+          ],
+          if (focus != null) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: Color(0x33FFFFFF)),
+            const SizedBox(height: 10),
+            _ReadingActionsRow(
+              actions: [
+                _ReadingAction(
+                  label: 'Preparar entrenamiento con este foco',
+                  icon: Icons.auto_awesome,
+                  primary: true,
+                  run: (context) =>
+                      ShellActions.of(context).openPlannerWithFocus(focus),
+                ),
+              ],
             ),
           ],
         ],

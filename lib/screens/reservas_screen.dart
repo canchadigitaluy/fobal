@@ -58,6 +58,37 @@ class _ReservasScreenState extends State<ReservasScreen> {
     text: '',
   );
 
+  bool _handoffApplied = false;
+  String _handoffOrigin = '';
+  String _handoffContext = '';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_handoffApplied) return;
+    final actions = ShellActions.maybeOf(context);
+    if (actions == null) return;
+    final focus = actions.takeSessionFocus();
+    final prep = actions.takeMatchPrep();
+    if (focus == null && prep == null) return;
+    _handoffApplied = true;
+    if (focus != null) {
+      _objective = focus.objective;
+      _problem = focus.problem;
+      _handoffOrigin = focus.origin.isEmpty ? 'Estadísticas' : focus.origin;
+      _handoffContext = focus.context;
+    }
+    if (prep != null) {
+      if (prep.rivalName.trim().isNotEmpty) _rivalName = prep.rivalName.trim();
+      if (prep.rivalContext.trim().isNotEmpty) {
+        _rivalStyle = prep.rivalContext.trim();
+      }
+      if (prep.note.trim().isNotEmpty) _rivalMemory = prep.note.trim();
+      _handoffOrigin = prep.origin.isEmpty ? 'Estadísticas' : prep.origin;
+      _handoffContext = prep.rivalContext.trim();
+    }
+  }
+
   @override
   void dispose() {
     _transcriptController.dispose();
@@ -341,6 +372,17 @@ class _ReservasScreenState extends State<ReservasScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
               children: CanteraMotion.stagger([
+                if (_handoffOrigin.isNotEmpty) ...[
+                  _HandoffBanner(
+                    origin: _handoffOrigin,
+                    context: _handoffContext,
+                    onDismiss: () => setState(() {
+                      _handoffOrigin = '';
+                      _handoffContext = '';
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 if (club.categories.isNotEmpty) ...[
                   DropdownButtonFormField<String>(
                     key: ValueKey('tactical-category-$selectedId'),
@@ -2154,9 +2196,45 @@ class _GeneratorForm extends StatefulWidget {
 }
 
 class _GeneratorFormState extends State<_GeneratorForm> {
-  // Opens itself if the coach already put context in on a previous visit, so a
-  // half-filled plan is never hidden.
+  // Opens itself if the coach already put context in on a previous visit, or a
+  // handoff seeded a problem, so a half-filled plan is never hidden.
   late bool _showContext = widget.problem.trim().isNotEmpty;
+
+  // Controllers (not initialValue) so a seeded focus from Estadísticas shows
+  // up in the fields without a cursor jump when the coach types.
+  late final TextEditingController _objectiveCtrl =
+      TextEditingController(text: widget.objective);
+  late final TextEditingController _spaceCtrl =
+      TextEditingController(text: widget.space);
+  late final TextEditingController _problemCtrl =
+      TextEditingController(text: widget.problem);
+
+  @override
+  void didUpdateWidget(covariant _GeneratorForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _sync(_objectiveCtrl, widget.objective);
+    _sync(_spaceCtrl, widget.space);
+    _sync(_problemCtrl, widget.problem);
+    if (widget.problem.trim().isNotEmpty && !_showContext) {
+      _showContext = true;
+    }
+  }
+
+  void _sync(TextEditingController controller, String value) {
+    if (controller.text == value) return;
+    controller.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+  }
+
+  @override
+  void dispose() {
+    _objectiveCtrl.dispose();
+    _spaceCtrl.dispose();
+    _problemCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2171,7 +2249,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
       child: Column(
         children: [
           TextFormField(
-            initialValue: w.objective,
+            controller: _objectiveCtrl,
             decoration: const InputDecoration(
               labelText: 'Objetivo principal',
               hintText: 'Que comportamiento concreto queres mejorar',
@@ -2180,7 +2258,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
           ),
           const SizedBox(height: 10),
           TextFormField(
-            initialValue: w.space,
+            controller: _spaceCtrl,
             decoration: const InputDecoration(labelText: 'Espacio disponible'),
             onChanged: w.onSpace,
           ),
@@ -2230,7 +2308,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                       ],
                       const SizedBox(height: 10),
                       TextFormField(
-                        initialValue: w.problem,
+                        controller: _problemCtrl,
                         decoration: const InputDecoration(
                           labelText: 'Problema detectado',
                           hintText:
@@ -3746,6 +3824,73 @@ class _SectionTitle extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+    );
+  }
+}
+
+class _HandoffBanner extends StatelessWidget {
+  final String origin;
+  final String context;
+  final VoidCallback onDismiss;
+
+  const _HandoffBanner({
+    required this.origin,
+    required this.context,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+      decoration: BoxDecoration(
+        color: CX.green.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.green.withValues(alpha: .28)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.link, size: 16, color: CX.green),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sugerido desde $origin',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+                if (this.context.trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    this.context.trim(),
+                    style: const TextStyle(
+                      color: CX.muted,
+                      fontSize: 11,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 2),
+                const Text(
+                  'Revisá y ajustá los campos antes de generar.',
+                  style: TextStyle(color: CX.faint, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Ocultar',
+            onPressed: onDismiss,
+            icon: const Icon(Icons.close, size: 16),
+          ),
+        ],
+      ),
     );
   }
 }

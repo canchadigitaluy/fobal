@@ -25,6 +25,7 @@ import 'services/club_access_service.dart';
 import 'services/club_backup_service.dart';
 import 'services/club_sync_service.dart';
 import 'services/offline_mutation_service.dart';
+import 'state/section_handoff.dart';
 import 'services/preview_access_service.dart';
 import 'services/supabase_auth_service.dart';
 
@@ -133,6 +134,42 @@ class AppScope extends InheritedWidget {
       fullClub != oldWidget.fullClub ||
       role != oldWidget.role ||
       selectedCategoryId != oldWidget.selectedCategoryId;
+}
+
+/// Imperative bridge for "a read turned into an action": a section calls
+/// `openPlannerWithFocus` / `openMatchPrep` / `openLineup`, the shell navigates
+/// and stashes the payload, and the destination section reads it once with the
+/// matching `take*`. Callbacks are stable, so this never triggers rebuilds.
+class ShellActions extends InheritedWidget {
+  final void Function(SessionFocusHandoff) openPlannerWithFocus;
+  final void Function(MatchPrepHandoff) openMatchPrep;
+  final void Function([LineupHint?]) openLineup;
+  final SessionFocusHandoff? Function() takeSessionFocus;
+  final MatchPrepHandoff? Function() takeMatchPrep;
+  final LineupHint? Function() takeLineupHint;
+
+  const ShellActions({
+    super.key,
+    required this.openPlannerWithFocus,
+    required this.openMatchPrep,
+    required this.openLineup,
+    required this.takeSessionFocus,
+    required this.takeMatchPrep,
+    required this.takeLineupHint,
+    required super.child,
+  });
+
+  static ShellActions? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ShellActions>();
+
+  static ShellActions of(BuildContext context) {
+    final actions = maybeOf(context);
+    assert(actions != null, 'ShellActions not found');
+    return actions!;
+  }
+
+  @override
+  bool updateShouldNotify(ShellActions oldWidget) => false;
 }
 
 class CX {
@@ -1372,6 +1409,67 @@ class _MainShellState extends State<MainShell> {
   final PageStorageBucket _pageStorageBucket = PageStorageBucket();
   final GlobalKey<TacticaScreenState> _tacticaKey = GlobalKey();
 
+  // Consume-once payloads for section-to-section actions (datos -> lectura ->
+  // decisión -> sección). Held in memory only.
+  SessionFocusHandoff? _pendingSessionFocus;
+  MatchPrepHandoff? _pendingMatchPrep;
+  LineupHint? _pendingLineupHint;
+
+  int _indexOfScreen<T>() {
+    final scope = AppScope.of(context);
+    final external = _isExternalClub(scope.fullClub);
+    final screens = external
+        ? _enabledExternalLabels(scope.fullClub).map(_screenForLabel).toList()
+        : _screens(scope.role, external);
+    final index = screens.indexWhere((widget) => widget is T);
+    return index < 0 ? 0 : index;
+  }
+
+  /// Planificar sub-tab index inside TacticaScreen (Asistencia is hidden for
+  /// external clubs, shifting the planner one slot left).
+  int _plannerSubSection() =>
+      _isExternalClub(AppScope.of(context).fullClub) ? 1 : 2;
+
+  void _openTacticaSub(int sub) {
+    _setIndex(_indexOfScreen<TacticaScreen>());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _tacticaKey.currentState?.selectSection(sub);
+    });
+  }
+
+  void _openPlannerWithFocus(SessionFocusHandoff focus) {
+    _pendingSessionFocus = focus;
+    _openTacticaSub(_plannerSubSection());
+  }
+
+  void _openMatchPrep(MatchPrepHandoff prep) {
+    _pendingMatchPrep = prep;
+    _openTacticaSub(_plannerSubSection());
+  }
+
+  void _openLineup([LineupHint? hint]) {
+    _pendingLineupHint = hint;
+    _setIndex(_indexOfScreen<AlineacionScreen>());
+  }
+
+  SessionFocusHandoff? _takeSessionFocus() {
+    final value = _pendingSessionFocus;
+    _pendingSessionFocus = null;
+    return value;
+  }
+
+  MatchPrepHandoff? _takeMatchPrep() {
+    final value = _pendingMatchPrep;
+    _pendingMatchPrep = null;
+    return value;
+  }
+
+  LineupHint? _takeLineupHint() {
+    final value = _pendingLineupHint;
+    _pendingLineupHint = null;
+    return value;
+  }
+
   static const _allItems = <_ShellItem>[
     _ShellItem(Icons.space_dashboard_outlined, Icons.space_dashboard, 'Inicio'),
     _ShellItem(Icons.shield_outlined, Icons.shield, 'Mi equipo'),
@@ -1562,36 +1660,54 @@ class _MainShellState extends State<MainShell> {
       });
     }
 
-    if (desktop) {
-      return Scaffold(
-        backgroundColor: CX.bg,
-        body: Row(
-          children: [
-            _DesktopSidebar(
-              selectedIndex: selectedIndex,
-              items: items,
-              onSelected: _selectNavigation,
-              onSwitchClub: _switchClub,
-              onSignOut: _signOut,
-              onInstallPwa: _installPwa,
-            ),
-            Expanded(
-              child: Container(
-                color: CX.canvas,
-                child: PageStorage(
-                  bucket: _pageStorageBucket,
-                  child: _AnimatedShellStack(
-                    selectedIndex: selectedIndex,
-                    children: screens,
+    final Widget shell = desktop
+        ? Scaffold(
+            backgroundColor: CX.bg,
+            body: Row(
+              children: [
+                _DesktopSidebar(
+                  selectedIndex: selectedIndex,
+                  items: items,
+                  onSelected: _selectNavigation,
+                  onSwitchClub: _switchClub,
+                  onSignOut: _signOut,
+                  onInstallPwa: _installPwa,
+                ),
+                Expanded(
+                  child: Container(
+                    color: CX.canvas,
+                    child: PageStorage(
+                      bucket: _pageStorageBucket,
+                      child: _AnimatedShellStack(
+                        selectedIndex: selectedIndex,
+                        children: screens,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      );
-    }
+          )
+        : _mobileShell(context, screens, selectedIndex, items, role);
 
+    return ShellActions(
+      openPlannerWithFocus: _openPlannerWithFocus,
+      openMatchPrep: _openMatchPrep,
+      openLineup: _openLineup,
+      takeSessionFocus: _takeSessionFocus,
+      takeMatchPrep: _takeMatchPrep,
+      takeLineupHint: _takeLineupHint,
+      child: shell,
+    );
+  }
+
+  Widget _mobileShell(
+    BuildContext context,
+    List<Widget> screens,
+    int selectedIndex,
+    List<_ShellItem> items,
+    UserRole role,
+  ) {
     return Scaffold(
       body: PageStorage(
         bucket: _pageStorageBucket,

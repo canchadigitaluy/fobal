@@ -11,6 +11,7 @@ import 'package:flutter/rendering.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/offline_mutation_service.dart';
+import '../state/section_handoff.dart';
 
 class AlineacionScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -99,10 +100,21 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     _dateController.addListener(_refreshPitchHeader);
   }
 
+  LineupHint? _hint;
+  bool _hintConsumed = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _syncCategory();
+    if (!_hintConsumed) {
+      final actions = ShellActions.maybeOf(context);
+      final hint = actions?.takeLineupHint();
+      if (hint != null) {
+        _hintConsumed = true;
+        _hint = hint;
+      }
+    }
   }
 
   /// Reacts to a club/category change. Runs here (not in build) because
@@ -458,6 +470,13 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
           children: [
+            if (_hint != null) ...[
+              _LineupHintBanner(
+                hint: _hint!,
+                onDismiss: () => setState(() => _hint = null),
+              ),
+              const SizedBox(height: 12),
+            ],
             if (category == null)
               Container(
                 padding: const EdgeInsets.all(18),
@@ -1458,4 +1477,66 @@ class _Spot {
   final bool goalkeeper;
 
   const _Spot(this.label, this.x, this.y, this.goalkeeper);
+}
+
+class _LineupHintBanner extends StatelessWidget {
+  final LineupHint hint;
+  final VoidCallback onDismiss;
+
+  const _LineupHintBanner({required this.hint, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+      decoration: BoxDecoration(
+        color: CX.amber.withValues(alpha: .1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.amber.withValues(alpha: .35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.flag_outlined, size: 16, color: CX.amber),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Para revisar en la citación: ${hint.reason}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+                if (hint.players.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    hint.players.join(' · '),
+                    style: const TextStyle(
+                      color: CX.muted,
+                      fontSize: 11,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 2),
+                const Text(
+                  'Es un aviso. La citación la decidís vos.',
+                  style: TextStyle(color: CX.faint, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Ocultar',
+            onPressed: onDismiss,
+            icon: const Icon(Icons.close, size: 16),
+          ),
+        ],
+      ),
+    );
+  }
 }

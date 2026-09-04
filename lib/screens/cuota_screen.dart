@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
+import '../state/section_handoff.dart';
 import '../ui/exercise_animation_preview.dart';
+import '../ui/ui_kit.dart';
 
 class CuotaScreen extends StatefulWidget {
   const CuotaScreen({super.key});
@@ -324,28 +326,67 @@ class _CuotaScreenState extends State<CuotaScreen> {
                     onFocus: () => _editCategoryFocus(club, category),
                     onPlan: () => _scrollTo(_sessionsKey),
                   ),
-                  if (players.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    KeyedSubtree(
-                      key: _squadMapKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const _SectionTitle(
-                            'Situación del plantel',
-                            'JUGADORES',
-                          ),
-                          const SizedBox(height: 10),
+                  const SizedBox(height: 24),
+                  KeyedSubtree(
+                    key: _squadMapKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: _SectionTitle(
+                                'Situación del plantel',
+                                'JUGADORES',
+                              ),
+                            ),
+                            if (club.dataSource == 'manual')
+                              OutlinedButton.icon(
+                                onPressed: () =>
+                                    _addManualPlayer(club, category),
+                                icon: const Icon(
+                                  Icons.person_add_alt_outlined,
+                                  size: 17,
+                                ),
+                                label: const Text('Agregar jugador'),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        if (players.isEmpty)
+                          _ActionEmpty(
+                            icon: Icons.person_add_alt_outlined,
+                            title: 'Plantel pendiente',
+                            description: uncategorizedPlayers.isEmpty
+                                ? club.dataSource == 'manual'
+                                    ? 'Agregá jugadores manualmente para usar asistencia, alineaciones y planificación.'
+                                    : 'La liga todavía no devolvió jugadores vinculados a esta categoría.'
+                                : 'Hay jugadores recibidos desde la liga pendientes de vincular a una categoría real.',
+                            primaryLabel: club.dataSource == 'manual'
+                                ? 'Agregar jugador'
+                                : null,
+                            onPrimary: club.dataSource == 'manual'
+                                ? () => _addManualPlayer(club, category)
+                                : null,
+                          )
+                        else ...[
                           _SquadPositionMap(
                             players: players,
                             canEdit:
                                 AppScope.of(context).role != UserRole.viewer,
                             onEdit: (player) => _editPlayer(club, player),
                           ),
+                          const SizedBox(height: 14),
+                          _PlayerGrid(
+                            players: players,
+                            canEdit:
+                                AppScope.of(context).role != UserRole.viewer,
+                            onEdit: (player) => _editPlayer(club, player),
+                          ),
                         ],
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                   if (matchPlans.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     const _SectionTitle('Proximo partido', 'TACTICA'),
@@ -361,11 +402,14 @@ class _CuotaScreenState extends State<CuotaScreen> {
                         const _SectionTitle('Proxima sesion', 'PLANIFICACION'),
                         const SizedBox(height: 10),
                         if (plannedSessions.isEmpty)
-                          const _ActionEmpty(
+                          _ActionEmpty(
                             icon: Icons.event_note_outlined,
                             title: 'Sin sesiones planificadas',
                             description:
-                                'Usa Planificar para construir una sesion y guardarla en esta categoria.',
+                                'Usá Planificar para construir una sesión y guardarla en esta categoría.',
+                            primaryLabel: 'Ir a Planificar',
+                            onPrimary: () => ShellActions.maybeOf(context)
+                                ?.openSection(ShellSection.planner),
                           )
                         else
                           _SessionTimeline(
@@ -391,36 +435,6 @@ class _CuotaScreenState extends State<CuotaScreen> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  const _SectionTitle('Plantel disponible', 'SEGUIMIENTO'),
-                  const SizedBox(height: 10),
-                  if (club.dataSource == 'manual') ...[
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _addManualPlayer(club, category),
-                        icon: const Icon(Icons.person_add_alt_outlined),
-                        label: const Text('Agregar jugador'),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                  if (players.isEmpty)
-                    _ActionEmpty(
-                      icon: Icons.person_add_alt_outlined,
-                      title: 'Plantel pendiente',
-                      description: uncategorizedPlayers.isEmpty
-                          ? club.dataSource == 'manual'
-                                ? 'Agrega jugadores manualmente para usar asistencia, alineaciones y planificacion.'
-                                : 'La liga todavia no devolvio jugadores vinculados a esta categoria.'
-                          : 'Hay jugadores recibidos desde la liga pendientes de vincular a una categoria real.',
-                    )
-                  else
-                    _PlayerGrid(
-                      players: players,
-                      canEdit: AppScope.of(context).role != UserRole.viewer,
-                      onEdit: (player) => _editPlayer(club, player),
-                    ),
                   const SizedBox(height: 24),
                   const _SectionTitle(
                     'Ultima lectura de campo',
@@ -3084,25 +3098,12 @@ class _ReportCard extends StatelessWidget {
 class _EmptyWorkspace extends StatelessWidget {
   const _EmptyWorkspace();
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(24),
-    decoration: CX.panelDecoration(),
-    child: const Column(
-      children: [
-        Icon(Icons.account_tree_outlined, color: CX.green, size: 34),
-        SizedBox(height: 13),
-        Text(
-          'El campo necesita una categoria',
-          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
-        ),
-        SizedBox(height: 7),
-        Text(
-          'Completa la estructura del club en Configuracion. Cuando exista una categoria, este espacio mostrara su planificacion, plantel y seguimiento.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: CX.muted, fontSize: 12, height: 1.45),
-        ),
-      ],
-    ),
+  Widget build(BuildContext context) => const EmptyStatePanel(
+    icon: Icons.account_tree_outlined,
+    title: 'El campo necesita una categoría',
+    message: 'Completá la estructura del club en Configuración. Cuando '
+        'exista una categoría, este espacio muestra su planificación, '
+        'plantel y seguimiento.',
   );
 }
 
@@ -3110,44 +3111,22 @@ class _ActionEmpty extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
+  final String? primaryLabel;
+  final VoidCallback? onPrimary;
   const _ActionEmpty({
     required this.icon,
     required this.title,
     required this.description,
+    this.primaryLabel,
+    this.onPrimary,
   });
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(17),
-    decoration: CX.panelDecoration(),
-    child: Row(
-      children: [
-        Icon(icon, color: CX.faint, size: 23),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                description,
-                style: const TextStyle(
-                  color: CX.faint,
-                  fontSize: 11,
-                  height: 1.35,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
+  Widget build(BuildContext context) => EmptyStatePanel(
+    icon: icon,
+    title: title,
+    message: description,
+    primaryLabel: primaryLabel,
+    onPrimary: onPrimary,
   );
 }
 
@@ -3156,24 +3135,8 @@ class _SectionTitle extends StatelessWidget {
   final String eyebrow;
   const _SectionTitle(this.title, this.eyebrow);
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        eyebrow,
-        style: const TextStyle(
-          color: CX.green,
-          fontSize: 9,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      const SizedBox(height: 3),
-      Text(
-        title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-      ),
-    ],
-  );
+  Widget build(BuildContext context) =>
+      PremiumSectionHeader(eyebrow: eyebrow, title: title);
 }
 
 class _Tag extends StatelessWidget {

@@ -68,6 +68,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
   String _venue = '';
   String _id = '';
   String _createdAt = '';
+  String _linkedSessionId = '';
   bool _hydrated = false;
 
   LudStandingsTable? _standings;
@@ -123,6 +124,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     if (existing == null) return;
     _id = existing.id;
     _createdAt = existing.createdAt;
+    _linkedSessionId = existing.linkedSessionId;
     _rival.text = existing.rival;
     _date.text = existing.date;
     _time.text = existing.time;
@@ -194,6 +196,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
       setPiecesAgainst: _setPiecesAgainst.text.trim(),
       playersToWatch: _playersToWatch.text.trim(),
       staffNotes: _staffNotes.text.trim(),
+      linkedSessionId: _linkedSessionId,
       createdAt: _createdAt.isEmpty ? now : _createdAt,
       updatedAt: now,
     );
@@ -229,9 +232,21 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
         rivalContext: [_opponentNotes.text.trim(), planSummary].where((s) => s.isNotEmpty).join(' — '),
         note: _staffNotes.text.trim(),
         origin: 'Panel de partido',
+        calendarEventId: widget.calendarEventId,
       ),
     );
     Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  /// Title of the session generated from this prep via "Preparar
+  /// entrenamiento para este partido", if it still exists. Never guessed —
+  /// only resolved from the real linkedSessionId written back by Planificar.
+  String? _linkedSessionTitle(CanteraClub club) {
+    if (_linkedSessionId.isEmpty) return null;
+    for (final session in club.sessions) {
+      if (session.id == _linkedSessionId) return session.title;
+    }
+    return null;
   }
 
   void _shareSummary(CanteraClub club, CategorySquad category, List<String> warnings) {
@@ -252,6 +267,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
       playersToWatch: _playersToWatch.text.trim(),
       staffNotes: _staffNotes.text.trim(),
       availabilityNotes: warnings,
+      linkedSessionTitle: _linkedSessionTitle(club) ?? '',
     );
     final fileName = buildExportFileName(
       club: club.name,
@@ -532,10 +548,37 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                 ),
                 const SizedBox(height: 20),
                 const PremiumSectionHeader(eyebrow: 'Entrenamiento', title: 'Preparación asociada'),
+                if (_linkedSessionTitle(club) case final title?) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: CX.greenDark.withValues(alpha: .3),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: CX.green.withValues(alpha: .24)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle_outline, color: CX.green, size: 17),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Entrenamiento vinculado: $title',
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 OutlinedButton.icon(
                   onPressed: _goToPlanificar,
                   icon: const Icon(Icons.auto_awesome, size: 17),
-                  label: const Text('Preparar entrenamiento para este partido'),
+                  label: Text(
+                    _linkedSessionId.isEmpty
+                        ? 'Preparar entrenamiento para este partido'
+                        : 'Preparar otro entrenamiento para este partido',
+                  ),
                 ),
                 const SizedBox(height: 20),
                 const PremiumSectionHeader(eyebrow: 'Seguimiento', title: 'Notas'),

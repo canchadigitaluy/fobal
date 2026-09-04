@@ -24,12 +24,17 @@ class MatchPrepHandoff {
   final String rivalContext;
   final String note;
   final String origin;
+  // Stable id of the calendar event this prep came from, if any — lets the
+  // planner link the session it generates back to that match's prep, the
+  // same stable-id pattern MatchPreparation itself uses.
+  final String calendarEventId;
 
   const MatchPrepHandoff({
     this.rivalName = '',
     this.rivalContext = '',
     this.note = '',
     this.origin = '',
+    this.calendarEventId = '',
   });
 }
 

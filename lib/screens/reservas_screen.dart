@@ -68,6 +68,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
   bool _handoffApplied = false;
   String _handoffOrigin = '';
   String _handoffContext = '';
+  String _handoffCalendarEventId = '';
 
   @override
   void didChangeDependencies() {
@@ -93,6 +94,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
       if (prep.note.trim().isNotEmpty) _rivalMemory = prep.note.trim();
       _handoffOrigin = prep.origin.isEmpty ? 'Estadísticas' : prep.origin;
       _handoffContext = prep.rivalContext.trim();
+      _handoffCalendarEventId = prep.calendarEventId;
     }
   }
 
@@ -174,7 +176,18 @@ class _ReservasScreenState extends State<ReservasScreen> {
         session,
         ...club.sessions.where((item) => item.id != session.id),
       ];
-      AppScope.of(context).updateClub(club.copyWith(sessions: sessions));
+      final matchPreparations = _handoffCalendarEventId.isEmpty
+          ? club.matchPreparations
+          : [
+              for (final prep in club.matchPreparations)
+                if (prep.calendarEventId == _handoffCalendarEventId)
+                  prep.copyWith(linkedSessionId: session.id)
+                else
+                  prep,
+            ];
+      AppScope.of(context).updateClub(
+        club.copyWith(sessions: sessions, matchPreparations: matchPreparations),
+      );
       final writeResult =
           await OfflineMutationService.instance.saveTacticalDataOfflineFirst(
         type: 'session',

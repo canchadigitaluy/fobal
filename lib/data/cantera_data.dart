@@ -1834,6 +1834,14 @@ class MatchResult {
   /// stay linked. Empty otherwise.
   final String calendarKey;
 
+  /// Player ids who played this match — only for No-LUD/manual categories,
+  /// where there's no league sync to source matchesPlayed from otherwise.
+  final List<String> lineupIds;
+
+  /// Player id per goal scored (a hat-trick is the same id three times) —
+  /// same manual-only scope as [lineupIds].
+  final List<String> scorerIds;
+
   const MatchResult({
     required this.id,
     required this.categoryId,
@@ -1845,6 +1853,8 @@ class MatchResult {
     this.kind = 'oficial',
     this.note = '',
     this.calendarKey = '',
+    this.lineupIds = const [],
+    this.scorerIds = const [],
   });
 
   /// Counts toward points / % of points at stake. Friendlies and practice
@@ -1881,6 +1891,8 @@ class MatchResult {
     String? kind,
     String? note,
     String? calendarKey,
+    List<String>? lineupIds,
+    List<String>? scorerIds,
   }) {
     return MatchResult(
       id: id,
@@ -1893,6 +1905,8 @@ class MatchResult {
       kind: kind ?? this.kind,
       note: note ?? this.note,
       calendarKey: calendarKey ?? this.calendarKey,
+      lineupIds: lineupIds ?? this.lineupIds,
+      scorerIds: scorerIds ?? this.scorerIds,
     );
   }
 
@@ -1907,6 +1921,8 @@ class MatchResult {
     'kind': kind,
     'note': note,
     'calendarKey': calendarKey,
+    'lineupIds': lineupIds,
+    'scorerIds': scorerIds,
   };
 
   factory MatchResult.fromJson(Map<String, dynamic> json) {
@@ -1924,6 +1940,8 @@ class MatchResult {
       kind: MatchResult.kinds.contains(kind) ? kind : 'oficial',
       note: json['note'] as String? ?? '',
       calendarKey: json['calendarKey'] as String? ?? '',
+      lineupIds: List<String>.from(json['lineupIds'] as List<dynamic>? ?? const []),
+      scorerIds: List<String>.from(json['scorerIds'] as List<dynamic>? ?? const []),
     );
   }
 }

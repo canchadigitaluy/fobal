@@ -4,6 +4,7 @@ import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/attendance_stats_service.dart';
 import '../services/club_access_service.dart';
+import '../services/player_match_stats_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/ui_kit.dart';
 import 'match_result_dialog.dart';
@@ -107,6 +108,39 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
         .toList();
   }
 
+  /// Persists a No-LUD category's match results and, in the same update,
+  /// recomputes matchesPlayed/goals for every player in that category from
+  /// the full result history — the only source of truth for manual clubs,
+  /// which have no league sync to derive those numbers from. Recomputing
+  /// from scratch (instead of incrementing) means an edit or delete never
+  /// double-counts.
+  void _saveResults(List<MatchResult> next, String categoryId) {
+    final scope = AppScope.of(context);
+    final club = scope.fullClub;
+    final categoryPlayerIds = club.players
+        .where((player) => player.categoryId == categoryId)
+        .map((player) => player.id)
+        .toList();
+    final categoryResults =
+        next.where((result) => result.categoryId == categoryId).toList();
+    final stats = computePlayerMatchStats(
+      lineups: [for (final result in categoryResults) result.lineupIds],
+      scorers: [for (final result in categoryResults) result.scorerIds],
+      playerIds: categoryPlayerIds,
+    );
+    final players = [
+      for (final player in club.players)
+        if (stats.containsKey(player.id))
+          player.copyWith(
+            matchesPlayed: stats[player.id]!.matchesPlayed,
+            goals: stats[player.id]!.goals,
+          )
+        else
+          player,
+    ];
+    scope.updateClub(club.copyWith(matchResults: next, players: players));
+  }
+
   void _refresh() {
     _key = null;
     _forceNextLoad = true;
@@ -175,9 +209,7 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
               players: club.players
                   .where((player) => player.categoryId == selectedCategoryId)
                   .toList(),
-              onChanged: (next) => scope.updateClub(
-                scope.fullClub.copyWith(matchResults: next),
-              ),
+              onChanged: (next) => _saveResults(next, selectedCategoryId),
             );
           }
 
@@ -1248,7 +1280,11 @@ class _NoLudStatsBody extends StatelessWidget {
   });
 
   Future<void> _add(BuildContext context) async {
-    final result = await showMatchResultDialog(context, categoryId: categoryId);
+    final result = await showMatchResultDialog(
+      context,
+      categoryId: categoryId,
+      players: players,
+    );
     if (result != null) onChanged([...allResults, result]);
   }
 
@@ -1257,6 +1293,7 @@ class _NoLudStatsBody extends StatelessWidget {
       context,
       categoryId: categoryId,
       existing: existing,
+      players: players,
     );
     if (result != null) {
       onChanged([

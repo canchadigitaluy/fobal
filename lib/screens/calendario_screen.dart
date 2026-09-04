@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/offline_mutation_service.dart';
+import '../services/player_match_stats_service.dart';
 import '../state/calendar_events.dart';
 import '../state/calendar_time.dart';
 import '../state/section_handoff.dart';
@@ -154,19 +155,44 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
   /// rides the existing sync with no extra plumbing.
   Future<void> _logResult(DateTime day, _CalendarEvent event) async {
     final scope = AppScope.of(context);
+    final categoryId = _activeCategoryId(scope);
+    final categoryPlayers = isLudCategoryId(categoryId)
+        ? const <Player>[]
+        : scope.fullClub.players
+            .where((player) => player.categoryId == categoryId)
+            .toList();
     final result = await showMatchResultDialog(
       context,
-      categoryId: _activeCategoryId(scope),
+      categoryId: categoryId,
       initialDate: day,
       initialOpponent: event.title,
       calendarKey: event.id,
+      players: categoryPlayers,
     );
     if (result == null || !mounted) return;
-    scope.updateClub(
-      scope.fullClub.copyWith(
-        matchResults: [...scope.fullClub.matchResults, result],
-      ),
-    );
+    final club = scope.fullClub;
+    final nextResults = [...club.matchResults, result];
+    var players = club.players;
+    if (categoryPlayers.isNotEmpty) {
+      final categoryResults =
+          nextResults.where((r) => r.categoryId == categoryId).toList();
+      final stats = computePlayerMatchStats(
+        lineups: [for (final r in categoryResults) r.lineupIds],
+        scorers: [for (final r in categoryResults) r.scorerIds],
+        playerIds: categoryPlayers.map((p) => p.id).toList(),
+      );
+      players = [
+        for (final player in club.players)
+          if (stats.containsKey(player.id))
+            player.copyWith(
+              matchesPlayed: stats[player.id]!.matchesPlayed,
+              goals: stats[player.id]!.goals,
+            )
+          else
+            player,
+      ];
+    }
+    scope.updateClub(club.copyWith(matchResults: nextResults, players: players));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Resultado cargado para ${event.title}.')),
     );

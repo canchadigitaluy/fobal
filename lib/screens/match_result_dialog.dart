@@ -12,6 +12,10 @@ Future<MatchResult?> showMatchResultDialog(
   DateTime? initialDate,
   String? initialOpponent,
   String? calendarKey,
+  /// Category's own players, for the optional "quién jugó / quién anotó"
+  /// picker — only meaningful (and only shown) for manual/No-LUD categories,
+  /// which have no league sync to source matchesPlayed/goals from.
+  List<Player> players = const [],
 }) {
   return showDialog<MatchResult>(
     context: context,
@@ -21,6 +25,7 @@ Future<MatchResult?> showMatchResultDialog(
       initialDate: initialDate,
       initialOpponent: initialOpponent,
       calendarKey: calendarKey,
+      players: players,
     ),
   );
 }
@@ -31,6 +36,7 @@ class _MatchResultDialog extends StatefulWidget {
   final DateTime? initialDate;
   final String? initialOpponent;
   final String? calendarKey;
+  final List<Player> players;
 
   const _MatchResultDialog({
     required this.categoryId,
@@ -38,6 +44,7 @@ class _MatchResultDialog extends StatefulWidget {
     this.initialDate,
     this.initialOpponent,
     this.calendarKey,
+    this.players = const [],
   });
 
   @override
@@ -53,6 +60,8 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
   late int _goalsFor;
   late int _goalsAgainst;
   bool _showOpponentError = false;
+  final Set<String> _lineup = {};
+  final Map<String, int> _scorers = {};
 
   @override
   void initState() {
@@ -69,6 +78,12 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
     _kind = e?.kind ?? 'oficial';
     _goalsFor = e?.goalsFor ?? 0;
     _goalsAgainst = e?.goalsAgainst ?? 0;
+    if (e != null) {
+      _lineup.addAll(e.lineupIds);
+      for (final id in e.scorerIds) {
+        _scorers[id] = (_scorers[id] ?? 0) + 1;
+      }
+    }
   }
 
   @override
@@ -99,6 +114,11 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
       kind: _kind,
       note: _note.text.trim(),
       calendarKey: widget.calendarKey ?? e?.calendarKey ?? '',
+      lineupIds: _lineup.toList(),
+      scorerIds: [
+        for (final entry in _scorers.entries)
+          for (var i = 0; i < entry.value; i++) entry.key,
+      ],
     );
     Navigator.pop(context, result);
   }
@@ -202,6 +222,54 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
                   hintText: 'Una línea sobre el partido',
                 ),
               ),
+              if (widget.players.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Text(
+                  'QUIÉN JUGÓ Y QUIÉN ANOTÓ (OPCIONAL)',
+                  style: const TextStyle(
+                    color: CX.faint,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Alimenta partidos jugados y goles en el perfil de cada jugador.',
+                  style: const TextStyle(color: CX.faint, fontSize: 10.5),
+                ),
+                const SizedBox(height: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        for (final player in widget.players)
+                          _PlayerStatRow(
+                            player: player,
+                            played: _lineup.contains(player.id),
+                            goals: _scorers[player.id] ?? 0,
+                            onPlayedChanged: (played) => setState(() {
+                              if (played) {
+                                _lineup.add(player.id);
+                              } else {
+                                _lineup.remove(player.id);
+                                _scorers.remove(player.id);
+                              }
+                            }),
+                            onGoalsChanged: (goals) => setState(() {
+                              if (goals <= 0) {
+                                _scorers.remove(player.id);
+                              } else {
+                                _scorers[player.id] = goals;
+                                _lineup.add(player.id);
+                              }
+                            }),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -216,6 +284,63 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
           child: const Text('Guardar'),
         ),
       ],
+    );
+  }
+}
+
+class _PlayerStatRow extends StatelessWidget {
+  final Player player;
+  final bool played;
+  final int goals;
+  final ValueChanged<bool> onPlayedChanged;
+  final ValueChanged<int> onGoalsChanged;
+
+  const _PlayerStatRow({
+    required this.player,
+    required this.played,
+    required this.goals,
+    required this.onPlayedChanged,
+    required this.onGoalsChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Checkbox(
+            value: played,
+            onChanged: (value) => onPlayedChanged(value ?? false),
+          ),
+          Expanded(
+            child: Text(
+              player.fullName.trim(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: goals > 0 ? () => onGoalsChanged(goals - 1) : null,
+            icon: const Icon(Icons.remove, size: 16),
+          ),
+          SizedBox(
+            width: 18,
+            child: Text(
+              '$goals',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: () => onGoalsChanged(goals + 1),
+            icon: const Icon(Icons.add, size: 16),
+          ),
+        ],
+      ),
     );
   }
 }

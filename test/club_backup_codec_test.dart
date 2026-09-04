@@ -96,6 +96,105 @@ void main() {
     expect(back.goals + back.assists, 10);
   });
 
+  MatchResult res(
+    String date,
+    String opp,
+    int gf,
+    int ga, {
+    String kind = 'oficial',
+    String venue = 'home',
+  }) => MatchResult(
+    id: 'r-$date-$opp',
+    categoryId: 'cat-1',
+    date: date,
+    opponent: opp,
+    goalsFor: gf,
+    goalsAgainst: ga,
+    kind: kind,
+    venue: venue,
+  );
+
+  test('MatchResult round-trips through the club blob', () {
+    final withResults = club.copyWith(
+      matchResults: [
+        res('2026-08-30', 'Rival A', 2, 1, venue: 'away'),
+        res('2026-08-23', 'Rival B', 0, 0, kind: 'amistoso'),
+      ],
+    );
+    final restored = ClubBackupCodec.parseClubJson(
+      ClubBackupCodec.exportJson(withResults),
+    );
+    expect(restored, isNotNull);
+    expect(restored!.matchResults, hasLength(2));
+    final a = restored.matchResults.first;
+    expect(a.opponent, 'Rival A');
+    expect(a.goalsFor, 2);
+    expect(a.venue, 'away');
+    expect(a.outcome, 'G');
+    expect(a.points, 3);
+    expect(a.isCompetitive, isTrue);
+    expect(restored.matchResults[1].isCompetitive, isFalse); // amistoso
+  });
+
+  test('MatchStats computes standings-style numbers from manual results', () {
+    final results = [
+      res('2026-08-30', 'A', 3, 1), // G
+      res('2026-08-23', 'B', 1, 1), // E
+      res('2026-08-16', 'C', 0, 2), // P
+      res('2026-08-09', 'D', 2, 0), // G
+      res('2026-08-02', 'E', 0, 0), // E
+      res('2026-07-26', 'F', 1, 0, kind: 'amistoso'), // excluded from points
+    ];
+    // A result from another category must be ignored entirely.
+    final other = res('2026-07-19', 'X', 9, 0).copyWith(categoryId: 'other');
+
+    final s = MatchStats.forCategory([...results, other], 'cat-1');
+    expect(s.played, 5); // 6 logged, 1 friendly excluded, other-category ignored
+    expect(s.wins, 2);
+    expect(s.draws, 2);
+    expect(s.losses, 1);
+    expect(s.points, 8); // 2*3 + 2
+    expect(s.goalsFor, 6); // 3+1+0+2+0
+    expect(s.goalsAgainst, 4); // 1+1+2+0+0
+    expect(s.goalDiff, 2);
+    expect((s.pointsRate * 100).round(), 53); // 8 / 15
+    expect(s.scoring, closeTo(1.2, 0.001));
+    expect(s.conceding, closeTo(0.8, 0.001));
+    expect(s.friendlies, 1);
+    expect(s.last5, ['G', 'E', 'P', 'G', 'E']);
+  });
+
+  test('MatchStats streak reads the leading run, grouping draws with losses', () {
+    final losing = MatchStats.forCategory([
+      res('2026-08-30', 'A', 0, 1), // P (newest)
+      res('2026-08-23', 'B', 1, 1), // E
+      res('2026-08-16', 'C', 0, 3), // P
+      res('2026-08-09', 'D', 2, 0), // G  -> run stops here
+    ], 'cat-1');
+    expect(losing.streak.count, 3);
+    expect(losing.streak.label, 'sin ganar');
+
+    final winning = MatchStats.forCategory([
+      res('2026-08-30', 'A', 2, 0),
+      res('2026-08-23', 'B', 1, 0),
+      res('2026-08-16', 'C', 0, 1),
+    ], 'cat-1');
+    expect(winning.streak.count, 2);
+    expect(winning.streak.label, 'ganando');
+  });
+
+  test('MatchStats with no competitive matches is an empty, honest summary', () {
+    final s = MatchStats.forCategory([
+      res('2026-08-30', 'A', 3, 0, kind: 'amistoso'),
+      res('2026-08-23', 'B', 1, 1, kind: 'practica'),
+    ], 'cat-1');
+    expect(s.played, 0);
+    expect(s.points, 0);
+    expect(s.pointsRate, 0);
+    expect(s.friendlies, 2);
+    expect(s.streak.count, 0);
+  });
+
   test('a player without league stats reads zero and hasLeagueStats is false', () {
     const player = Player(
       id: 'manual-1',

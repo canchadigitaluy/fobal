@@ -29,6 +29,11 @@ class CanteraClub {
   final List<Player> players;
   final List<TrainingSession> sessions;
   final List<TrainingReport> trainingReports;
+
+  /// Match results a coach logs by hand (No-LUD). LUD clubs get their results
+  /// from the league and normally leave this empty; a friendly the league does
+  /// not track can still be added here.
+  final List<MatchResult> matchResults;
   final List<IntelligentAlert> alerts;
   final List<AiReport> aiReports;
   final List<ClubUserAccess> users;
@@ -51,6 +56,7 @@ class CanteraClub {
     required this.players,
     required this.sessions,
     required this.trainingReports,
+    this.matchResults = const [],
     required this.alerts,
     required this.aiReports,
     required this.users,
@@ -74,6 +80,7 @@ class CanteraClub {
     List<Player>? players,
     List<TrainingSession>? sessions,
     List<TrainingReport>? trainingReports,
+    List<MatchResult>? matchResults,
     List<IntelligentAlert>? alerts,
     List<AiReport>? aiReports,
     List<ClubUserAccess>? users,
@@ -96,6 +103,7 @@ class CanteraClub {
       players: players ?? this.players,
       sessions: sessions ?? this.sessions,
       trainingReports: trainingReports ?? this.trainingReports,
+      matchResults: matchResults ?? this.matchResults,
       alerts: alerts ?? this.alerts,
       aiReports: aiReports ?? this.aiReports,
       users: users ?? this.users,
@@ -121,6 +129,7 @@ class CanteraClub {
       'players': players.map((p) => p.toJson()).toList(),
       'sessions': sessions.map((s) => s.toJson()).toList(),
       'trainingReports': trainingReports.map((r) => r.toJson()).toList(),
+      'matchResults': matchResults.map((r) => r.toJson()).toList(),
       'users': users.map((u) => u.toJson()).toList(),
     };
   }
@@ -153,6 +162,10 @@ class CanteraClub {
           .toList(),
       trainingReports: (json['trainingReports'] as List<dynamic>? ?? [])
           .map((item) => TrainingReport.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      matchResults: (json['matchResults'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(MatchResult.fromJson)
           .toList(),
       users: (json['users'] as List<dynamic>? ?? [])
           .map((item) => ClubUserAccess.fromJson(item as Map<String, dynamic>))
@@ -1360,6 +1373,177 @@ class AnimationScene {
       durationSeconds: dur,
       isFallback: true,
     );
+  }
+}
+
+/// A match result a coach enters by hand. Persisted inside the club blob, so it
+/// rides the existing cloud sync with no extra plumbing.
+class MatchResult {
+  /// 'oficial' | 'amistoso' | 'torneo' | 'practica'
+  static const kinds = ['oficial', 'amistoso', 'torneo', 'practica'];
+
+  /// 'home' | 'away' | 'neutral'
+  static const venues = ['home', 'away', 'neutral'];
+
+  final String id;
+  final String categoryId;
+  final String date; // ISO yyyy-MM-dd
+  final String opponent;
+  final String venue;
+  final int goalsFor;
+  final int goalsAgainst;
+  final String kind;
+  final String note;
+
+  /// Set when the result was logged from a calendar Match event, so the two
+  /// stay linked. Empty otherwise.
+  final String calendarKey;
+
+  const MatchResult({
+    required this.id,
+    required this.categoryId,
+    required this.date,
+    required this.opponent,
+    this.venue = 'home',
+    this.goalsFor = 0,
+    this.goalsAgainst = 0,
+    this.kind = 'oficial',
+    this.note = '',
+    this.calendarKey = '',
+  });
+
+  /// Counts toward points / % of points at stake. Friendlies and practice
+  /// matches are logged but kept out of the standings-style maths.
+  bool get isCompetitive => kind == 'oficial' || kind == 'torneo';
+
+  /// 3 / 1 / 0 from the club's point of view.
+  int get points => goalsFor > goalsAgainst ? 3 : (goalsFor == goalsAgainst ? 1 : 0);
+
+  /// 'G' | 'E' | 'P'
+  String get outcome =>
+      goalsFor > goalsAgainst ? 'G' : (goalsFor == goalsAgainst ? 'E' : 'P');
+
+  String get venueLabel => switch (venue) {
+    'away' => 'Visitante',
+    'neutral' => 'Cancha neutral',
+    _ => 'Local',
+  };
+
+  String get kindLabel => switch (kind) {
+    'amistoso' => 'Amistoso',
+    'torneo' => 'Torneo',
+    'practica' => 'Práctica',
+    _ => 'Oficial',
+  };
+
+  MatchResult copyWith({
+    String? categoryId,
+    String? date,
+    String? opponent,
+    String? venue,
+    int? goalsFor,
+    int? goalsAgainst,
+    String? kind,
+    String? note,
+    String? calendarKey,
+  }) {
+    return MatchResult(
+      id: id,
+      categoryId: categoryId ?? this.categoryId,
+      date: date ?? this.date,
+      opponent: opponent ?? this.opponent,
+      venue: venue ?? this.venue,
+      goalsFor: goalsFor ?? this.goalsFor,
+      goalsAgainst: goalsAgainst ?? this.goalsAgainst,
+      kind: kind ?? this.kind,
+      note: note ?? this.note,
+      calendarKey: calendarKey ?? this.calendarKey,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'categoryId': categoryId,
+    'date': date,
+    'opponent': opponent,
+    'venue': venue,
+    'goalsFor': goalsFor,
+    'goalsAgainst': goalsAgainst,
+    'kind': kind,
+    'note': note,
+    'calendarKey': calendarKey,
+  };
+
+  factory MatchResult.fromJson(Map<String, dynamic> json) {
+    final venue = json['venue'] as String? ?? 'home';
+    final kind = json['kind'] as String? ?? 'oficial';
+    return MatchResult(
+      id: json['id'] as String? ??
+          'result-${DateTime.now().microsecondsSinceEpoch}',
+      categoryId: json['categoryId'] as String? ?? '',
+      date: json['date'] as String? ?? '',
+      opponent: json['opponent'] as String? ?? '',
+      venue: MatchResult.venues.contains(venue) ? venue : 'home',
+      goalsFor: (json['goalsFor'] as num?)?.toInt() ?? 0,
+      goalsAgainst: (json['goalsAgainst'] as num?)?.toInt() ?? 0,
+      kind: MatchResult.kinds.contains(kind) ? kind : 'oficial',
+      note: json['note'] as String? ?? '',
+      calendarKey: json['calendarKey'] as String? ?? '',
+    );
+  }
+}
+
+/// Standings-style summary computed from hand-logged [MatchResult]s for one
+/// category. Only official / tournament matches feed the points maths;
+/// friendlies and practice games are counted apart. Pure — no Flutter deps —
+/// so it is covered by unit tests.
+class MatchStats {
+  final List<MatchResult> all; // newest first
+  final List<MatchResult> competitive; // oficial + torneo, newest first
+
+  const MatchStats._({required this.all, required this.competitive});
+
+  factory MatchStats.forCategory(
+    List<MatchResult> results,
+    String categoryId,
+  ) {
+    final mine = results.where((r) => r.categoryId == categoryId).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    return MatchStats._(
+      all: mine,
+      competitive: mine.where((r) => r.isCompetitive).toList(),
+    );
+  }
+
+  int get played => competitive.length;
+  int get wins => competitive.where((r) => r.outcome == 'G').length;
+  int get draws => competitive.where((r) => r.outcome == 'E').length;
+  int get losses => competitive.where((r) => r.outcome == 'P').length;
+  int get goalsFor => competitive.fold(0, (s, r) => s + r.goalsFor);
+  int get goalsAgainst => competitive.fold(0, (s, r) => s + r.goalsAgainst);
+  int get goalDiff => goalsFor - goalsAgainst;
+  int get points => wins * 3 + draws;
+  double get pointsRate => played == 0 ? 0 : points / (played * 3);
+  double get scoring => played == 0 ? 0 : goalsFor / played;
+  double get conceding => played == 0 ? 0 : goalsAgainst / played;
+  int get friendlies => all.length - competitive.length;
+
+  List<String> get last5 => competitive.take(5).map((r) => r.outcome).toList();
+
+  /// Leading run of the same kind of result from the newest match. "sin ganar"
+  /// groups draws and losses.
+  ({int count, String label}) get streak {
+    if (competitive.isEmpty) return (count: 0, label: '');
+    final winning = competitive.first.outcome == 'G';
+    var n = 0;
+    for (final r in competitive) {
+      if ((r.outcome == 'G') == winning) {
+        n++;
+      } else {
+        break;
+      }
+    }
+    return (count: n, label: winning ? 'ganando' : 'sin ganar');
   }
 }
 

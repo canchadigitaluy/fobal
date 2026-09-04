@@ -306,6 +306,9 @@ class _CanteraAppState extends State<CanteraApp> {
       trainingReports: _club.trainingReports
           .where((report) => report.categoryId == categoryId)
           .toList(),
+      matchResults: _club.matchResults
+          .where((result) => result.categoryId == categoryId)
+          .toList(),
       alerts: _club.alerts
           .where(
             (alert) =>
@@ -364,6 +367,16 @@ class _CanteraAppState extends State<CanteraApp> {
         ),
         ...scopedClub.trainingReports.where(
           (report) => report.categoryId == categoryId,
+        ),
+      ],
+      // Manual match results follow the same per-category merge pattern as
+      // trainingReports so an edit in the scoped club is not dropped.
+      matchResults: [
+        ..._club.matchResults.where(
+          (result) => result.categoryId != categoryId,
+        ),
+        ...scopedClub.matchResults.where(
+          (result) => result.categoryId == categoryId,
         ),
       ],
       alerts: [

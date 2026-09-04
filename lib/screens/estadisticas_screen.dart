@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
+import 'match_result_dialog.dart';
 
 class EstadisticasScreen extends StatefulWidget {
   const EstadisticasScreen({super.key});
@@ -155,13 +156,24 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           final data = snapshot.data ?? const _StatsData();
-          final isLud = LudCategoryRef.teamIdOf(
-                scope.selectedCategoryId ??
-                    (scope.fullClub.categories.isEmpty
-                        ? ''
-                        : scope.fullClub.categories.first.id),
-              ) !=
-              null;
+          final selectedCategoryId = scope.selectedCategoryId ??
+              (scope.fullClub.categories.isEmpty
+                  ? ''
+                  : scope.fullClub.categories.first.id);
+          final isLud = LudCategoryRef.teamIdOf(selectedCategoryId) != null;
+
+          if (!isLud) {
+            return _NoLudStatsBody(
+              clubName: club.name,
+              category: category,
+              categoryId: selectedCategoryId,
+              allResults: scope.fullClub.matchResults,
+              onChanged: (next) => scope.updateClub(
+                scope.fullClub.copyWith(matchResults: next),
+              ),
+            );
+          }
+
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
             children: [
@@ -1259,4 +1271,596 @@ class _NoData extends StatelessWidget {
     'La liga todavía no publicó datos suficientes para esta lectura.',
     style: TextStyle(color: CX.muted, fontSize: 12),
   );
+}
+
+// ===========================================================================
+// No-LUD: statistics built entirely from match results the coach logs by hand.
+// ===========================================================================
+
+class _NoLudStatsBody extends StatelessWidget {
+  final String clubName;
+  final String category;
+  final String categoryId;
+  final List<MatchResult> allResults;
+  final ValueChanged<List<MatchResult>> onChanged;
+
+  const _NoLudStatsBody({
+    required this.clubName,
+    required this.category,
+    required this.categoryId,
+    required this.allResults,
+    required this.onChanged,
+  });
+
+  Future<void> _add(BuildContext context) async {
+    final result = await showMatchResultDialog(context, categoryId: categoryId);
+    if (result != null) onChanged([...allResults, result]);
+  }
+
+  Future<void> _edit(BuildContext context, MatchResult existing) async {
+    final result = await showMatchResultDialog(
+      context,
+      categoryId: categoryId,
+      existing: existing,
+    );
+    if (result != null) {
+      onChanged([
+        for (final r in allResults)
+          if (r.id == existing.id) result else r,
+      ]);
+    }
+  }
+
+  Future<void> _delete(BuildContext context, MatchResult target) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Borrar resultado'),
+        content: Text(
+          'Vas a borrar ${target.opponent} ${target.goalsFor}-${target.goalsAgainst}. '
+          'No se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      onChanged([
+        for (final r in allResults)
+          if (r.id != target.id) r,
+      ]);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = MatchStats.forCategory(allResults, categoryId);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '$clubName · $category',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: CX.muted,
+                ),
+              ),
+            ),
+            if (summary.all.isNotEmpty)
+              TextButton.icon(
+                onPressed: () => _add(context),
+                icon: const Icon(Icons.add, size: 17),
+                label: const Text('Cargar resultado'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        if (summary.all.isEmpty)
+          _NoLudEmpty(onAdd: () => _add(context))
+        else ...[
+          _NoLudReading(summary: summary),
+          const SizedBox(height: 14),
+          _NoLudMetrics(summary: summary),
+          const SizedBox(height: 14),
+          _NoLudForm(summary: summary),
+          const SizedBox(height: 14),
+          _NoLudResultsList(
+            results: summary.all,
+            onEdit: (r) => _edit(context, r),
+            onDelete: (r) => _delete(context, r),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _NoLudEmpty extends StatelessWidget {
+  final VoidCallback onAdd;
+  const _NoLudEmpty({required this.onAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(26),
+      decoration: BoxDecoration(
+        color: CX.panel,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.line),
+      ),
+      child: Column(
+        children: [
+          const CircleAvatar(
+            radius: 30,
+            backgroundColor: CX.greenDark,
+            child: Icon(Icons.scoreboard_outlined, color: CX.green, size: 30),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Todavía no cargaste resultados',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Cargá los partidos de tu equipo y fobal arma la tabla, la forma '
+            'reciente y una lectura de cómo viene el rendimiento.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add),
+            label: const Text('Cargar el primer resultado'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoLudReading extends StatelessWidget {
+  final MatchStats summary;
+  const _NoLudReading({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    const fg = Color(0xFFE8F1ED);
+    final lines = <String>[];
+    final limits = <String>[];
+    _Confidence? confidence;
+
+    if (summary.played == 0) {
+      lines.add(
+        summary.all.isEmpty
+            ? 'Sin partidos cargados.'
+            : 'Cargaste ${summary.all.length} amistoso(s) o práctica(s). '
+                  'Sumá partidos oficiales para ver la lectura de rendimiento.',
+      );
+    } else {
+      final s = summary;
+      confidence = s.played >= 6
+          ? _Confidence.alta
+          : s.played >= 3
+          ? _Confidence.media
+          : _Confidence.baja;
+
+      lines.add(
+        '${s.wins}G ${s.draws}E ${s.losses}P en ${s.played} '
+        'partido${s.played == 1 ? '' : 's'} — '
+        '${(s.pointsRate * 100).round()}% de los puntos en juego.',
+      );
+
+      if (s.played >= 3) {
+        lines.add(
+          s.scoring >= 2
+              ? 'Ataque prolífico: ${s.scoring.toStringAsFixed(1)} goles por partido.'
+              : s.scoring < 1
+              ? 'Cuesta convertir: ${s.scoring.toStringAsFixed(1)} goles por partido.'
+              : 'Convertís ${s.scoring.toStringAsFixed(1)} goles por partido.',
+        );
+        lines.add(
+          s.conceding <= 1
+              ? 'Defensa firme: ${s.conceding.toStringAsFixed(1)} recibidos por partido.'
+              : s.conceding > 1.6
+              ? 'La defensa es lo primero a mejorar: ${s.conceding.toStringAsFixed(1)} recibidos por partido.'
+              : 'Recibís ${s.conceding.toStringAsFixed(1)} por partido.',
+        );
+        final last = s.last5;
+        final w = last.where((o) => o == 'G').length;
+        final d = last.where((o) => o == 'E').length;
+        final l = last.where((o) => o == 'P').length;
+        lines.add('Últimos ${last.length}: ${w}G ${d}E ${l}P.');
+        final st = s.streak;
+        if (st.count >= 3) {
+          lines.add('Venís de ${st.count} ${st.label}.');
+        }
+      }
+
+      if (s.played < 4) {
+        limits.add(
+          'Pocos partidos (${s.played}): tomá las conclusiones como una '
+          'tendencia preliminar.',
+        );
+      }
+      if (s.friendlies > 0) {
+        limits.add(
+          '${s.friendlies} amistoso(s)/práctica(s) no cuentan para los puntos.',
+        );
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF102019),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_graph, color: Color(0xFF6EF2C7), size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Lectura de la semana',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (confidence != null) _ConfidencePill(confidence),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...lines.map(
+            (line) => Padding(
+              padding: const EdgeInsets.only(bottom: 9),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6, right: 8),
+                    child: _Dot(),
+                  ),
+                  Expanded(
+                    child: Text(
+                      line,
+                      style: const TextStyle(color: fg, fontSize: 13.5, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (limits.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            ...limits.map(
+              (l) => Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline, size: 13, color: Color(0xFF8CA39B)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        l,
+                        style: const TextStyle(
+                          color: Color(0xFF8CA39B),
+                          fontSize: 11,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _NoLudMetrics extends StatelessWidget {
+  final MatchStats summary;
+  const _NoLudMetrics({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = summary;
+    final hasCompetitive = s.played > 0;
+    final items = <_Metric>[
+      _Metric('Partidos', '${s.played}', Icons.event_available, CX.blue,
+          s.friendlies > 0 ? '+ ${s.friendlies} amistosos' : 'oficiales'),
+      _Metric('Puntos', hasCompetitive ? '${s.points}' : '—', Icons.stars, CX.green,
+          hasCompetitive ? '${s.wins}G ${s.draws}E ${s.losses}P' : 'sin oficiales'),
+      _Metric(
+        'Puntos obtenidos',
+        hasCompetitive ? '${(s.pointsRate * 100).round()}%' : '—',
+        Icons.trending_up,
+        CX.amber,
+        'de los disputados',
+      ),
+      _Metric(
+        'Diferencia de gol',
+        hasCompetitive ? '${s.goalDiff >= 0 ? '+' : ''}${s.goalDiff}' : '—',
+        Icons.swap_vert,
+        s.goalDiff >= 0 ? CX.green : CX.red,
+        hasCompetitive ? '${s.goalsFor} a favor / ${s.goalsAgainst} en contra' : '',
+      ),
+      _Metric(
+        'Goles / partido',
+        hasCompetitive ? s.scoring.toStringAsFixed(1) : '—',
+        Icons.sports_soccer,
+        CX.red,
+        'convertidos',
+      ),
+      _Metric(
+        'Recibidos / partido',
+        hasCompetitive ? s.conceding.toStringAsFixed(1) : '—',
+        Icons.shield_outlined,
+        s.conceding <= 1 ? CX.green : CX.amber,
+        'en contra',
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) => GridView.count(
+        crossAxisCount: constraints.maxWidth < 650
+            ? 2
+            : (constraints.maxWidth < 980 ? 3 : items.length),
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: constraints.maxWidth < 650 ? 1.35 : 1.5,
+        children: items
+            .map(
+              (item) => Container(
+                padding: const EdgeInsets.all(14),
+                decoration: CX.panelDecoration(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Icon(item.icon, color: item.color, size: 19),
+                    Text(
+                      item.value,
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                    ),
+                    Text(
+                      item.label,
+                      style: const TextStyle(
+                        color: CX.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      item.context,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: CX.faint, fontSize: 10, height: 1.25),
+                    ),
+                  ],
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _NoLudForm extends StatelessWidget {
+  final MatchStats summary;
+  const _NoLudForm({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final recent = summary.competitive.take(5).toList().reversed.toList();
+    if (recent.isEmpty) {
+      return const _Panel(
+        title: 'Forma reciente',
+        icon: Icons.timeline,
+        child: Text(
+          'Cargá partidos oficiales para ver la forma reciente.',
+          style: TextStyle(color: CX.muted, fontSize: 12),
+        ),
+      );
+    }
+    final points = recent.fold(0, (s, r) => s + r.points);
+    final w = recent.where((r) => r.outcome == 'G').length;
+    final d = recent.where((r) => r.outcome == 'E').length;
+    final l = recent.length - w - d;
+    return _Panel(
+      title: 'Forma reciente',
+      icon: Icons.timeline,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: recent.map((r) {
+              final color = r.outcome == 'E'
+                  ? CX.amber.withValues(alpha: .75)
+                  : r.outcome == 'G'
+                  ? CX.green.withValues(alpha: .8)
+                  : CX.red.withValues(alpha: .7);
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 58,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          r.outcome,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            r.venue == 'away'
+                                ? Icons.flight_takeoff
+                                : r.venue == 'neutral'
+                                ? Icons.place_outlined
+                                : Icons.home,
+                            size: 10,
+                            color: CX.faint,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${r.goalsFor}-${r.goalsAgainst}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        r.opponent,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: CX.faint, fontSize: 8.5),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '$w G · $d E · $l P — $points de ${recent.length * 3} pts',
+            style: const TextStyle(
+              color: CX.muted,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoLudResultsList extends StatelessWidget {
+  final List<MatchResult> results;
+  final ValueChanged<MatchResult> onEdit;
+  final ValueChanged<MatchResult> onDelete;
+
+  const _NoLudResultsList({
+    required this.results,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  String _fmt(String iso) {
+    final d = DateTime.tryParse(iso);
+    if (d == null) return iso;
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      title: 'Resultados cargados',
+      icon: Icons.list_alt,
+      child: Column(
+        children: results.map((r) {
+          final color = r.outcome == 'E'
+              ? CX.amber
+              : r.outcome == 'G'
+              ? CX.green
+              : CX.red;
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: .16),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    r.outcome,
+                    style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 12),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${r.opponent}  ${r.goalsFor}-${r.goalsAgainst}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        '${_fmt(r.date)} · ${r.venueLabel}'
+                        '${r.isCompetitive ? '' : ' · ${r.kindLabel}'}',
+                        style: const TextStyle(color: CX.faint, fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Editar',
+                  onPressed: () => onEdit(r),
+                  icon: const Icon(Icons.edit_outlined, size: 17),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Borrar',
+                  onPressed: () => onDelete(r),
+                  icon: const Icon(Icons.delete_outline, size: 17),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
 }

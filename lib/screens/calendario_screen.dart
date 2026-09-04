@@ -8,6 +8,15 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../services/offline_mutation_service.dart';
+import 'match_result_dialog.dart';
+
+/// Stable-enough link between a calendar Match event and a logged result.
+/// Rebuilt from the same day + title on both sides.
+String calendarMatchKey(DateTime day, String title) =>
+    '${day.year}-${day.month.toString().padLeft(2, '0')}-'
+    '${day.day.toString().padLeft(2, '0')}|${title.trim().toLowerCase()}';
+
+bool isMatchEventType(String type) => type == 'Partido' || type == 'Torneo';
 
 class CalendarioScreen extends StatefulWidget {
   const CalendarioScreen({super.key});
@@ -95,6 +104,27 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
       _events.update(_key(day), (items) => [...items, event], ifAbsent: () => [event]);
       _save();
     });
+  }
+
+  /// Log a result for a past Match event and link it back to the calendar.
+  /// The result lives in the club document (not the calendar store), so it
+  /// rides the existing sync with no extra plumbing.
+  Future<void> _logResult(DateTime day, _CalendarEvent event) async {
+    final scope = AppScope.of(context);
+    final result = await showMatchResultDialog(
+      context,
+      categoryId: _activeCategoryId(scope),
+      initialDate: day,
+      initialOpponent: event.title,
+      calendarKey: calendarMatchKey(day, event.title),
+    );
+    if (result == null || !mounted) return;
+    scope.updateClub(
+      scope.fullClub.copyWith(
+        matchResults: [...scope.fullClub.matchResults, result],
+      ),
+    );
+    setState(() {});
   }
 
   String _key(DateTime day) =>
@@ -258,7 +288,15 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                           key: ValueKey(_key(_selectedDay!)),
                           day: _selectedDay!,
                           events: _events[_key(_selectedDay!)] ?? const [],
+                          loggedKeys: {
+                            for (final r in AppScope.of(context)
+                                .fullClub
+                                .matchResults)
+                              if (r.calendarKey.isNotEmpty) r.calendarKey,
+                          },
                           onAdd: (event) => _addEvent(_selectedDay!, event),
+                          onLogResult: (event) =>
+                              _logResult(_selectedDay!, event),
                           onClose: () => setState(() => _selectedDay = null),
                         ),
                       ],
@@ -292,14 +330,18 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 class _DayEditorPanel extends StatefulWidget {
   final DateTime day;
   final List<_CalendarEvent> events;
+  final Set<String> loggedKeys;
   final ValueChanged<_CalendarEvent> onAdd;
+  final ValueChanged<_CalendarEvent> onLogResult;
   final VoidCallback onClose;
 
   const _DayEditorPanel({
     super.key,
     required this.day,
     required this.events,
+    required this.loggedKeys,
     required this.onAdd,
+    required this.onLogResult,
     required this.onClose,
   });
 
@@ -361,16 +403,44 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
                 ),
               )
             else
-              ...widget.events.map(
-                (event) => ListTile(
-                contentPadding: EdgeInsets.zero,
+              ...widget.events.map((event) {
+                final past = DateTime(
+                  widget.day.year,
+                  widget.day.month,
+                  widget.day.day,
+                ).isBefore(
+                  DateTime(
+                    DateTime.now().year,
+                    DateTime.now().month,
+                    DateTime.now().day,
+                  ),
+                );
+                final isMatch = isMatchEventType(event.type);
+                final key = calendarMatchKey(widget.day, event.title);
+                final logged = widget.loggedKeys.contains(key);
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
                   leading: Icon(_icon(event.type), color: _color(event.type)),
                   title: Text(event.title),
                   subtitle: Text(
-                    event.time.trim().isEmpty ? event.type : '${event.type} · ${event.time}',
+                    event.time.trim().isEmpty
+                        ? event.type
+                        : '${event.type} · ${event.time}',
                   ),
-                ),
-              ),
+                  trailing: (isMatch && past)
+                      ? (logged
+                          ? const Chip(
+                              label: Text('Resultado cargado'),
+                              visualDensity: VisualDensity.compact,
+                            )
+                          : TextButton.icon(
+                              onPressed: () => widget.onLogResult(event),
+                              icon: const Icon(Icons.scoreboard_outlined, size: 16),
+                              label: const Text('Cargar resultado'),
+                            ))
+                      : null,
+                );
+              }),
             const Divider(height: 28),
             const Align(
               alignment: Alignment.centerLeft,

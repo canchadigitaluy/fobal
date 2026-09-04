@@ -24,3 +24,8 @@ Map<String, double> computeAttendanceRates({
       id: sessions.where((s) => s.presentIds.contains(id)).length / total,
   };
 }
+
+/// Plain mean of a squad's attendance rates, for the "Asistencia" stat
+/// tile. Null when there's no data yet — never shows a fake 0%.
+double? averageAttendanceRate(List<double> rates) =>
+    rates.isEmpty ? null : rates.reduce((a, b) => a + b) / rates.length;

@@ -23,4 +23,14 @@ void main() {
       expect(rates['p3'], 0.0);
     });
   });
+
+  group('averageAttendanceRate', () {
+    test('null when there is no data yet — never a fake 0%', () {
+      expect(averageAttendanceRate(const []), isNull);
+    });
+
+    test('plain mean of the given rates', () {
+      expect(averageAttendanceRate([1.0, 0.5, 0.0]), closeTo(0.5, 0.0001));
+    });
+  });
 }

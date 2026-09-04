@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../services/attendance_stats_service.dart';
 import '../services/club_access_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/ui_kit.dart';
@@ -99,6 +100,7 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
             goals: player.goals,
             assists: player.assists,
             yellowCards: player.yellowCards,
+            attendanceRate: player.attendanceRate,
           ),
         )
         .where((player) => player.name.isNotEmpty)
@@ -170,6 +172,9 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
               category: category,
               categoryId: selectedCategoryId,
               allResults: scope.fullClub.matchResults,
+              players: club.players
+                  .where((player) => player.categoryId == selectedCategoryId)
+                  .toList(),
               onChanged: (next) => scope.updateClub(
                 scope.fullClub.copyWith(matchResults: next),
               ),
@@ -258,6 +263,7 @@ class _PlayerStat {
   final int goals;
   final int assists;
   final int yellowCards;
+  final double attendanceRate;
 
   const _PlayerStat({
     required this.name,
@@ -267,6 +273,7 @@ class _PlayerStat {
     required this.goals,
     this.assists = 0,
     this.yellowCards = 0,
+    this.attendanceRate = 0,
   });
 
   int get goalContributions => goals + assists;
@@ -709,6 +716,22 @@ class _MetricGrid extends StatelessWidget {
               ? '${row.goalsAgainst} en contra'
               : '${_verdict(conceding, avg.goalsAgainstPerGame, 0.15, '')}'
                   '${avg.defenseRank != null ? ' · ${avg.defenseRank}° defensa' : ''}',
+        ),
+      ];
+    }
+
+    final attendance = averageAttendanceRate(
+      data.players.map((p) => p.attendanceRate).toList(),
+    );
+    if (attendance != null) {
+      items = [
+        ...items,
+        _Metric(
+          'Asistencia',
+          '${(attendance * 100).round()}%',
+          Icons.fact_check_outlined,
+          attendance >= .8 ? CX.green : CX.amber,
+          'promedio del plantel',
         ),
       ];
     }
@@ -1212,6 +1235,7 @@ class _NoLudStatsBody extends StatelessWidget {
   final String category;
   final String categoryId;
   final List<MatchResult> allResults;
+  final List<Player> players;
   final ValueChanged<List<MatchResult>> onChanged;
 
   const _NoLudStatsBody({
@@ -1219,6 +1243,7 @@ class _NoLudStatsBody extends StatelessWidget {
     required this.category,
     required this.categoryId,
     required this.allResults,
+    required this.players,
     required this.onChanged,
   });
 
@@ -1307,7 +1332,12 @@ class _NoLudStatsBody extends StatelessWidget {
             eyebrow: 'Panorama',
             title: 'Números del equipo',
           ),
-          _NoLudMetrics(summary: summary),
+          _NoLudMetrics(
+            summary: summary,
+            attendanceAverage: averageAttendanceRate(
+              players.map((p) => p.attendanceRate).toList(),
+            ),
+          ),
           const SizedBox(height: 20),
           const PremiumSectionHeader(
             eyebrow: 'Rendimiento',
@@ -1460,7 +1490,8 @@ class _NoLudReading extends StatelessWidget {
 
 class _NoLudMetrics extends StatelessWidget {
   final MatchStats summary;
-  const _NoLudMetrics({required this.summary});
+  final double? attendanceAverage;
+  const _NoLudMetrics({required this.summary, this.attendanceAverage});
 
   @override
   Widget build(BuildContext context) {
@@ -1500,6 +1531,17 @@ class _NoLudMetrics extends StatelessWidget {
         'en contra',
       ),
     ];
+    if (attendanceAverage != null) {
+      items.add(
+        _Metric(
+          'Asistencia',
+          '${(attendanceAverage! * 100).round()}%',
+          Icons.fact_check_outlined,
+          attendanceAverage! >= .8 ? CX.green : CX.amber,
+          'promedio del plantel',
+        ),
+      );
+    }
 
     return MetricGrid(
       tiles: [

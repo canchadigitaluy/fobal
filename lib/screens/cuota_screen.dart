@@ -6,6 +6,7 @@ import '../services/club_access_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/exercise_animation_preview.dart';
 import '../ui/ui_kit.dart';
+import 'match_preparation_screen.dart';
 import 'player_profile_screen.dart';
 
 class CuotaScreen extends StatefulWidget {
@@ -254,6 +255,23 @@ class _CuotaScreenState extends State<CuotaScreen> {
     final matchPlans = category == null
         ? <TrainingSession>[]
         : _matchPlans.where((item) => item.categoryId == category.id).toList();
+    final matchPreparations = category == null
+        ? <MatchPreparation>[]
+        : club.matchPreparations
+            .where((item) => item.categoryId == category.id)
+            .toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    // Prefer the earliest prep dated today-or-later; fall back to the most
+    // recently saved one so the card is never blank when there's real data.
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    MatchPreparation? nextPreparation;
+    for (final item in matchPreparations) {
+      if (item.date.isEmpty || item.date.compareTo(today) >= 0) {
+        nextPreparation = item;
+        break;
+      }
+    }
+    nextPreparation ??= matchPreparations.isEmpty ? null : matchPreparations.last;
     final completedSessions = sessions
         .where((session) => session.status == 'completed')
         .toList();
@@ -393,6 +411,11 @@ class _CuotaScreenState extends State<CuotaScreen> {
                     const _SectionTitle('Proximo partido', 'TACTICA'),
                     const SizedBox(height: 10),
                     _MatchPlanPanel(plans: matchPlans),
+                  ] else if (nextPreparation != null) ...[
+                    const SizedBox(height: 24),
+                    const _SectionTitle('Proximo partido', 'PLAN'),
+                    const SizedBox(height: 10),
+                    _MatchPreparationSummaryPanel(prep: nextPreparation),
                   ],
                   KeyedSubtree(
                     key: _sessionsKey,
@@ -1862,6 +1885,87 @@ class _SessionActionHint extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MatchPreparationSummaryPanel extends StatelessWidget {
+  final MatchPreparation prep;
+
+  const _MatchPreparationSummaryPanel({required this.prep});
+
+  @override
+  Widget build(BuildContext context) {
+    final rival = prep.rival.isEmpty ? 'Rival a definir' : prep.rival;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: CX.greenDark.withValues(alpha: .36),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.green.withValues(alpha: .24)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 18,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.assignment_outlined, color: CX.green, size: 20),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  'vs $rival',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (prep.planObjective.isNotEmpty) ...[
+            const SizedBox(height: 9),
+            Text(
+              prep.planObjective,
+              style: const TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [
+              if (prep.date.isNotEmpty) _Tag(prep.date),
+              if (prep.time.isNotEmpty) _Tag(prep.time),
+              if (prep.venue.isNotEmpty)
+                _Tag(prep.venue == 'local' ? 'Local' : 'Visitante'),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: () => openMatchPreparation(
+                context,
+                calendarEventId: prep.calendarEventId,
+                rival: prep.rival,
+                date: prep.date,
+                time: prep.time,
+              ),
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: const Text('Ver panel de partido'),
             ),
           ),
         ],

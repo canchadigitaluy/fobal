@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../ui/ui_kit.dart';
 
 class MiEquipoScreen extends StatefulWidget {
   const MiEquipoScreen({super.key});
@@ -95,7 +96,8 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
                 final logo = _EditableImage(
                   size: 92,
                   imageUrl: club.logoUrl,
-                  fallback: 'TEAM\nLOGO',
+                  fallback: 'Escudo',
+                  placeholder: Icons.shield_outlined,
                   onTap: _pickLogo,
                   round: true,
                 );
@@ -104,6 +106,7 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
                   height: compact ? 110 : 96,
                   imageUrl: _teamPhoto ?? '',
                   fallback: 'Foto del equipo',
+                  placeholder: Icons.photo_library_outlined,
                   onTap: _pickTeamPhoto,
                   round: false,
                 );
@@ -167,63 +170,134 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
             ),
           ),
           const SizedBox(height: 18),
-          Container(
-            decoration: CX.panelDecoration(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (players.isNotEmpty) ...[
+            _SquadProgress(players: players),
+            const SizedBox(height: 18),
+          ],
+          const PremiumSectionHeader(
+            eyebrow: 'Plantel',
+            title: 'Jugadores',
+          ),
+          if (players.isEmpty)
+            EmptyStatePanel(
+              icon: Icons.groups_2_outlined,
+              title: 'Todavía no cargaste jugadores',
+              message: 'Sumá el plantel una vez y después Estadísticas, '
+                  'Planificar y Alineación trabajan con datos reales.',
+              primaryLabel: 'Cargar primer jugador',
+              onPrimary: _addPlayer,
+            )
+          else ...[
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.sports_soccer_outlined, size: 17, color: CX.muted),
-                      const SizedBox(width: 8),
-                      Text(
-                        'PLANTILLA (${players.length})',
-                        style: const TextStyle(color: CX.muted, fontWeight: FontWeight.w900),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                if (players.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(18),
-                    child: Text('Todavía no cargaste jugadores.', style: TextStyle(color: CX.muted)),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: players.map((player) => _PlayerCard(player: player)).toList(),
-                    ),
-                  ),
-                InkWell(
-                  onTap: _addPlayer,
-                  child: Container(
-                    margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-                    decoration: BoxDecoration(
-                      color: CX.panel,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: CX.line),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.add_circle_outline, color: CX.green),
-                        SizedBox(width: 12),
-                        Expanded(child: Text('Amplía tu plantilla', style: TextStyle(fontWeight: FontWeight.w800))),
-                        Icon(Icons.chevron_right, color: CX.muted),
-                      ],
-                    ),
-                  ),
-                ),
+                for (final player in players) _PlayerCard(player: player),
+                _AddPlayerTile(onTap: _addPlayer),
               ],
             ),
-          ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _SquadProgress extends StatelessWidget {
+  final List<Player> players;
+  const _SquadProgress({required this.players});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = players.length;
+    final withPosition = players.where((p) => p.position.trim().isNotEmpty).length;
+    final complete = players
+        .where((p) =>
+            p.position.trim().isNotEmpty &&
+            p.dominantFoot.trim().isNotEmpty &&
+            p.status.trim().isNotEmpty)
+        .length;
+    final available = players
+        .where((p) {
+          final s = p.status.trim().toLowerCase();
+          return s.isEmpty || s == 'activo' || s == 'disponible';
+        })
+        .length;
+    return MetricGrid(
+      tiles: [
+        MetricTile(
+          icon: Icons.badge_outlined,
+          value: '$total',
+          label: 'Jugadores',
+          context: 'en el plantel',
+          accent: CX.blue,
+        ),
+        MetricTile(
+          icon: Icons.verified_outlined,
+          value: '$complete/$total',
+          label: 'Perfiles completos',
+          context: complete == total ? 'todo cargado' : 'posición, pie y estado',
+          accent: complete == total ? CX.green : CX.amber,
+        ),
+        MetricTile(
+          icon: Icons.place_outlined,
+          value: '$withPosition/$total',
+          label: 'Con posición',
+          context: 'para armar alineación',
+          accent: withPosition == total ? CX.green : CX.amber,
+        ),
+        MetricTile(
+          icon: Icons.check_circle_outline,
+          value: '$available',
+          label: 'Disponibles',
+          context: 'sin lesión ni sanción',
+          accent: CX.green,
+        ),
+      ],
+    );
+  }
+}
+
+class _AddPlayerTile extends StatelessWidget {
+  final VoidCallback onTap;
+  const _AddPlayerTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 180,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: CX.greenDark,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: CX.green.withValues(alpha: .35)),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(height: 4),
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: CX.green,
+              child: Icon(Icons.add, color: Colors.white),
+            ),
+            SizedBox(height: 10),
+            Text(
+              'Agregar jugador',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.w900, color: CX.green),
+            ),
+            SizedBox(height: 2),
+            Text(
+              'Sumá al plantel',
+              style: TextStyle(color: CX.green, fontSize: 11),
+            ),
+            SizedBox(height: 4),
+          ],
+        ),
       ),
     );
   }
@@ -234,6 +308,7 @@ class _EditableImage extends StatelessWidget {
   final double? height;
   final String imageUrl;
   final String fallback;
+  final IconData placeholder;
   final VoidCallback onTap;
   final bool round;
 
@@ -242,12 +317,14 @@ class _EditableImage extends StatelessWidget {
     this.height,
     required this.imageUrl,
     required this.fallback,
+    required this.placeholder,
     required this.onTap,
     required this.round,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = imageUrl.trim().isNotEmpty;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(round ? 999 : 12),
@@ -264,21 +341,40 @@ class _EditableImage extends StatelessWidget {
               borderRadius: round ? null : BorderRadius.circular(12),
               border: Border.all(color: CX.line),
             ),
-            child: imageUrl.trim().isEmpty
-                ? Text(
-                    fallback,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: CX.faint, fontWeight: FontWeight.w900),
-                  )
-                : Image.network(imageUrl, width: size, height: height ?? size, fit: BoxFit.cover),
+            child: hasImage
+                ? Image.network(imageUrl,
+                    width: size, height: height ?? size, fit: BoxFit.cover)
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(placeholder, color: CX.faint, size: round ? 30 : 26),
+                      if (!round) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          fallback,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: CX.faint,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
           ),
           Positioned(
             right: 4,
             bottom: 4,
             child: CircleAvatar(
-              radius: 14,
+              radius: 13,
               backgroundColor: CX.white,
-              child: Icon(Icons.photo_camera_outlined, color: CX.panel, size: 15),
+              child: Icon(
+                hasImage ? Icons.edit_outlined : Icons.photo_camera_outlined,
+                color: CX.panel,
+                size: 14,
+              ),
             ),
           ),
         ],
@@ -317,6 +413,16 @@ class _PlayerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final status = player.status.trim();
+    final available = status.isEmpty ||
+        status.toLowerCase() == 'activo' ||
+        status.toLowerCase() == 'disponible';
+    final dotColor = status.isEmpty
+        ? CX.faint
+        : available
+            ? CX.green
+            : CX.amber;
+    final secondary = player.secondaryPositionList.take(3).join(' · ');
     return Container(
       width: 180,
       padding: const EdgeInsets.all(12),
@@ -327,18 +433,76 @@ class _PlayerCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundColor: CX.greenDark,
-            child: Text(
-              _initials(player),
-              style: const TextStyle(color: CX.green, fontWeight: FontWeight.w900),
-            ),
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: CX.greenDark,
+                child: Text(
+                  _initials(player),
+                  style: const TextStyle(
+                    color: CX.green,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: dotColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: CX.canvas, width: 2),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          Text(player.fullName, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 9),
+          Text(
+            player.fullName,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w800, height: 1.2),
+          ),
+          const SizedBox(height: 6),
           if (player.position.trim().isNotEmpty)
-            Text(player.position, style: const TextStyle(color: CX.faint, fontSize: 12)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: CX.greenDark,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                player.position,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: CX.green,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            )
+          else
+            const Text(
+              'Sin posición',
+              style: TextStyle(color: CX.faint, fontSize: 11),
+            ),
+          if (secondary.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              secondary,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: CX.faint, fontSize: 10),
+            ),
+          ],
         ],
       ),
     );

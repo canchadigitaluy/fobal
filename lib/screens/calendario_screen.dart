@@ -18,6 +18,24 @@ String calendarMatchKey(DateTime day, String title) =>
 
 bool isMatchEventType(String type) => type == 'Partido' || type == 'Torneo';
 
+Color _eventColor(String type) => switch (type) {
+      'Partido' => CX.blue,
+      'Torneo' => Colors.purple,
+      'Evento' => Colors.indigo,
+      'Cumpleaños' => Colors.pink,
+      'Tarea' => Colors.orange,
+      _ => CX.green,
+    };
+
+IconData _eventIcon(String type) => switch (type) {
+      'Partido' => Icons.sports_soccer_outlined,
+      'Torneo' => Icons.emoji_events_outlined,
+      'Evento' => Icons.event_outlined,
+      'Cumpleaños' => Icons.cake_outlined,
+      'Tarea' => Icons.task_alt,
+      _ => Icons.fitness_center,
+    };
+
 class CalendarioScreen extends StatefulWidget {
   const CalendarioScreen({super.key});
 
@@ -240,20 +258,27 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                           final day = cells[index];
                           if (day == null) return const SizedBox.shrink();
                           final today = _key(day) == _key(DateTime.now());
-                          final hasEvents =
-                              (_events[_key(day)] ?? const []).isNotEmpty;
+                          final selected = _selectedDay != null &&
+                              _key(day) == _key(_selectedDay!);
+                          final dayEvents = _events[_key(day)] ?? const [];
+                          final types = <String>{
+                            for (final e in dayEvents) e.type,
+                          }.take(3).toList();
                           return InkWell(
                             onTap: () => _openDay(day),
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
                               margin: const EdgeInsets.all(3),
                               decoration: BoxDecoration(
-                                color: today
-                                    ? CX.greenDark
-                                    : Colors.transparent,
+                                color: selected
+                                    ? CX.green.withValues(alpha: .12)
+                                    : today
+                                        ? CX.greenDark
+                                        : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: today ? CX.green : CX.line,
+                                  color: selected || today ? CX.green : CX.line,
+                                  width: selected ? 1.5 : 1,
                                 ),
                               ),
                               child: Column(
@@ -267,13 +292,27 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                           : FontWeight.w600,
                                     ),
                                   ),
-                                  if (hasEvents) ...[
-                                    const SizedBox(height: 4),
-                                    const CircleAvatar(
-                                      radius: 3,
-                                      backgroundColor: CX.green,
+                                  const SizedBox(height: 4),
+                                  SizedBox(
+                                    height: 6,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        for (final t in types)
+                                          Container(
+                                            margin: const EdgeInsets.symmetric(
+                                              horizontal: 1.5,
+                                            ),
+                                            width: 5,
+                                            height: 5,
+                                            decoration: BoxDecoration(
+                                              color: _eventColor(t),
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ],
                               ),
                             ),
@@ -282,6 +321,13 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                       ),
                       const Divider(height: 22),
                       const _Legend(),
+                      if (_selectedDay == null) ...[
+                        const SizedBox(height: 14),
+                        _UpcomingEvents(
+                          events: _events,
+                          onOpenDay: _openDay,
+                        ),
+                      ],
                       if (_selectedDay != null) ...[
                         const SizedBox(height: 14),
                         _DayEditorPanel(
@@ -325,6 +371,160 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
         'Noviembre',
         'Diciembre',
       ][month - 1];
+}
+
+class _UpcomingEvents extends StatelessWidget {
+  final Map<String, List<_CalendarEvent>> events;
+  final ValueChanged<DateTime> onOpenDay;
+  const _UpcomingEvents({required this.events, required this.onOpenDay});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final upcoming = <({DateTime day, _CalendarEvent event})>[];
+    for (final entry in events.entries) {
+      final parts = entry.key.split('-');
+      if (parts.length != 3) continue;
+      final day = DateTime(
+        int.tryParse(parts[0]) ?? 0,
+        int.tryParse(parts[1]) ?? 1,
+        int.tryParse(parts[2]) ?? 1,
+      );
+      if (day.isBefore(today)) continue;
+      for (final e in entry.value) {
+        upcoming.add((day: day, event: e));
+      }
+    }
+    upcoming.sort((a, b) => a.day.compareTo(b.day));
+
+    if (upcoming.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: CX.panel2,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Column(
+          children: [
+            Icon(Icons.event_available_outlined, color: CX.green, size: 24),
+            SizedBox(height: 8),
+            Text(
+              'Sin eventos próximos',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            SizedBox(height: 3),
+            Text(
+              'Tocá un día del calendario para agregar un entrenamiento, '
+              'partido o evento.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: CX.muted, fontSize: 11.5, height: 1.35),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'PRÓXIMOS EVENTOS',
+          style: TextStyle(
+            color: CX.faint,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .4,
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (final item in upcoming.take(5))
+          InkWell(
+            onTap: () => onOpenDay(item.day),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Row(
+                children: [
+                  Container(
+                    width: 3,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: _eventColor(item.event.type),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(_eventIcon(item.event.type),
+                      size: 16, color: _eventColor(item.event.type)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.event.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          _dayLabel(item.day),
+                          style: const TextStyle(
+                            color: CX.faint,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (item.event.time.trim().isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: CX.panel2,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.schedule, size: 12, color: CX.muted),
+                          const SizedBox(width: 4),
+                          Text(
+                            item.event.time.trim(),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  static String _dayLabel(DateTime day) {
+    const wd = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+    const mo = [
+      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+      'jul', 'ago', 'set', 'oct', 'nov', 'dic',
+    ];
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final diff = day.difference(today).inDays;
+    if (diff == 0) return 'Hoy';
+    if (diff == 1) return 'Mañana';
+    return '${wd[day.weekday - 1]} ${day.day} ${mo[day.month - 1]}';
+  }
 }
 
 class _DayEditorPanel extends StatefulWidget {

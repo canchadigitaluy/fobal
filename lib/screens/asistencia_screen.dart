@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/offline_mutation_service.dart';
+import '../state/section_handoff.dart';
+import '../ui/ui_kit.dart';
 
 class AsistenciaScreen extends StatefulWidget {
   const AsistenciaScreen({super.key});
@@ -90,6 +92,34 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     );
   }
 
+  /// Reads past saved attendance sessions from local storage for this club +
+  /// category. Never fabricates: returns an empty list when nothing is stored.
+  List<_PastSession> _history(CanteraClub club, CategorySquad category) {
+    final prefix = 'cantera_attendance_${club.id}_${category.id}_';
+    final todayKey = _key(club, category);
+    final sessions = <_PastSession>[];
+    for (final entry in html.window.localStorage.entries) {
+      if (!entry.key.startsWith(prefix) || entry.key == todayKey) continue;
+      try {
+        final data = jsonDecode(entry.value) as Map<String, dynamic>;
+        final present = List<String>.from(
+          data['presentIds'] as List<dynamic>? ?? const [],
+        );
+        final absent = List<String>.from(
+          data['absentIds'] as List<dynamic>? ?? const [],
+        );
+        final date =
+            DateTime.tryParse(data['date'] as String? ?? '') ??
+            DateTime.tryParse(entry.key.substring(prefix.length)) ??
+            DateTime(2000);
+        if (present.isEmpty && absent.isEmpty) continue;
+        sessions.add(_PastSession(date: date, present: present.toSet(), absent: absent.toSet()));
+      } catch (_) {}
+    }
+    sessions.sort((a, b) => b.date.compareTo(a.date));
+    return sessions.take(12).toList();
+  }
+
   Future<void> _addPlayer(CanteraClub club, CategorySquad category) async {
     final player = await showDialog<Player>(
       context: context,
@@ -123,27 +153,16 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 380),
-              padding: const EdgeInsets.all(20),
-              decoration: CX.panelDecoration(),
-              child: const Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.fact_check_outlined, color: CX.green, size: 32),
-                  SizedBox(height: 12),
-                  Text(
-                    'Todavía no hay un plantel para pasar lista',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Cargá el equipo en "Mi equipo" y volvé acá para registrar la asistencia.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
-                  ),
-                ],
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: EmptyStatePanel(
+                icon: Icons.fact_check_outlined,
+                title: 'Todavía no hay un plantel para pasar lista',
+                message: 'Cargá el equipo en Mi equipo y volvé acá para '
+                    'registrar la asistencia de cada práctica.',
+                primaryLabel: 'Ir a Mi equipo',
+                onPrimary: () => ShellActions.maybeOf(context)
+                    ?.openSection(ShellSection.myTeam),
               ),
             ),
           ),
@@ -171,20 +190,110 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
           ],
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: CX.panelDecoration(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Días y horarios de práctica',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+      body: players.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: EmptyStatePanel(
+                    icon: Icons.groups_2_outlined,
+                    title: 'Esta categoría todavía no tiene jugadores',
+                    message: 'Sumá el plantel en Mi equipo y después pasás '
+                        'lista en segundos cada práctica.',
+                    primaryLabel: 'Ir a Mi equipo',
+                    onPrimary: () => ShellActions.maybeOf(context)
+                        ?.openSection(ShellSection.myTeam),
+                  ),
                 ),
-                const SizedBox(height: 10),
+              ),
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 30),
+              children: [
+                _AttendanceSummary(present: present, total: players.length),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: present == players.length
+                          ? null
+                          : () => setState(() => _presentIds
+                              ..clear()
+                              ..addAll(players.map((p) => p.id))),
+                      icon: const Icon(Icons.done_all, size: 17),
+                      label: const Text('Todos presentes'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: present == 0
+                          ? null
+                          : () => setState(_presentIds.clear),
+                      icon: const Icon(Icons.remove_done, size: 17),
+                      label: const Text('Todos ausentes'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => _addPlayer(club, category),
+                      icon: const Icon(Icons.person_add_alt_outlined, size: 17),
+                      label: const Text('Jugador'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Material(
+                  type: MaterialType.transparency,
+                  child: Container(
+                  decoration: CX.panelDecoration(),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      for (final player in players)
+                        _AttendanceRow(
+                          player: player,
+                          present: _presentIds.contains(player.id),
+                          onChanged: (v) => setState(() {
+                            if (v) {
+                              _presentIds.add(player.id);
+                            } else {
+                              _presentIds.remove(player.id);
+                            }
+                          }),
+                        ),
+                    ],
+                  ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _saveAttendance(club, category),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('Guardar asistencia de hoy'),
+                  ),
+                ),
+                Builder(
+                  builder: (context) {
+                    final history = _history(club, category);
+                    if (history.length < 2) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: _AttendanceHistory(
+                        history: history,
+                        players: players,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+                const PremiumSectionHeader(
+                  eyebrow: 'Configuración',
+                  title: 'Días y horarios de práctica',
+                ),
                 TextField(
                   controller: _scheduleController,
                   minLines: 2,
@@ -195,79 +304,229 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                ElevatedButton.icon(
+                OutlinedButton.icon(
                   onPressed: () => _saveSchedule(club, category),
                   icon: const Icon(Icons.save_outlined),
                   label: const Text('Guardar horarios'),
                 ),
               ],
             ),
+    );
+  }
+}
+
+class _PastSession {
+  final DateTime date;
+  final Set<String> present;
+  final Set<String> absent;
+  const _PastSession({
+    required this.date,
+    required this.present,
+    required this.absent,
+  });
+}
+
+class _AttendanceSummary extends StatelessWidget {
+  final int present;
+  final int total;
+  const _AttendanceSummary({required this.present, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final absent = total - present;
+    final pct = total == 0 ? 0 : (present / total * 100).round();
+    final color = pct >= 80
+        ? CX.green
+        : pct >= 55
+            ? CX.amber
+            : CX.red;
+    return Row(
+      children: [
+        Expanded(child: _cell('$present', 'Presentes', CX.green)),
+        const SizedBox(width: 8),
+        Expanded(child: _cell('$absent', 'Ausentes', absent == 0 ? CX.faint : CX.amber)),
+        const SizedBox(width: 8),
+        Expanded(child: _cell('$pct%', 'Asistencia', color)),
+      ],
+    );
+  }
+
+  Widget _cell(String value, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+      decoration: BoxDecoration(
+        color: CX.panel,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: CX.line),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
           ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: CX.panelDecoration(),
-            child: Material(
-              type: MaterialType.transparency,
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              color: CX.muted,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttendanceRow extends StatelessWidget {
+  final Player player;
+  final bool present;
+  final ValueChanged<bool> onChanged;
+  const _AttendanceRow({
+    required this.player,
+    required this.present,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final sub = [player.position, player.status]
+        .where((item) => item.trim().isNotEmpty)
+        .join(' · ');
+    return InkWell(
+      onTap: () => onChanged(!present),
+      child: Container(
+        color: present ? null : CX.red.withValues(alpha: .05),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          children: [
+            Icon(
+              present ? Icons.check_circle : Icons.circle_outlined,
+              color: present ? CX.green : CX.faint,
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Asistencia de hoy: $present/${players.length}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    player.fullName.trim(),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  if (sub.isNotEmpty)
+                    Text(
+                      sub,
+                      style: const TextStyle(color: CX.faint, fontSize: 11),
                     ),
-                    OutlinedButton.icon(
-                      onPressed: () => _addPlayer(club, category),
-                      icon: const Icon(Icons.person_add_alt_outlined),
-                      label: const Text('Jugador'),
-                    ),
-                  ],
+                ],
+              ),
+            ),
+            if (!present)
+              const Text(
+                'Falta',
+                style: TextStyle(
+                  color: CX.red,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
                 ),
-                const SizedBox(height: 12),
-                if (players.isEmpty)
-                  const Text(
-                    'Carga jugadores para poder marcar asistencia.',
-                    style: TextStyle(color: CX.muted),
-                  )
-                else
-                  ...players.map(
-                    (player) => CheckboxListTile(
-                      value: _presentIds.contains(player.id),
-                      onChanged: (value) {
-                        setState(() {
-                          if (value == true) {
-                            _presentIds.add(player.id);
-                          } else {
-                            _presentIds.remove(player.id);
-                          }
-                        });
-                      },
-                      title: Text(player.fullName.trim()),
-                      subtitle: Text(
-                        [player.position, player.status]
-                            .where((item) => item.trim().isNotEmpty)
-                            .join(' / '),
-                      ),
-                      controlAffinity: ListTileControlAffinity.leading,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AttendanceHistory extends StatelessWidget {
+  final List<_PastSession> history;
+  final List<Player> players;
+  const _AttendanceHistory({required this.history, required this.players});
+
+  @override
+  Widget build(BuildContext context) {
+    // Average present rate across stored sessions.
+    var rateSum = 0.0;
+    var counted = 0;
+    for (final s in history) {
+      final total = s.present.length + s.absent.length;
+      if (total == 0) continue;
+      rateSum += s.present.length / total;
+      counted++;
+    }
+    final avg = counted == 0 ? 0 : (rateSum / counted * 100).round();
+
+    // Players absent in the 2+ most recent stored sessions in a row.
+    final repeated = <String>[];
+    for (final p in players) {
+      var streak = 0;
+      for (final s in history) {
+        if (s.absent.contains(p.id)) {
+          streak++;
+        } else if (s.present.contains(p.id)) {
+          break;
+        } else {
+          break;
+        }
+      }
+      if (streak >= 2) repeated.add(p.fullName.trim());
+    }
+
+    final lines = <String>[
+      'Promedio $avg% en las últimas $counted prácticas guardadas.',
+      if (repeated.isEmpty)
+        'Nadie acumula faltas seguidas.'
+      else
+        'Faltas seguidas: ${repeated.take(4).join(', ')}'
+            '${repeated.length > 4 ? ' y ${repeated.length - 4} más' : ''}.',
+    ];
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: CX.panelDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.history, size: 16, color: CX.green),
+              const SizedBox(width: 8),
+              const Text(
+                'Cómo viene la asistencia',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final line in lines)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 6, right: 9),
+                    width: 4,
+                    height: 4,
+                    decoration: const BoxDecoration(
+                      color: CX.green,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: () => _saveAttendance(club, category),
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Guardar asistencia'),
-                ),
-              ],
+                  Expanded(
+                    child: Text(
+                      line,
+                      style: const TextStyle(fontSize: 12.5, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            ),
-          ),
         ],
       ),
     );

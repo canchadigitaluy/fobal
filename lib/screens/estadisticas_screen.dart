@@ -8,6 +8,7 @@ import '../services/player_match_stats_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/ui_kit.dart';
 import 'match_result_dialog.dart';
+import 'player_profile_screen.dart';
 
 class EstadisticasScreen extends StatefulWidget {
   const EstadisticasScreen({super.key});
@@ -94,6 +95,7 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
     return players
         .map(
           (player) => _PlayerStat(
+            id: player.id,
             name: player.fullName.trim(),
             position: player.position.trim(),
             matches: player.matchesPlayed,
@@ -262,7 +264,17 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
               ),
               _AutomaticReading(data: data),
               const SizedBox(height: 14),
-              _PlayerLeaders(players: data.players),
+              _PlayerLeaders(
+                players: data.players,
+                onTapPlayer: (id) {
+                  for (final player in scope.fullClub.players) {
+                    if (player.id == id) {
+                      openPlayerProfile(context, player);
+                      return;
+                    }
+                  }
+                },
+              ),
               const SizedBox(height: 14),
               _TablePanel(table: data.standings),
             ],
@@ -288,6 +300,7 @@ class _StatsData {
 }
 
 class _PlayerStat {
+  final String id;
   final String name;
   final String position;
   final int matches;
@@ -298,6 +311,7 @@ class _PlayerStat {
   final double attendanceRate;
 
   const _PlayerStat({
+    this.id = '',
     required this.name,
     required this.position,
     required this.matches,
@@ -1062,7 +1076,12 @@ class _PlayerLeaders extends StatelessWidget {
   /// real cuando en verdad nunca se registró. Solo Goles/PJ, que desde esta
   /// ronda sí son reales para categorías manuales.
   final bool showFullColumns;
-  const _PlayerLeaders({required this.players, this.showFullColumns = true});
+  final void Function(String playerId)? onTapPlayer;
+  const _PlayerLeaders({
+    required this.players,
+    this.showFullColumns = true,
+    this.onTapPlayer,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1106,7 +1125,11 @@ class _PlayerLeaders extends StatelessWidget {
           const SizedBox(height: 4),
           ...ranked.take(10).map((player) {
             final risk = player.yellowCards >= 4;
-            return Padding(
+            final canTap = onTapPlayer != null && player.id.isNotEmpty;
+            return InkWell(
+              onTap: canTap ? () => onTapPlayer!(player.id) : null,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 7),
               child: Row(
                 children: [
@@ -1155,6 +1178,7 @@ class _PlayerLeaders extends StatelessWidget {
                     _Cell('${player.minutes}', 56),
                   ],
                 ],
+              ),
               ),
             );
           }),
@@ -1406,6 +1430,7 @@ class _NoLudStatsBody extends StatelessWidget {
             players: [
               for (final player in players)
                 _PlayerStat(
+                  id: player.id,
                   name: player.fullName.trim(),
                   position: player.position.trim(),
                   matches: player.matchesPlayed,
@@ -1415,6 +1440,14 @@ class _NoLudStatsBody extends StatelessWidget {
                   yellowCards: player.yellowCards,
                 ),
             ],
+            onTapPlayer: (id) {
+              for (final player in players) {
+                if (player.id == id) {
+                  openPlayerProfile(context, player);
+                  return;
+                }
+              }
+            },
           ),
           const SizedBox(height: 20),
           const PremiumSectionHeader(

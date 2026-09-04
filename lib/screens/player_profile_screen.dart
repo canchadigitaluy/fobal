@@ -282,6 +282,8 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
     final categoryIsLud = LudCategoryRef.teamIdOf(category.id) != null;
     final reliableLeague =
         hasReliableLeagueStats(categoryIsLud: categoryIsLud, player: resolvedPlayer);
+    final manualMatchStats =
+        hasManualMatchStats(categoryIsLud: categoryIsLud, player: resolvedPlayer);
     final citations = _citationCounts(club, category, resolvedPlayer.id);
 
     return Scaffold(
@@ -339,15 +341,34 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                       ),
                     ],
                   )
+                else if (manualMatchStats)
+                  MetricGrid(
+                    tiles: [
+                      MetricTile(
+                        icon: Icons.event_available_outlined,
+                        value: '${resolvedPlayer.matchesPlayed}',
+                        label: 'Partidos',
+                        context: 'cargados a mano',
+                        accent: CX.blue,
+                      ),
+                      MetricTile(
+                        icon: Icons.sports_soccer,
+                        value: '${resolvedPlayer.goals}',
+                        label: 'Goles',
+                        context: 'en resultados cargados',
+                        accent: CX.amber,
+                      ),
+                    ],
+                  )
                 else
                   EmptyStatePanel(
                     icon: Icons.query_stats_outlined,
                     title: categoryIsLud
                         ? 'Todavía sin datos de liga para este jugador'
-                        : 'Esta categoría no tiene datos de liga',
+                        : 'Todavía no hay partidos cargados para este jugador',
                     message: categoryIsLud
                         ? 'La liga no publicó minutos/goles para este jugador todavía.'
-                        : 'Es una categoría independiente: acá se sigue el rendimiento con asistencia, citaciones y objetivos propios.',
+                        : 'Al cargar un resultado en Estadísticas o Calendario, marcá quién jugó y quién anotó.',
                   ),
                 const SizedBox(height: 20),
                 const PremiumSectionHeader(eyebrow: 'Participación', title: 'Asistencia y citaciones'),

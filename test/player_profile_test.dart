@@ -118,6 +118,30 @@ void main() {
     });
   });
 
+  group('hasManualMatchStats — partidos/goles cargados a mano en No-LUD', () {
+    test('true for a No-LUD player with real matches or goals', () {
+      expect(
+        hasManualMatchStats(categoryIsLud: false, player: _player(hasStats: true)),
+        isTrue,
+      );
+    });
+
+    test('false for a No-LUD player with nothing loaded yet', () {
+      expect(
+        hasManualMatchStats(categoryIsLud: false, player: _player(hasStats: false)),
+        isFalse,
+      );
+    });
+
+    test('false for a LUD category even with numbers — that path is '
+        'hasReliableLeagueStats instead, never this one', () {
+      expect(
+        hasManualMatchStats(categoryIsLud: true, player: _player(hasStats: true)),
+        isFalse,
+      );
+    });
+  });
+
   group('formatPlayerGoalLine(s)', () {
     test('formats title, area and status into one line', () {
       const goal = PlayerGoal(

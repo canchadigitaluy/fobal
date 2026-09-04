@@ -17,6 +17,15 @@ bool hasReliableLeagueStats({
   required Player player,
 }) => categoryIsLud && player.hasLeagueStats;
 
+/// True for a No-LUD player who has real matches/goals from the DT's own
+/// "Cargar resultado" entries (see player_match_stats_service). Never true
+/// for LUD — that data comes from the league sync via
+/// [hasReliableLeagueStats] instead, never from this manual path.
+bool hasManualMatchStats({
+  required bool categoryIsLud,
+  required Player player,
+}) => !categoryIsLud && (player.matchesPlayed > 0 || player.goals > 0);
+
 /// One line per goal, ready to drop into a list or the exporter:
 /// "Título (Área) — Estado".
 String formatPlayerGoalLine(PlayerGoal goal) =>

@@ -338,3 +338,66 @@ String formatPlayerProfileText({
   ];
   return lines.join('\n');
 }
+
+/// Consolidated squad report — one text a DT can share with directivos or
+/// padres: plantel size, disponibilidad, asistencia, objetivos individuales
+/// y récord de partidos. Every section is pre-computed by the caller (never
+/// derived here) and omitted when there's nothing real to show — match
+/// record in particular is only passed for No-LUD categories, since LUD
+/// standings would need a network call this pure function can't make.
+String formatSquadReportText({
+  required String clubName,
+  String categoryName = '',
+  DateTime? generatedAt,
+  required int totalPlayers,
+  int availablePlayers = 0,
+  List<String> availabilityWarnings = const [],
+  double? attendanceAverage,
+  int activeGoals = 0,
+  int completedGoals = 0,
+  List<String> topGoalLines = const [],
+  int? matchesPlayed,
+  int wins = 0,
+  int draws = 0,
+  int losses = 0,
+  String staffNote = '',
+}) {
+  final when = generatedAt ?? DateTime.now();
+  final dateLabel = '${when.day.toString().padLeft(2, '0')}/'
+      '${when.month.toString().padLeft(2, '0')}/${when.year}';
+  final lines = <String>[
+    'REPORTE DEL PLANTEL — ${clubName.trim().isEmpty ? 'Club' : clubName.trim()}',
+    if (categoryName.trim().isNotEmpty) categoryName.trim(),
+    dateLabel,
+    '',
+    'PLANTEL',
+    '$totalPlayers jugadores · $availablePlayers disponibles',
+    if (availabilityWarnings.isNotEmpty) ...[
+      '',
+      'A CONFIRMAR / SEGUIMIENTO',
+      for (final note in availabilityWarnings) '- $note',
+    ],
+    if (attendanceAverage != null) ...[
+      '',
+      'ASISTENCIA',
+      '${(attendanceAverage * 100).round()}% promedio del plantel',
+    ],
+    if (activeGoals > 0 || completedGoals > 0) ...[
+      '',
+      'OBJETIVOS INDIVIDUALES',
+      '$activeGoals en curso · $completedGoals logrados',
+      for (final line in topGoalLines) '- $line',
+    ],
+    if (matchesPlayed != null && matchesPlayed > 0) ...[
+      '',
+      'RESULTADOS',
+      '$matchesPlayed jugados · ${wins}G ${draws}E ${losses}P',
+    ],
+    if (staffNote.trim().isNotEmpty) ...[
+      '',
+      'NOTAS',
+      staffNote.trim(),
+    ],
+  ];
+  return lines.join('\n');
+}

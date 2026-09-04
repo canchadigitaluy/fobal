@@ -6,7 +6,11 @@ import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../services/attendance_stats_service.dart';
+import '../services/export_download_service.dart';
+import '../services/export_text_service.dart';
 import '../services/player_profile_service.dart';
+import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
 import 'player_availability_dialog.dart';
 import 'player_profile_screen.dart';
@@ -70,6 +74,68 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
     );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Disponibilidad actualizada: ${updated.availability.label}')),
+    );
+  }
+
+  void _generateSquadReport(CanteraClub club, List<Player> players) {
+    final scope = AppScope.of(context);
+    final categoryId = scope.selectedCategoryId ??
+        (club.categories.isEmpty ? '' : club.categories.first.id);
+    var categoryName = '';
+    for (final item in club.categories) {
+      if (item.id == categoryId) {
+        categoryName = item.name;
+        break;
+      }
+    }
+    final warnings = [
+      for (final player in players)
+        if (player.hasAvailabilityWarning)
+          '${player.fullName.trim()}: ${player.availability.label}',
+    ];
+    final attendanceAverage = averageAttendanceRate(
+      players.map((p) => p.attendanceRate).toList(),
+    );
+    final goals = squadGoalTracker(players);
+    final completedGoals = players
+        .expand((player) => player.developmentGoals)
+        .where((goal) => goal.status == PlayerGoalStatus.logrado)
+        .length;
+    final matchStats = MatchStats.forCategory(club.matchResults, categoryId);
+    final content = formatSquadReportText(
+      clubName: club.name,
+      categoryName: categoryName,
+      totalPlayers: players.length,
+      availablePlayers: players.where((p) => p.isAvailable).length,
+      availabilityWarnings: warnings,
+      attendanceAverage: attendanceAverage,
+      activeGoals: goals.length,
+      completedGoals: completedGoals,
+      topGoalLines: formatPlayerGoalLines(
+        goals.take(5).map((entry) => entry.goal).toList(),
+      ),
+      matchesPlayed: matchStats.played == 0 ? null : matchStats.played,
+      wins: matchStats.wins,
+      draws: matchStats.draws,
+      losses: matchStats.losses,
+    );
+    final fileName = buildExportFileName(
+      club: club.name,
+      category: categoryName,
+      type: 'reporte-plantel',
+      extension: 'txt',
+    );
+    showExportPreviewDialog(
+      context,
+      title: 'Reporte del plantel',
+      content: content,
+      fileName: fileName,
+      onDownload: (name, text) {
+        ExportDownloadService.downloadText(name, text);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Reporte descargado: $name')),
+        );
+      },
     );
   }
 
@@ -192,6 +258,15 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
           const SizedBox(height: 18),
           if (players.isNotEmpty) ...[
             _SquadProgress(players: players),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () => _generateSquadReport(club, players),
+                icon: const Icon(Icons.summarize_outlined, size: 17),
+                label: const Text('Generar reporte del plantel'),
+              ),
+            ),
             const SizedBox(height: 18),
           ],
           if (squadGoalTracker(players).isNotEmpty) ...[

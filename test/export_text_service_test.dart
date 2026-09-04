@@ -170,4 +170,58 @@ void main() {
       expect(text, contains('Nadie marcado ausente.'));
     });
   });
+
+  group('formatSquadReportText — reporte consolidado del plantel', () {
+    test('renders every filled section', () {
+      final generatedAt = DateTime(2026, 9, 4);
+      final text = formatSquadReportText(
+        clubName: 'Atenas',
+        categoryName: 'Sub 15',
+        generatedAt: generatedAt,
+        totalPlayers: 20,
+        availablePlayers: 18,
+        availabilityWarnings: ['Juan Pérez: Lesionado'],
+        attendanceAverage: 0.82,
+        activeGoals: 4,
+        completedGoals: 2,
+        topGoalLines: ['Mejorar el remate (Técnica) — En progreso'],
+        matchesPlayed: 10,
+        wins: 6,
+        draws: 2,
+        losses: 2,
+      );
+      expect(text, contains('REPORTE DEL PLANTEL — Atenas'));
+      expect(text, contains('Sub 15'));
+      expect(text, contains('04/09/2026'));
+      expect(text, contains('20 jugadores · 18 disponibles'));
+      expect(text, contains('A CONFIRMAR / SEGUIMIENTO'));
+      expect(text, contains('- Juan Pérez: Lesionado'));
+      expect(text, contains('82% promedio del plantel'));
+      expect(text, contains('4 en curso · 2 logrados'));
+      expect(text, contains('- Mejorar el remate (Técnica) — En progreso'));
+      expect(text, contains('10 jugados · 6G 2E 2P'));
+    });
+
+    test('omits every optional section when there is no data', () {
+      final text = formatSquadReportText(
+        clubName: 'Atenas',
+        totalPlayers: 5,
+        availablePlayers: 5,
+      );
+      expect(text, isNot(contains('A CONFIRMAR / SEGUIMIENTO')));
+      expect(text, isNot(contains('ASISTENCIA')));
+      expect(text, isNot(contains('OBJETIVOS INDIVIDUALES')));
+      expect(text, isNot(contains('RESULTADOS')));
+    });
+
+    test('never divides by a null matchesPlayed / shows record only when real', () {
+      final text = formatSquadReportText(
+        clubName: 'Atenas',
+        totalPlayers: 5,
+        availablePlayers: 5,
+        matchesPlayed: 0,
+      );
+      expect(text, isNot(contains('RESULTADOS')));
+    });
+  });
 }

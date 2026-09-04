@@ -1,6 +1,29 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:cantera_os/data/cantera_data.dart';
 import 'package:cantera_os/state/calendar_events.dart';
+
+TrainingSession _session({
+  String id = 's1',
+  String scheduledDate = '',
+  String status = 'planned',
+}) {
+  return TrainingSession(
+    id: id,
+    categoryId: 'cat-1',
+    title: 'Sesión',
+    objective: '',
+    duration: 60,
+    space: '',
+    playerCount: 18,
+    generatedByAi: false,
+    status: status,
+    scheduledDate: scheduledDate,
+    blocks: const [],
+    coachCues: const [],
+    successIndicators: const [],
+  );
+}
 
 void main() {
   group('calendarDayKey', () {
@@ -59,6 +82,35 @@ void main() {
         expect(migrated['id'], preExistingCalendarKey);
       },
     );
+  });
+
+  group('sessionsOnDay', () {
+    test('matches by calendar day key, ignoring any time-of-day suffix', () {
+      final target = DateTime(2026, 3, 5);
+      final sessions = [
+        _session(id: 'a', scheduledDate: '2026-03-05'),
+        _session(id: 'b', scheduledDate: '2026-03-05T18:00:00'),
+        _session(id: 'c', scheduledDate: '2026-03-06'),
+      ];
+      final result = sessionsOnDay(sessions, target);
+      expect(result.map((s) => s.id).toSet(), {'a', 'b'});
+    });
+
+    test('a session with no date matches nothing — never guessed', () {
+      final result = sessionsOnDay(
+        [_session(id: 'a', scheduledDate: '')],
+        DateTime(2026, 3, 5),
+      );
+      expect(result, isEmpty);
+    });
+
+    test('an unparseable date matches nothing', () {
+      final result = sessionsOnDay(
+        [_session(id: 'a', scheduledDate: 'not-a-date')],
+        DateTime(2026, 3, 5),
+      );
+      expect(result, isEmpty);
+    });
   });
 
   group('newEventId', () {

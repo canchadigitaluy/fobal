@@ -2,6 +2,8 @@
 /// result. No Flutter/web dependency, so this stays unit-testable.
 library;
 
+import '../data/cantera_data.dart';
+
 /// "yyyy-MM-dd" day key — matches the calendar screen's storage map key.
 String calendarDayKey(DateTime day) =>
     '${day.year}-${day.month.toString().padLeft(2, '0')}-'
@@ -26,6 +28,20 @@ Map<String, dynamic> normalizeEventJson(
   if (existing.isNotEmpty) return json;
   final title = json['title'] as String? ?? '';
   return {...json, 'id': legacyEventId(dayKey, title)};
+}
+
+/// Sessions from Planificar/Constructor scheduled on [day] — matched by
+/// calendar day key so a session's plain "yyyy-MM-dd" scheduledDate always
+/// lines up with the calendar's own day keys. A session with no date, or an
+/// unparseable one, matches nothing (never guessed). This lets Calendario
+/// show a planned session without it having to also exist as a separate
+/// hand-created event — one date entered once, not twice.
+List<TrainingSession> sessionsOnDay(List<TrainingSession> sessions, DateTime day) {
+  final key = calendarDayKey(day);
+  return sessions.where((session) {
+    final date = DateTime.tryParse(session.scheduledDate);
+    return date != null && calendarDayKey(date) == key;
+  }).toList();
 }
 
 int _eventIdSeq = 0;

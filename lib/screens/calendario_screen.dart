@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/offline_mutation_service.dart';
 import '../state/calendar_events.dart';
@@ -364,6 +365,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                             for (final p in AppScope.of(context).fullClub.matchPreparations)
                               if (p.calendarEventId.isNotEmpty) p.calendarEventId,
                           },
+                          sessions: AppScope.of(context).club.sessions,
                         ),
                       ],
                       if (_selectedDay != null) ...[
@@ -382,6 +384,10 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                             for (final p in AppScope.of(context).fullClub.matchPreparations)
                               if (p.calendarEventId.isNotEmpty) p.calendarEventId,
                           },
+                          daySessions: sessionsOnDay(
+                            AppScope.of(context).club.sessions,
+                            _selectedDay!,
+                          ),
                           initialEditEventId: _pendingEditEventId,
                           onEditConsumed: () =>
                               setState(() => _pendingEditEventId = null),
@@ -427,17 +433,26 @@ class _UpcomingEvents extends StatelessWidget {
   final ValueChanged<DateTime> onOpenDay;
   final void Function(DateTime day, String eventId) onEdit;
   final Set<String> preparedEventIds;
+  final List<TrainingSession> sessions;
   const _UpcomingEvents({
     required this.events,
     required this.onOpenDay,
     required this.onEdit,
     this.preparedEventIds = const {},
+    this.sessions = const [],
   });
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    final upcomingSessions =
+        sessions.where((session) {
+            if (session.status == 'completed') return false;
+            final date = DateTime.tryParse(session.scheduledDate);
+            return date != null && !DateTime(date.year, date.month, date.day).isBefore(today);
+          }).toList()
+          ..sort((a, b) => a.scheduledDate.compareTo(b.scheduledDate));
     final upcoming = <({DateTime day, _CalendarEvent event})>[];
     for (final entry in events.entries) {
       final parts = entry.key.split('-');
@@ -454,7 +469,7 @@ class _UpcomingEvents extends StatelessWidget {
     }
     upcoming.sort((a, b) => a.day.compareTo(b.day));
 
-    if (upcoming.isEmpty) {
+    if (upcoming.isEmpty && upcomingSessions.isEmpty) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
@@ -598,6 +613,29 @@ class _UpcomingEvents extends StatelessWidget {
               ),
             ),
           ),
+        if (upcomingSessions.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          const Text(
+            'SESIONES PLANIFICADAS',
+            style: TextStyle(
+              color: CX.faint,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .4,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Cargadas desde Planificar — no hace falta repetirlas acá.',
+            style: TextStyle(color: CX.faint, fontSize: 10.5),
+          ),
+          const SizedBox(height: 8),
+          for (final session in upcomingSessions.take(5))
+            _PlannedSessionTile(
+              session: session,
+              dayLabel: _dayLabel(DateTime.parse(session.scheduledDate)),
+            ),
+        ],
       ],
     );
   }
@@ -617,11 +655,60 @@ class _UpcomingEvents extends StatelessWidget {
   }
 }
 
+class _PlannedSessionTile extends StatelessWidget {
+  final TrainingSession session;
+  final String dayLabel;
+  const _PlannedSessionTile({required this.session, required this.dayLabel});
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: () =>
+        ShellActions.maybeOf(context)?.openSection(ShellSection.planner),
+    borderRadius: BorderRadius.circular(8),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 3,
+            height: 30,
+            margin: const EdgeInsets.only(top: 2),
+            decoration: BoxDecoration(
+              color: CX.green,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Icon(Icons.fitness_center, size: 16, color: CX.green),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  session.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                Text(dayLabel, style: const TextStyle(color: CX.faint, fontSize: 11)),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, size: 17, color: CX.muted),
+        ],
+      ),
+    ),
+  );
+}
+
 class _DayEditorPanel extends StatefulWidget {
   final DateTime day;
   final List<_CalendarEvent> events;
   final Set<String> loggedKeys;
   final Set<String> preparedEventIds;
+  final List<TrainingSession> daySessions;
   final String? initialEditEventId;
   final VoidCallback onEditConsumed;
   final ValueChanged<_CalendarEvent> onAdd;
@@ -636,6 +723,7 @@ class _DayEditorPanel extends StatefulWidget {
     required this.events,
     required this.loggedKeys,
     this.preparedEventIds = const {},
+    this.daySessions = const [],
     this.initialEditEventId,
     required this.onEditConsumed,
     required this.onAdd,
@@ -819,14 +907,19 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
             ],
           ),
           const SizedBox(height: 8),
-            if (widget.events.isEmpty)
+            if (widget.events.isEmpty && widget.daySessions.isEmpty)
               const EmptyStatePanel(
                 icon: Icons.calendar_month,
                 title: 'No hay eventos este día',
                 message: 'Cargá un entrenamiento, partido u otro evento con '
                     'el formulario de abajo.',
               )
-            else
+            else ...[
+              for (final session in widget.daySessions)
+                _PlannedSessionTile(
+                  session: session,
+                  dayLabel: 'Planificada',
+                ),
               for (final (index, event) in widget.events.indexed)
                 _EventTile(
                   day: widget.day,
@@ -848,6 +941,7 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
                   onTakeAttendance: () => ShellActions.maybeOf(context)
                       ?.openSection(ShellSection.attendance),
                 ),
+            ],
             const SizedBox(height: 10),
             PremiumSectionHeader(
               eyebrow: editing ? 'Editando' : 'Nuevo',

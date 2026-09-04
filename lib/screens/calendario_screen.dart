@@ -10,6 +10,7 @@ import '../main.dart';
 import '../services/offline_mutation_service.dart';
 import '../state/calendar_events.dart';
 import '../state/calendar_time.dart';
+import '../state/section_handoff.dart';
 import '../ui/ui_kit.dart';
 import 'match_preparation_screen.dart';
 import 'match_result_dialog.dart';
@@ -844,6 +845,8 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
                         '${widget.day.year}',
                     time: event.time,
                   ),
+                  onTakeAttendance: () => ShellActions.maybeOf(context)
+                      ?.openSection(ShellSection.attendance),
                 ),
             const SizedBox(height: 10),
             PremiumSectionHeader(
@@ -937,6 +940,7 @@ class _EventTile extends StatelessWidget {
   final VoidCallback onLogResult;
   final VoidCallback onPrepareMatch;
   final bool hasPreparation;
+  final VoidCallback? onTakeAttendance;
 
   const _EventTile({
     required this.day,
@@ -947,6 +951,7 @@ class _EventTile extends StatelessWidget {
     required this.onLogResult,
     required this.onPrepareMatch,
     this.hasPreparation = false,
+    this.onTakeAttendance,
   });
 
   @override
@@ -1062,6 +1067,14 @@ class _EventTile extends StatelessWidget {
                           label: const Text('Cargar resultado'),
                         ),
               ],
+            ),
+          ],
+          if (!isMatch && event.type == 'Entrenamiento' && onTakeAttendance != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: onTakeAttendance,
+              icon: const Icon(Icons.fact_check_outlined, size: 16),
+              label: const Text('Tomar asistencia'),
             ),
           ],
         ],

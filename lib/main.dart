@@ -1127,7 +1127,7 @@ class _MinimalAppLoader extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: CX.green.withValues(alpha: .35)),
               ),
-              child: const CustomPaint(painter: _CanteraIsoPainter()),
+              child: const CustomPaint(painter: FobalMarkPainter()),
             ),
             const SizedBox(height: 14),
             const Text(
@@ -2486,7 +2486,7 @@ class _BrandMark extends StatelessWidget {
               BoxShadow(color: CX.green.withValues(alpha: .18), blurRadius: 14),
             ],
           ),
-          child: const CustomPaint(painter: _CanteraIsoPainter()),
+          child: const CustomPaint(painter: FobalMarkPainter()),
         ),
         const SizedBox(width: 10),
         Text(
@@ -2503,54 +2503,42 @@ class _BrandMark extends StatelessWidget {
   }
 }
 
-class _CanteraIsoPainter extends CustomPainter {
-  const _CanteraIsoPainter();
+/// The fobal mark: a goal frame with two players at its base. One drawing
+/// routine shared by the login screen, the loading splash and the shell
+/// brand badge so the mark stays identical everywhere instead of drifting
+/// between hand-copied CustomPainters.
+void paintFobalMark(Canvas canvas, Size size, {Color color = CX.green}) {
+  final w = size.width;
+  final h = size.height;
+  final line = Paint()
+    ..color = color
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = w * .09
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+  final dot = Paint()..color = color;
+
+  final frame = Path()
+    ..moveTo(w * .27, h * .64)
+    ..lineTo(w * .27, h * .22)
+    ..lineTo(w * .73, h * .22)
+    ..lineTo(w * .73, h * .64);
+  canvas.drawPath(frame, line);
+
+  canvas.drawCircle(Offset(w * .38, h * .76), w * .075, dot);
+  canvas.drawCircle(Offset(w * .62, h * .76), w * .075, dot);
+}
+
+class FobalMarkPainter extends CustomPainter {
+  final Color color;
+  const FobalMarkPainter({this.color = CX.green});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final green = Paint()
-      ..color = CX.green
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * .075
-      ..strokeCap = StrokeCap.round;
-    final yellow = Paint()
-      ..color = CX.amber
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * .06
-      ..strokeCap = StrokeCap.round;
-    final blue = Paint()
-      ..color = CX.blue
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * .055
-      ..strokeCap = StrokeCap.round;
-    final dotGreen = Paint()..color = CX.green;
-    final dotYellow = Paint()..color = CX.amber;
-    final dotBlue = Paint()..color = CX.blue;
-
-    final field = RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * .17, h * .18, w * .66, h * .64),
-      Radius.circular(w * .16),
-    );
-    canvas.drawRRect(field, green);
-    canvas.drawCircle(Offset(w * .50, h * .50), w * .16, green);
-    canvas.drawLine(Offset(w * .50, h * .20), Offset(w * .50, h * .80), green);
-
-    canvas.drawLine(Offset(w * .30, h * .57), Offset(w * .50, h * .25), green);
-    canvas.drawLine(Offset(w * .50, h * .50), Offset(w * .67, h * .42), yellow);
-    canvas.drawLine(Offset(w * .57, h * .80), Offset(w * .80, h * .65), blue);
-
-    canvas.drawCircle(Offset(w * .50, h * .23), w * .08, dotGreen);
-    canvas.drawCircle(Offset(w * .30, h * .57), w * .07, dotGreen);
-    canvas.drawCircle(Offset(w * .50, h * .50), w * .06, dotGreen);
-    canvas.drawCircle(Offset(w * .57, h * .80), w * .07, dotGreen);
-    canvas.drawCircle(Offset(w * .67, h * .42), w * .06, dotYellow);
-    canvas.drawCircle(Offset(w * .80, h * .65), w * .06, dotBlue);
-  }
+  void paint(Canvas canvas, Size size) => paintFobalMark(canvas, size, color: color);
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant FobalMarkPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class ClubCrest extends StatelessWidget {

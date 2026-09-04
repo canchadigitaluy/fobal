@@ -896,7 +896,7 @@ class _MobileBrand extends StatelessWidget {
               ),
             ],
           ),
-          child: const CustomPaint(painter: _CanteraLoginIsoPainter()),
+          child: const CustomPaint(painter: FobalMarkPainter()),
         ),
         const SizedBox(width: 10),
         RichText(
@@ -914,58 +914,6 @@ class _MobileBrand extends StatelessWidget {
       ],
     );
   }
-}
-
-class _CanteraLoginIsoPainter extends CustomPainter {
-  const _CanteraLoginIsoPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final line = Paint()
-      ..color = CX.green
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * .075
-      ..strokeCap = StrokeCap.round;
-    final yellow = Paint()
-      ..color = CX.amber
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * .06
-      ..strokeCap = StrokeCap.round;
-    final blue = Paint()
-      ..color = CX.blue
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * .055
-      ..strokeCap = StrokeCap.round;
-    final greenDot = Paint()..color = CX.green;
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * .17, h * .18, w * .66, h * .64),
-        Radius.circular(w * .16),
-      ),
-      line,
-    );
-    canvas.drawCircle(Offset(w * .50, h * .50), w * .16, line);
-    canvas.drawLine(Offset(w * .50, h * .20), Offset(w * .50, h * .80), line);
-    canvas.drawLine(Offset(w * .30, h * .57), Offset(w * .50, h * .25), line);
-    canvas.drawLine(Offset(w * .50, h * .50), Offset(w * .67, h * .42), yellow);
-    canvas.drawLine(Offset(w * .57, h * .80), Offset(w * .80, h * .65), blue);
-    for (final dot in [
-      Offset(w * .50, h * .23),
-      Offset(w * .30, h * .57),
-      Offset(w * .50, h * .50),
-      Offset(w * .57, h * .80),
-    ]) {
-      canvas.drawCircle(dot, w * .065, greenDot);
-    }
-    canvas.drawCircle(Offset(w * .67, h * .42), w * .06, Paint()..color = CX.amber);
-    canvas.drawCircle(Offset(w * .80, h * .65), w * .06, Paint()..color = CX.blue);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _ProofPoint extends StatelessWidget {

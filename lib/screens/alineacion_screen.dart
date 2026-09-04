@@ -12,6 +12,7 @@ import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/offline_mutation_service.dart';
 import '../state/section_handoff.dart';
+import '../ui/ui_kit.dart';
 
 class AlineacionScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -32,7 +33,6 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
   List<_SavedAlignment> _savedAlignments = const [];
   String? _categoryId;
   String _formation = '4-4-2';
-  String _statsScope = 'Totales';
   bool _editing = false;
 
   static const _formations = <String, List<_Spot>>{
@@ -336,64 +336,6 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     });
   }
 
-  /*
-    html.window.localStorage[_storageKey(club, category)] = jsonEncode({
-      'title': title,
-      'rival': _rivalController.text.trim(),
-      'date': _dateController.text.trim(),
-      'formation': _formation,
-      'xi': _xi,
-      'subs': _subs,
-      'customSpots': _customSpots.map(
-        (key, value) => MapEntry('$key', [value.dx, value.dy]),
-      ),
-      'savedAt': DateTime.now().toIso8601String(),
-    });
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Alineación guardada: $title')));
-  }
-
-  void _export(CategorySquad category, List<Player> players) {
-    final names = {for (final player in players) player.id: player.fullName};
-    final content = [
-      _titleController.text.trim().isEmpty
-          ? '${category.name} - Alineación'
-          : _titleController.text.trim(),
-      if (_dateController.text.trim().isNotEmpty)
-        'Fecha: ${_dateController.text.trim()}',
-      if (_rivalController.text.trim().isNotEmpty)
-        'Rival: ${_rivalController.text.trim()}',
-      '',
-      'XI inicial',
-      ...List.generate(
-        _xi.length,
-        (i) => '${_spots[i].label}: ${names[_xi[i]] ?? '-'}',
-      ),
-      '',
-      'Suplentes',
-      ...List.generate(_subs.length, (i) => '${i + 1}. ${names[_subs[i]] ?? '-'}'),
-    ].join('\n');
-    final blob = html.Blob([content], 'text/plain;charset=utf-8');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    html.AnchorElement(href: url)
-      ..download = 'alineacion_${category.name.replaceAll(' ', '_')}.txt'
-      ..click();
-    html.Url.revokeObjectUrl(url);
-  }
-
-  void _addFirstAvailable(Player player) {
-    if (_xi.contains(player.id) || _subs.contains(player.id)) return;
-    final xiIndex = _xi.indexWhere((id) => id == null);
-    if (xiIndex != -1) {
-      setState(() => _xi[xiIndex] = player.id);
-      return;
-    }
-    final subIndex = _subs.indexWhere((id) => id == null);
-    if (subIndex != -1) setState(() => _subs[subIndex] = player.id);
-  }
-  */
-
   void _addFirstAvailable(Player player) {
     if (_xi.contains(player.id) || _subs.contains(player.id)) return;
     final xiIndex = _xi.indexWhere((id) => id == null);
@@ -478,15 +420,17 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
               const SizedBox(height: 12),
             ],
             if (category == null)
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: CX.panelDecoration(),
-                child: const Text('Primero cargá una categoría con jugadores.'),
+              const EmptyStatePanel(
+                icon: Icons.account_tree_outlined,
+                title: 'Primero cargá una categoría',
+                message: 'Creá una categoría con jugadores para poder armar '
+                    'la alineación y la citación.',
               )
             else if (!_editing) ...[
               _AlignmentStart(
                 categories: club.categories,
                 categoryId: category.id,
+                players: players,
                 saved: _savedAlignments,
                 onCategory: (value) => setState(() => _categoryId = value),
                 onCreate: _createNew,
@@ -509,6 +453,13 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                     _customSpots.clear();
                   });
                 },
+              ),
+              const SizedBox(height: 12),
+              _LineupProgressStrip(
+                xiFilled: _xi.where((id) => id != null).length,
+                xiTotal: _xi.length,
+                subsFilled: _subs.where((id) => id != null).length,
+                subsTotal: _subs.length,
               ),
               const SizedBox(height: 14),
               LayoutBuilder(
@@ -544,8 +495,6 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                       ..._xi.whereType<String>(),
                       ..._subs.whereType<String>(),
                     },
-                    statsScope: _statsScope,
-                    onScope: (value) => setState(() => _statsScope = value),
                     onAdd: _addFirstAvailable,
                   );
                   if (!wide) {
@@ -612,6 +561,80 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Read-only "qué falta" readout: never picks players on its own, just
+/// counts what the DT already placed on the pitch and the bench.
+class _LineupProgressStrip extends StatelessWidget {
+  final int xiFilled;
+  final int xiTotal;
+  final int subsFilled;
+  final int subsTotal;
+
+  const _LineupProgressStrip({
+    required this.xiFilled,
+    required this.xiTotal,
+    required this.subsFilled,
+    required this.subsTotal,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final xiDone = xiFilled == xiTotal;
+    final subsStarted = subsFilled > 0;
+    return Row(
+      children: [
+        Expanded(
+          child: _chip(
+            icon: Icons.sports_soccer,
+            label: 'XI titular',
+            value: '$xiFilled/$xiTotal',
+            color: xiDone ? CX.green : CX.amber,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _chip(
+            icon: Icons.groups_outlined,
+            label: 'Banco',
+            value: '$subsFilled/$subsTotal',
+            color: subsStarted ? CX.green : CX.faint,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _chip({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: CX.panel,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.line),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: const TextStyle(color: CX.muted, fontSize: 11.5, fontWeight: FontWeight.w700),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 13),
+          ),
+        ],
       ),
     );
   }
@@ -698,6 +721,7 @@ class _AlignmentHeader extends StatelessWidget {
 class _AlignmentStart extends StatelessWidget {
   final List<CategorySquad> categories;
   final String categoryId;
+  final List<Player> players;
   final List<_SavedAlignment> saved;
   final ValueChanged<String?> onCategory;
   final VoidCallback onCreate;
@@ -706,6 +730,7 @@ class _AlignmentStart extends StatelessWidget {
   const _AlignmentStart({
     required this.categories,
     required this.categoryId,
+    required this.players,
     required this.saved,
     required this.onCategory,
     required this.onCreate,
@@ -714,7 +739,12 @@ class _AlignmentStart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final available = players
+        .where((p) => p.status.toLowerCase() != 'lesionado')
+        .length;
+    final atRisk = players.length - available;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           padding: const EdgeInsets.all(14),
@@ -723,12 +753,13 @@ class _AlignmentStart extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Alineaciones',
+                'Alineaciones y citaciones',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 6),
               const Text(
-                'Crea un XI nuevo o abrí una alineación guardada de esta categoría.',
+                'Armá un XI nuevo o abrí una alineación guardada de esta '
+                'categoría.',
                 style: TextStyle(color: CX.muted, height: 1.35),
               ),
               const SizedBox(height: 12),
@@ -746,24 +777,70 @@ class _AlignmentStart extends StatelessWidget {
                 onChanged: onCategory,
               ),
               const SizedBox(height: 12),
-              ElevatedButton.icon(
-                onPressed: onCreate,
-                icon: const Icon(Icons.add_circle_outline),
-                label: const Text('Crear alineación'),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: players.isEmpty ? null : onCreate,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  icon: const Icon(Icons.add_circle_outline),
+                  label: const Text('Crear alineación'),
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 14),
-        if (saved.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: CX.panelDecoration(),
-            child: const Text(
-              'Todavía no hay alineaciones guardadas en esta categoría.',
-              style: TextStyle(color: CX.muted),
-            ),
+        if (players.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          MetricGrid(
+            tiles: [
+              MetricTile(
+                icon: Icons.groups_2_outlined,
+                value: '${players.length}',
+                label: 'Plantel',
+                context: 'en esta categoría',
+                accent: CX.blue,
+              ),
+              MetricTile(
+                icon: Icons.check_circle_outline,
+                value: '$available',
+                label: 'Disponibles',
+                context: atRisk == 0
+                    ? 'sin lesiones cargadas'
+                    : '$atRisk marcado(s) lesionado',
+                accent: atRisk == 0 ? CX.green : CX.amber,
+              ),
+              MetricTile(
+                icon: Icons.bookmark_added_outlined,
+                value: '${saved.length}',
+                label: 'Guardadas',
+                context: saved.isEmpty ? 'ninguna todavía' : 'alineaciones',
+                accent: CX.green,
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 18),
+        const PremiumSectionHeader(
+          eyebrow: 'Historial',
+          title: 'Alineaciones guardadas',
+        ),
+        if (players.isEmpty)
+          const EmptyStatePanel(
+            icon: Icons.groups_2_outlined,
+            title: 'Esta categoría todavía no tiene jugadores',
+            message: 'Sumá el plantel en Mi equipo para poder armar un XI '
+                'y citar jugadores.',
+          )
+        else if (saved.isEmpty)
+          EmptyStatePanel(
+            icon: Icons.bookmark_border,
+            title: 'Todavía no guardaste ninguna alineación',
+            message: 'Armá el XI, el banco y guardala: la vas a tener acá '
+                'lista para reabrir y ajustar antes del próximo partido.',
+            primaryLabel: 'Crear alineación',
+            onPrimary: onCreate,
           )
         else
           _SavedAlignmentsList(saved: saved, onOpen: onOpen),
@@ -775,15 +852,11 @@ class _AlignmentStart extends StatelessWidget {
 class _LineupPlayerPanel extends StatelessWidget {
   final List<Player> players;
   final Set<String> usedIds;
-  final String statsScope;
-  final ValueChanged<String> onScope;
   final ValueChanged<Player> onAdd;
 
   const _LineupPlayerPanel({
     required this.players,
     required this.usedIds,
-    required this.statsScope,
-    required this.onScope,
     required this.onAdd,
   });
 
@@ -798,32 +871,20 @@ class _LineupPlayerPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Jugadores disponibles',
-                  style: TextStyle(fontWeight: FontWeight.w900),
-                ),
-              ),
-              DropdownButton<String>(
-                value: statsScope,
-                items: const ['Totales', 'Ultimos 3', 'Ultimos 5']
-                    .map(
-                      (value) =>
-                          DropdownMenuItem(value: value, child: Text(value)),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) onScope(value);
-                },
-              ),
-            ],
+          Text(
+            'Jugadores disponibles (${available.length})',
+            style: const TextStyle(fontWeight: FontWeight.w900),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 3),
+          const Text(
+            'Tocá un jugador para sumarlo al primer puesto libre.',
+            style: TextStyle(color: CX.faint, fontSize: 11),
+          ),
+          const SizedBox(height: 10),
           if (available.isEmpty)
-            Text(
-              'Todos los jugadores ya estan ubicados.',
+            const Text(
+              'Ya ubicaste a todo el plantel disponible en la cancha o el '
+              'banco.',
               style: TextStyle(color: CX.muted),
             )
           else
@@ -1488,11 +1549,11 @@ class _LineupHintBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+      padding: const EdgeInsets.fromLTRB(13, 10, 6, 10),
       decoration: BoxDecoration(
-        color: CX.amber.withValues(alpha: .1),
+        color: CX.amber.withValues(alpha: .08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CX.amber.withValues(alpha: .35)),
+        border: Border(left: BorderSide(color: CX.amber, width: 3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

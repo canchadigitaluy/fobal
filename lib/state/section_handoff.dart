@@ -42,6 +42,11 @@ class LineupHint {
   const LineupHint({required this.reason, this.players = const []});
 }
 
+/// Plain shortcuts the dashboard can jump to. The shell resolves each to the
+/// right section for the current layout (LUD vs No-LUD), so no screen hardcodes
+/// a navigation index.
+enum ShellSection { myTeam, planner, calendar, attendance, stats, lineup }
+
 /// Turns a performance read into one concrete training focus. Deterministic;
 /// never invents numbers. Returns null when nothing is clearly off — in that
 /// case the reading shows no "prepare training" action rather than a vague one.

@@ -144,6 +144,7 @@ class ShellActions extends InheritedWidget {
   final void Function(SessionFocusHandoff) openPlannerWithFocus;
   final void Function(MatchPrepHandoff) openMatchPrep;
   final void Function([LineupHint?]) openLineup;
+  final void Function(ShellSection) openSection;
   final SessionFocusHandoff? Function() takeSessionFocus;
   final MatchPrepHandoff? Function() takeMatchPrep;
   final LineupHint? Function() takeLineupHint;
@@ -153,6 +154,7 @@ class ShellActions extends InheritedWidget {
     required this.openPlannerWithFocus,
     required this.openMatchPrep,
     required this.openLineup,
+    required this.openSection,
     required this.takeSessionFocus,
     required this.takeMatchPrep,
     required this.takeLineupHint,
@@ -1452,6 +1454,32 @@ class _MainShellState extends State<MainShell> {
     _setIndex(_indexOfScreen<AlineacionScreen>());
   }
 
+  void _openSection(ShellSection section) {
+    final external = _isExternalClub(AppScope.of(context).fullClub);
+    switch (section) {
+      case ShellSection.myTeam:
+        if (external) {
+          _setIndex(_indexOfScreen<MiEquipoScreen>());
+        } else {
+          _openTacticaSub(0); // Plantel sub-tab
+        }
+      case ShellSection.planner:
+        _openTacticaSub(_plannerSubSection());
+      case ShellSection.calendar:
+        _setIndex(_indexOfScreen<CalendarioScreen>());
+      case ShellSection.attendance:
+        if (external) {
+          _setIndex(_indexOfScreen<AsistenciaScreen>());
+        } else {
+          _openTacticaSub(1); // Asistencia sub-tab
+        }
+      case ShellSection.stats:
+        _setIndex(_indexOfScreen<EstadisticasScreen>());
+      case ShellSection.lineup:
+        _setIndex(_indexOfScreen<AlineacionScreen>());
+    }
+  }
+
   SessionFocusHandoff? _takeSessionFocus() {
     final value = _pendingSessionFocus;
     _pendingSessionFocus = null;
@@ -1590,20 +1618,24 @@ class _MainShellState extends State<MainShell> {
 
   List<String> _enabledExternalLabels(CanteraClub club) {
     const fallback = [
+      'Inicio',
       'Mi equipo',
       'Táctica',
       'Calendario',
       'Asistencia',
+      'Estadísticas',
       'Alineación & citaciones',
     ];
     return fallback;
   }
 
   Widget _screenForLabel(String label) => switch (label) {
+    'Inicio' => HomeScreen(onNavigate: _goTo),
     'Mi equipo' => const MiEquipoScreen(),
     'Táctica' => TacticaScreen(key: _tacticaKey),
     'Calendario' => const CalendarioScreen(),
     'Asistencia' => const AsistenciaScreen(),
+    'Estadísticas' => const EstadisticasScreen(),
     'Alineación & citaciones' => AlineacionScreen(onBack: () => _goTo(0)),
     _ => const MiEquipoScreen(),
   };
@@ -1628,10 +1660,12 @@ class _MainShellState extends State<MainShell> {
     final externalLabels = external ? _enabledExternalLabels(scope.fullClub) : const <String>[];
     final items = external
         ? [
+            _allItems[0],
             _allItems[1],
             _allItems[2],
             _allItems[3],
             _allItems[4],
+            _allItems[5],
             _allItems[7],
           ].where((item) => externalLabels.contains(item.label)).toList()
         : switch (role) {
@@ -1694,6 +1728,7 @@ class _MainShellState extends State<MainShell> {
       openPlannerWithFocus: _openPlannerWithFocus,
       openMatchPrep: _openMatchPrep,
       openLineup: _openLineup,
+      openSection: _openSection,
       takeSessionFocus: _takeSessionFocus,
       takeMatchPrep: _takeMatchPrep,
       takeLineupHint: _takeLineupHint,

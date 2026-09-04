@@ -1,9 +1,15 @@
+// ignore_for_file: avoid_web_libraries_in_flutter
+
+import 'dart:convert';
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/supabase_auth_service.dart';
 import '../services/club_access_service.dart';
+import '../state/section_handoff.dart';
 
 class HomeScreen extends StatefulWidget {
   final ValueChanged<int> onNavigate;
@@ -240,6 +246,21 @@ class _HomeScreenState extends State<HomeScreen> {
     final completePlayerProfiles = club.players
         .where(_hasAiReadyPlayerProfile)
         .length;
+    final isExternal = club.dataSource == 'manual' ||
+        club.league == 'Trabajo independiente';
+    final selectedCategoryId = scope.selectedCategoryId ??
+        (club.categories.isEmpty ? '' : club.categories.first.id);
+
+    if (isExternal) {
+      return _ExternalHome(
+        club: club,
+        role: scope.role,
+        categoryId: selectedCategoryId,
+        planned: planned,
+        completePlayerProfiles: completePlayerProfiles,
+      );
+    }
+
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -257,6 +278,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
                   sliver: SliverList.list(
                     children: CanteraMotion.stagger([
+                      _CommandBoard(
+                        club: club,
+                        categoryId: selectedCategoryId,
+                        fixtureFuture: _fixtureFuture,
+                        resultsFuture: _resultsFuture,
+                        standingsFuture: _standingsFuture,
+                      ),
+                      const SizedBox(height: 14),
                       _MatchCenterPanel(
                         club: club,
                         standingsFuture: _standingsFuture,
@@ -2473,4 +2502,735 @@ class _Metric {
   final IconData icon;
   final Color color;
   const _Metric(this.label, this.value, this.detail, this.icon, this.color);
+}
+
+// ===========================================================================
+// Panel de mando: que paso - que viene - que significa - que hacer ahora.
+// ===========================================================================
+
+class _BoardData {
+  final List<LudFixtureMatch> fixture;
+  final List<LudFixtureMatch> results;
+  final LudStandingsTable? standings;
+  const _BoardData({
+    required this.fixture,
+    required this.results,
+    required this.standings,
+  });
+}
+
+class _CommandBoard extends StatefulWidget {
+  final CanteraClub club;
+  final String categoryId;
+  final Future<List<LudFixtureMatch>>? fixtureFuture;
+  final Future<List<LudFixtureMatch>>? resultsFuture;
+  final Future<LudStandingsTable?>? standingsFuture;
+
+  const _CommandBoard({
+    required this.club,
+    required this.categoryId,
+    this.fixtureFuture,
+    this.resultsFuture,
+    this.standingsFuture,
+  });
+
+  @override
+  State<_CommandBoard> createState() => _CommandBoardState();
+}
+
+class _CommandBoardState extends State<_CommandBoard> {
+  late Future<_BoardData> _future = _build();
+
+  @override
+  void didUpdateWidget(covariant _CommandBoard old) {
+    super.didUpdateWidget(old);
+    if (old.fixtureFuture != widget.fixtureFuture ||
+        old.resultsFuture != widget.resultsFuture ||
+        old.standingsFuture != widget.standingsFuture ||
+        old.categoryId != widget.categoryId) {
+      _future = _build();
+    }
+  }
+
+  Future<_BoardData> _build() async {
+    final fixture =
+        await (widget.fixtureFuture ?? Future.value(const <LudFixtureMatch>[]));
+    final results =
+        await (widget.resultsFuture ?? Future.value(const <LudFixtureMatch>[]));
+    final standings = await (widget.standingsFuture ?? Future.value(null));
+    return _BoardData(fixture: fixture, results: results, standings: standings);
+  }
+
+  ({int w, int d, int l, int pts}) _record(List<LudFixtureMatch> played) {
+    var w = 0, d = 0, l = 0;
+    final clubName =
+        widget.club.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    for (final m in played) {
+      final opp = m.opponentName.trim();
+      final clubHome = opp.isNotEmpty
+          ? m.awayTeamName.trim() == opp
+          : m.homeTeamName
+              .toLowerCase()
+              .replaceAll(RegExp(r'[^a-z0-9]'), '')
+              .contains(clubName);
+      final gf = clubHome ? m.homeScore! : m.awayScore!;
+      final ga = clubHome ? m.awayScore! : m.homeScore!;
+      if (gf > ga) {
+        w++;
+      } else if (gf == ga) {
+        d++;
+      } else {
+        l++;
+      }
+    }
+    return (w: w, d: d, l: l, pts: w * 3 + d);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_BoardData>(
+      future: _future,
+      builder: (context, snap) {
+        final data = snap.data;
+        final row = data?.standings?.ownRow;
+        final upcoming = data == null
+            ? const <LudFixtureMatch>[]
+            : (data.fixture.where((m) => m.isUpcoming).toList()
+              ..sort((a, b) => a.date.compareTo(b.date)));
+        final next = upcoming.isEmpty ? null : upcoming.first;
+        final played = data == null
+            ? const <LudFixtureMatch>[]
+            : data.results.where((m) => m.isPlayedResult).take(5).toList();
+        final rec = _record(played);
+
+        double? avgFor;
+        double? avgAgainst;
+        final rows =
+            data?.standings?.rows.where((r) => r.played > 0).toList() ??
+                const <LudStandingRow>[];
+        if (rows.length >= 3) {
+          final games = rows.fold<int>(0, (s, r) => s + r.played);
+          if (games > 0) {
+            avgFor = rows.fold<int>(0, (s, r) => s + r.goalsFor) / games;
+            avgAgainst = rows.fold<int>(0, (s, r) => s + r.goalsAgainst) / games;
+          }
+        }
+        final focus = (row != null && row.played >= 2)
+            ? deriveSessionFocus(
+                scoring: row.goalsFor / row.played,
+                conceding: row.goalsAgainst / row.played,
+                leagueScoring: avgFor,
+                leagueConceding: avgAgainst,
+                played: row.played,
+                formSummary: next != null
+                    ? 'Proximo rival: ${next.opponentName.trim()}'
+                    : '${row.rank} - ultimos ${played.length}: '
+                        '${rec.w}G ${rec.d}E ${rec.l}P',
+                origin: 'Inicio',
+              )
+            : null;
+
+        return _BoardShell(
+          title: '${widget.club.name} - panel de mando',
+          nextLine: next == null
+              ? (row == null
+                  ? 'Sin fixture cargado para esta categoria.'
+                  : 'Sin proximo partido en el fixture.')
+              : 'Proximo: ${next.opponentName.trim()} - ${next.dateLabel}'
+                  '${next.venue.trim().isNotEmpty ? ' - ${next.venue.trim()}' : ''}',
+          formPills: played.isEmpty ? null : played.reversed.toList(),
+          formSummary: played.isEmpty
+              ? 'Sin resultados recientes.'
+              : '${rec.w}G ${rec.d}E ${rec.l}P - ${rec.pts} de ${played.length * 3} pts',
+          meaning: _meaningLine(row, focus, played.length, rec),
+          actions: _actions(
+            next: next,
+            focus: focus,
+            players: widget.club.players,
+          ),
+          isLoading: snap.connectionState == ConnectionState.waiting,
+        );
+      },
+    );
+  }
+
+  String _meaningLine(
+    LudStandingRow? row,
+    SessionFocusHandoff? focus,
+    int recentCount,
+    ({int w, int d, int l, int pts}) rec,
+  ) {
+    if (row == null) {
+      return 'Cuando la liga publique la tabla vas a ver aca como viene el equipo.';
+    }
+    if (focus != null) return focus.problem;
+    if (recentCount >= 3) {
+      return 'Semana estable: ${row.rank} con ${row.points} pts, '
+          '${rec.pts} de los ultimos ${recentCount * 3} en juego.';
+    }
+    return '${row.rank} con ${row.points} pts en ${row.played} partidos.';
+  }
+
+  List<_BoardAction> _actions({
+    required LudFixtureMatch? next,
+    required SessionFocusHandoff? focus,
+    required List<Player> players,
+  }) {
+    final actions = <_BoardAction>[];
+    if (next != null) {
+      final brief = [
+        'Proximo rival: ${next.opponentName.trim()}',
+        if (next.venue.trim().isNotEmpty) next.venue.trim(),
+      ].join(' - ');
+      actions.add(
+        _BoardAction(
+          label: 'Preparar el proximo partido',
+          icon: Icons.sports_soccer_outlined,
+          primary: true,
+          run: (c) => ShellActions.of(c).openMatchPrep(
+            MatchPrepHandoff(
+              rivalName: next.opponentName.trim(),
+              rivalContext: brief,
+              origin: 'Inicio',
+            ),
+          ),
+        ),
+      );
+      if (focus != null) {
+        actions.add(
+          _BoardAction(
+            label: 'Preparar entrenamiento con este foco',
+            icon: Icons.auto_awesome,
+            primary: false,
+            run: (c) => ShellActions.of(c).openPlannerWithFocus(focus),
+          ),
+        );
+      }
+    } else if (focus != null) {
+      actions.add(
+        _BoardAction(
+          label: 'Preparar entrenamiento con este foco',
+          icon: Icons.auto_awesome,
+          primary: true,
+          run: (c) => ShellActions.of(c).openPlannerWithFocus(focus),
+        ),
+      );
+    } else {
+      actions.add(
+        _BoardAction(
+          label: 'Planificar el proximo entrenamiento',
+          icon: Icons.event_note_outlined,
+          primary: true,
+          run: (c) => ShellActions.of(c).openSection(ShellSection.planner),
+        ),
+      );
+    }
+
+    final atRisk =
+        players.where((p) => p.yellowCards >= 4).map((p) => p.fullName).toList();
+    if (atRisk.isNotEmpty) {
+      actions.add(
+        _BoardAction(
+          label: 'Revisar citacion',
+          icon: Icons.how_to_reg_outlined,
+          primary: false,
+          run: (c) => ShellActions.of(c).openLineup(
+            LineupHint(
+              reason: atRisk.length == 1
+                  ? '${atRisk.first} en riesgo de suspension'
+                  : '${atRisk.length} jugadores con 4+ amarillas',
+              players: atRisk,
+            ),
+          ),
+        ),
+      );
+    }
+    return actions.take(3).toList();
+  }
+}
+
+class _BoardAction {
+  final String label;
+  final IconData icon;
+  final bool primary;
+  final void Function(BuildContext) run;
+  const _BoardAction({
+    required this.label,
+    required this.icon,
+    required this.primary,
+    required this.run,
+  });
+}
+
+/// Shared dark card used by both the LUD and No-LUD dashboards.
+class _BoardShell extends StatelessWidget {
+  final String title;
+  final String nextLine;
+  final List<LudFixtureMatch>? formPills;
+  final List<String>? manualPills;
+  final String formSummary;
+  final String meaning;
+  final List<_BoardAction> actions;
+  final List<Widget> shortcuts;
+  final bool isLoading;
+
+  const _BoardShell({
+    required this.title,
+    required this.nextLine,
+    required this.formSummary,
+    required this.meaning,
+    required this.actions,
+    this.formPills,
+    this.manualPills,
+    this.shortcuts = const [],
+    this.isLoading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pills = <String>[
+      ...?formPills?.map((m) {
+        final gf = m.homeScore ?? 0;
+        final ga = m.awayScore ?? 0;
+        return gf == ga ? 'E' : (gf > ga ? 'G' : 'P');
+      }),
+      ...?manualPills,
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF102019),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.dashboard_customize_outlined,
+                color: Color(0xFF6EF2C7),
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (isLoading)
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFF6EF2C7),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _BoardRow(
+            icon: Icons.event_outlined,
+            label: 'Que viene',
+            value: nextLine,
+          ),
+          const SizedBox(height: 10),
+          _BoardRow(
+            icon: Icons.timeline,
+            label: 'Que paso',
+            value: formSummary,
+            trailing: pills.isEmpty
+                ? null
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: pills
+                        .map(
+                          (o) => Container(
+                            margin: const EdgeInsets.only(left: 4),
+                            width: 18,
+                            height: 18,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color:
+                                  (o == 'E'
+                                          ? CX.amber
+                                          : o == 'G'
+                                          ? CX.green
+                                          : CX.red)
+                                      .withValues(alpha: .85),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              o,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+          ),
+          const SizedBox(height: 10),
+          _BoardRow(
+            icon: Icons.insights,
+            label: 'Que significa',
+            value: meaning,
+          ),
+          if (actions.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: Color(0x33FFFFFF)),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: actions.map((a) {
+                if (a.primary) {
+                  return ElevatedButton.icon(
+                    onPressed: () => a.run(context),
+                    icon: Icon(a.icon, size: 17),
+                    label: Text(a.label),
+                  );
+                }
+                return OutlinedButton.icon(
+                  onPressed: () => a.run(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF6EF2C7),
+                    side: const BorderSide(color: Color(0x556EF2C7)),
+                  ),
+                  icon: Icon(a.icon, size: 16),
+                  label: Text(a.label),
+                );
+              }).toList(),
+            ),
+          ],
+          if (shortcuts.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(spacing: 8, runSpacing: 8, children: shortcuts),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BoardRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Widget? trailing;
+  const _BoardRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 14, color: const Color(0xFF6EF2C7)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label.toUpperCase(),
+                style: const TextStyle(
+                  color: Color(0xFF8CA39B),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .4,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Color(0xFFE8F1ED),
+                  fontSize: 12.5,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+      ],
+    );
+  }
+}
+
+class _BoardShortcut extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _BoardShortcut({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFFB8C5BF),
+        side: const BorderSide(color: Color(0x33FFFFFF)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        visualDensity: VisualDensity.compact,
+      ),
+      icon: Icon(icon, size: 14),
+      label: Text(label, style: const TextStyle(fontSize: 11)),
+    );
+  }
+}
+
+// ===========================================================================
+// No-LUD dashboard: works from manual results + calendar, never LUD data.
+// ===========================================================================
+
+class _ExternalHome extends StatelessWidget {
+  final CanteraClub club;
+  final UserRole role;
+  final String categoryId;
+  final int planned;
+  final int completePlayerProfiles;
+
+  const _ExternalHome({
+    required this.club,
+    required this.role,
+    required this.categoryId,
+    required this.planned,
+    required this.completePlayerProfiles,
+  });
+
+  ({String title, DateTime when})? _nextCalendarEvent() {
+    final raw =
+        html.window.localStorage['cantera_calendar_${club.id}_$categoryId'];
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      final now = DateTime.now();
+      final floor = DateTime(now.year, now.month, now.day);
+      ({String title, DateTime when})? best;
+      data.forEach((key, value) {
+        final parts = key.split('-');
+        if (parts.length < 3) return;
+        final day = DateTime(
+          int.tryParse(parts[0]) ?? 0,
+          int.tryParse(parts[1]) ?? 1,
+          int.tryParse(parts[2]) ?? 1,
+        );
+        if (day.isBefore(floor)) return;
+        for (final item in (value as List<dynamic>? ?? const [])) {
+          final map = item as Map<String, dynamic>;
+          final title = (map['title'] as String? ?? '').trim();
+          if (title.isEmpty) continue;
+          if (best == null || day.isBefore(best!.when)) {
+            best = (title: title, when: day);
+          }
+        }
+      });
+      return best;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stats = MatchStats.forCategory(club.matchResults, categoryId);
+    final event = _nextCalendarEvent();
+    final actions = ShellActions.of(context);
+
+    final hasSquad = club.players.isNotEmpty;
+    final hasResults = stats.all.isNotEmpty;
+    final hasCategory = club.categories.isNotEmpty;
+    final bootstrapping = !hasSquad && !hasResults;
+
+    final focus = stats.played >= 2
+        ? deriveSessionFocus(
+            scoring: stats.scoring,
+            conceding: stats.conceding,
+            played: stats.played,
+            formSummary: 'Ultimos ${stats.last5.length}: '
+                '${stats.last5.where((o) => o == 'G').length}G '
+                '${stats.last5.where((o) => o == 'E').length}E '
+                '${stats.last5.where((o) => o == 'P').length}P',
+            origin: 'Inicio',
+          )
+        : null;
+
+    final String meaning;
+    if (stats.played >= 3) {
+      meaning =
+          focus?.problem ??
+          '${stats.wins}G ${stats.draws}E ${stats.losses}P - '
+              '${(stats.pointsRate * 100).round()}% de los puntos en juego.';
+    } else if (hasResults) {
+      meaning =
+          'Cargaste ${stats.all.length} resultado(s). Con algunos mas vas a ver '
+          'la tendencia del equipo.';
+    } else if (hasSquad) {
+      meaning =
+          'Tenes el plantel cargado. Suma resultados y una practica en el '
+          'calendario para tener el panorama completo.';
+    } else {
+      meaning = 'Arranca cargando el plantel y el primer resultado.';
+    }
+
+    final boardActions = <_BoardAction>[
+      if (focus != null)
+        _BoardAction(
+          label: 'Preparar entrenamiento con este foco',
+          icon: Icons.auto_awesome,
+          primary: true,
+          run: (c) => ShellActions.of(c).openPlannerWithFocus(focus),
+        )
+      else
+        _BoardAction(
+          label: hasCategory
+              ? 'Planificar el proximo entrenamiento'
+              : 'Crear una categoria para empezar',
+          icon: Icons.event_note_outlined,
+          primary: true,
+          run: (c) => ShellActions.of(c).openSection(
+            hasCategory ? ShellSection.planner : ShellSection.myTeam,
+          ),
+        ),
+    ];
+
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 30),
+              children: CanteraMotion.stagger([
+                _TopBar(club: club, role: role),
+                const SizedBox(height: 16),
+                _BoardShell(
+                  title: '${club.name} - panel de mando',
+                  nextLine: event == null
+                      ? 'Sin eventos proximos. Agrega tu proxima practica o partido en el calendario.'
+                      : 'Proximo: ${event.title} - '
+                            '${event.when.day.toString().padLeft(2, '0')}/'
+                            '${event.when.month.toString().padLeft(2, '0')}',
+                  manualPills: hasResults ? stats.last5.reversed.toList() : null,
+                  formSummary: hasResults
+                      ? '${stats.wins}G ${stats.draws}E ${stats.losses}P - '
+                            '${stats.points} pts en ${stats.played} oficiales'
+                      : 'Todavia no cargaste resultados.',
+                  meaning: meaning,
+                  actions: boardActions,
+                  shortcuts: [
+                    _BoardShortcut(
+                      label: hasSquad ? 'Ver plantel' : 'Cargar plantel',
+                      icon: Icons.groups_2_outlined,
+                      onTap: () => actions.openSection(ShellSection.myTeam),
+                    ),
+                    _BoardShortcut(
+                      label: 'Cargar resultado',
+                      icon: Icons.scoreboard_outlined,
+                      onTap: () => actions.openSection(ShellSection.stats),
+                    ),
+                    _BoardShortcut(
+                      label: 'Calendario',
+                      icon: Icons.calendar_month_outlined,
+                      onTap: () => actions.openSection(ShellSection.calendar),
+                    ),
+                    _BoardShortcut(
+                      label: 'Horarios de practica',
+                      icon: Icons.fact_check_outlined,
+                      onTap: () => actions.openSection(ShellSection.attendance),
+                    ),
+                  ],
+                ),
+                if (!bootstrapping) ...[
+                  const SizedBox(height: 14),
+                  _ExternalMetrics(club: club, stats: stats, planned: planned),
+                ],
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExternalMetrics extends StatelessWidget {
+  final CanteraClub club;
+  final MatchStats stats;
+  final int planned;
+
+  const _ExternalMetrics({
+    required this.club,
+    required this.stats,
+    required this.planned,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tiles = <_Metric>[
+      _Metric(
+        'Jugadores',
+        '${club.players.length}',
+        'En el plantel',
+        Icons.badge_outlined,
+        CX.green,
+      ),
+      _Metric(
+        'Partidos',
+        '${stats.played}',
+        'Oficiales cargados',
+        Icons.sports_soccer_outlined,
+        CX.blue,
+      ),
+      _Metric(
+        'Puntos',
+        stats.played > 0 ? '${stats.points}' : '-',
+        stats.played > 0
+            ? '${stats.wins}G ${stats.draws}E ${stats.losses}P'
+            : 'Sin oficiales',
+        Icons.stars,
+        CX.amber,
+      ),
+      _Metric(
+        'Sesiones',
+        '$planned',
+        'Proximas planificadas',
+        Icons.event_note_outlined,
+        const Color(0xFFC09BFF),
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (context, c) => GridView.count(
+        crossAxisCount: c.maxWidth < 640 ? 2 : 4,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: c.maxWidth < 640 ? 1.5 : 1.7,
+        children: tiles.map((m) => _MetricTile(metric: m)).toList(),
+      ),
+    );
+  }
 }

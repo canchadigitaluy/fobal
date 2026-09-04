@@ -26,6 +26,7 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
   final _space = TextEditingController();
   int _playerCount = 18;
   String? _categoryId;
+  DateTime _sessionDate = DateTime.now().add(const Duration(days: 1));
   final List<Exercise> _blocks = [];
 
   @override
@@ -98,6 +99,11 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
     );
   }
 
+  String _isoDate(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+
   void _removeBlock(int index) {
     final removed = _blocks[index];
     setState(() => _blocks.removeAt(index));
@@ -135,7 +141,7 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
       playerCount: _playerCount,
       generatedByAi: false,
       status: 'planned',
-      scheduledDate: '',
+      scheduledDate: _isoDate(_sessionDate),
       blocks: [for (final block in _blocks) block.toBlock()],
       coachCues: const [],
       successIndicators: const [],
@@ -272,6 +278,32 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
                   TextField(
                     controller: _objective,
                     decoration: const InputDecoration(labelText: 'Objetivo'),
+                  ),
+                  const SizedBox(height: 10),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () async {
+                      final selected = await showDatePicker(
+                        context: context,
+                        initialDate: _sessionDate,
+                        firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (selected != null) setState(() => _sessionDate = selected);
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Fecha',
+                        prefixIcon: Icon(Icons.calendar_month_outlined),
+                        suffixIcon: Icon(Icons.edit_calendar_outlined, size: 19),
+                      ),
+                      child: Text(
+                        '${_sessionDate.day.toString().padLeft(2, '0')}/'
+                        '${_sessionDate.month.toString().padLeft(2, '0')}/'
+                        '${_sessionDate.year}',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Row(

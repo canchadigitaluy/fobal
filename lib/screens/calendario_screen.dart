@@ -8,15 +8,10 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../services/offline_mutation_service.dart';
+import '../state/calendar_events.dart';
 import '../state/calendar_time.dart';
 import '../ui/ui_kit.dart';
 import 'match_result_dialog.dart';
-
-/// Stable-enough link between a calendar Match event and a logged result.
-/// Rebuilt from the same day + title on both sides.
-String calendarMatchKey(DateTime day, String title) =>
-    '${day.year}-${day.month.toString().padLeft(2, '0')}-'
-    '${day.day.toString().padLeft(2, '0')}|${title.trim().toLowerCase()}';
 
 bool isMatchEventType(String type) => type == 'Partido' || type == 'Torneo';
 
@@ -49,6 +44,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   final Map<String, List<_CalendarEvent>> _events = {};
   DateTime? _selectedDay;
+  String? _pendingEditEventId;
 
   String get _storageKey {
     final scope = AppScope.of(context);
@@ -80,7 +76,11 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
             (key, value) => MapEntry(
               key,
               (value as List<dynamic>)
-                  .map((item) => _CalendarEvent.fromJson(item as Map<String, dynamic>))
+                  .map(
+                    (item) => _CalendarEvent.fromJson(
+                      normalizeEventJson(item as Map<String, dynamic>, key),
+                    ),
+                  )
                   .toList(),
             ),
           ),
@@ -145,7 +145,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     });
   }
 
-  /// Log a result for a past Match event and link it back to the calendar.
+  /// Log a result for a past Match event and link it back to the calendar
+  /// via the event's own id — stable even if the event gets renamed later.
   /// The result lives in the club document (not the calendar store), so it
   /// rides the existing sync with no extra plumbing.
   Future<void> _logResult(DateTime day, _CalendarEvent event) async {
@@ -155,7 +156,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
       categoryId: _activeCategoryId(scope),
       initialDate: day,
       initialOpponent: event.title,
-      calendarKey: calendarMatchKey(day, event.title),
+      calendarKey: event.id,
     );
     if (result == null || !mounted) return;
     scope.updateClub(
@@ -163,11 +164,20 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
         matchResults: [...scope.fullClub.matchResults, result],
       ),
     );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Resultado cargado para ${event.title}.')),
+    );
     setState(() {});
   }
 
-  String _key(DateTime day) =>
-      '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+  void _openDayToEdit(DateTime day, String eventId) {
+    setState(() {
+      _selectedDay = day;
+      _pendingEditEventId = eventId;
+    });
+  }
+
+  String _key(DateTime day) => calendarDayKey(day);
 
   @override
   Widget build(BuildContext context) {
@@ -347,6 +357,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                         _UpcomingEvents(
                           events: _events,
                           onOpenDay: _openDay,
+                          onEdit: _openDayToEdit,
                         ),
                       ],
                       if (_selectedDay != null) ...[
@@ -361,6 +372,9 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                 .matchResults)
                               if (r.calendarKey.isNotEmpty) r.calendarKey,
                           },
+                          initialEditEventId: _pendingEditEventId,
+                          onEditConsumed: () =>
+                              setState(() => _pendingEditEventId = null),
                           onAdd: (event) => _addEvent(_selectedDay!, event),
                           onEdit: (index, event) =>
                               _editEvent(_selectedDay!, index, event),
@@ -401,7 +415,12 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 class _UpcomingEvents extends StatelessWidget {
   final Map<String, List<_CalendarEvent>> events;
   final ValueChanged<DateTime> onOpenDay;
-  const _UpcomingEvents({required this.events, required this.onOpenDay});
+  final void Function(DateTime day, String eventId) onEdit;
+  const _UpcomingEvents({
+    required this.events,
+    required this.onOpenDay,
+    required this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -471,10 +490,12 @@ class _UpcomingEvents extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 7),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
                     width: 3,
                     height: 30,
+                    margin: const EdgeInsets.only(top: 2),
                     decoration: BoxDecoration(
                       color: _eventColor(item.event.type),
                       borderRadius: BorderRadius.circular(2),
@@ -501,11 +522,25 @@ class _UpcomingEvents extends StatelessWidget {
                             fontSize: 11,
                           ),
                         ),
+                        if (item.event.notes.trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              item.event.notes.trim(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: CX.faint,
+                                fontSize: 10.5,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
                   if (item.event.time.trim().isNotEmpty)
                     Container(
+                      margin: const EdgeInsets.only(left: 6),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 3,
@@ -529,6 +564,12 @@ class _UpcomingEvents extends StatelessWidget {
                         ],
                       ),
                     ),
+                  IconButton(
+                    tooltip: 'Editar',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => onEdit(item.day, item.event.id),
+                    icon: const Icon(Icons.edit_outlined, size: 17, color: CX.muted),
+                  ),
                 ],
               ),
             ),
@@ -556,6 +597,8 @@ class _DayEditorPanel extends StatefulWidget {
   final DateTime day;
   final List<_CalendarEvent> events;
   final Set<String> loggedKeys;
+  final String? initialEditEventId;
+  final VoidCallback onEditConsumed;
   final ValueChanged<_CalendarEvent> onAdd;
   final void Function(int index, _CalendarEvent updated) onEdit;
   final ValueChanged<int> onDelete;
@@ -567,6 +610,8 @@ class _DayEditorPanel extends StatefulWidget {
     required this.day,
     required this.events,
     required this.loggedKeys,
+    this.initialEditEventId,
+    required this.onEditConsumed,
     required this.onAdd,
     required this.onEdit,
     required this.onDelete,
@@ -584,6 +629,28 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
   String _type = 'Entrenamiento';
   String _timeValue = '';
   int? _editingIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    final targetId = widget.initialEditEventId;
+    if (targetId == null) return;
+    final index = widget.events.indexWhere((e) => e.id == targetId);
+    if (index != -1) {
+      final event = widget.events[index];
+      _title.text = event.title;
+      _notes.text = event.notes;
+      _type = event.type;
+      _timeValue = event.time;
+      _editingIndex = index;
+    }
+    // Tell the parent this pending edit was picked up so it doesn't
+    // re-trigger it next time this day (or another) opens with a stale
+    // value. Deferred so we never setState the parent mid-build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onEditConsumed();
+    });
+  }
 
   @override
   void dispose() {
@@ -613,11 +680,18 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
   }
 
   Future<void> _confirmDelete(int index, _CalendarEvent event) async {
+    final hasResult = widget.loggedKeys.contains(event.id);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Borrar evento'),
-        content: Text('Vas a borrar "${event.title}". No se puede deshacer.'),
+        content: Text(
+          hasResult
+              ? 'Vas a borrar "${event.title}". Este partido tiene un '
+                  'resultado cargado: el evento se borra del calendario, '
+                  'pero el resultado se conserva en Estadísticas.'
+              : 'Vas a borrar "${event.title}". No se puede deshacer.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -655,13 +729,17 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
   void _submit() {
     final title = _title.text.trim();
     if (title.isEmpty) return;
+    final editing = _editingIndex;
     final event = _CalendarEvent(
+      // Keep the original id on edit — that's what keeps a "Cargar
+      // resultado" link (and the "Resultado cargado" badge) working even
+      // if the DT renames the event.
+      id: editing != null ? widget.events[editing].id : newEventId(),
       type: _type,
       title: title,
       time: _timeValue.trim(),
       notes: _notes.text.trim(),
     );
-    final editing = _editingIndex;
     if (editing != null) {
       widget.onEdit(editing, event);
     } else {
@@ -727,8 +805,7 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
                 _EventTile(
                   day: widget.day,
                   event: event,
-                  logged: widget.loggedKeys
-                      .contains(calendarMatchKey(widget.day, event.title)),
+                  logged: widget.loggedKeys.contains(event.id),
                   onEdit: () => _startEdit(index, event),
                   onDelete: () => _confirmDelete(index, event),
                   onLogResult: () => widget.onLogResult(event),
@@ -973,12 +1050,18 @@ class _Legend extends StatelessWidget {
 }
 
 class _CalendarEvent {
+  /// Stable identity, independent of title/day — what a logged result's
+  /// `MatchResult.calendarKey` points to. Callers loading from storage
+  /// should run the JSON through [normalizeEventJson] first so this is
+  /// never empty for a legacy record.
+  final String id;
   final String type;
   final String title;
   final String time;
   final String notes;
 
   const _CalendarEvent({
+    required this.id,
     required this.type,
     required this.title,
     this.time = '',
@@ -986,9 +1069,12 @@ class _CalendarEvent {
   });
 
   Map<String, dynamic> toJson() =>
-      {'type': type, 'title': title, 'time': time, 'notes': notes};
+      {'id': id, 'type': type, 'title': title, 'time': time, 'notes': notes};
 
   factory _CalendarEvent.fromJson(Map<String, dynamic> json) => _CalendarEvent(
+        id: (json['id'] as String?)?.trim().isNotEmpty == true
+            ? json['id'] as String
+            : newEventId(),
         type: json['type'] as String? ?? 'Entrenamiento',
         title: json['title'] as String? ?? '',
         time: json['time'] as String? ?? '',

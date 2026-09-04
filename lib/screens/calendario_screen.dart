@@ -359,6 +359,10 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                           events: _events,
                           onOpenDay: _openDay,
                           onEdit: _openDayToEdit,
+                          preparedEventIds: {
+                            for (final p in AppScope.of(context).fullClub.matchPreparations)
+                              if (p.calendarEventId.isNotEmpty) p.calendarEventId,
+                          },
                         ),
                       ],
                       if (_selectedDay != null) ...[
@@ -372,6 +376,10 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                 .fullClub
                                 .matchResults)
                               if (r.calendarKey.isNotEmpty) r.calendarKey,
+                          },
+                          preparedEventIds: {
+                            for (final p in AppScope.of(context).fullClub.matchPreparations)
+                              if (p.calendarEventId.isNotEmpty) p.calendarEventId,
                           },
                           initialEditEventId: _pendingEditEventId,
                           onEditConsumed: () =>
@@ -417,10 +425,12 @@ class _UpcomingEvents extends StatelessWidget {
   final Map<String, List<_CalendarEvent>> events;
   final ValueChanged<DateTime> onOpenDay;
   final void Function(DateTime day, String eventId) onEdit;
+  final Set<String> preparedEventIds;
   const _UpcomingEvents({
     required this.events,
     required this.onOpenDay,
     required this.onEdit,
+    this.preparedEventIds = const {},
   });
 
   @override
@@ -510,11 +520,23 @@ class _UpcomingEvents extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          item.event.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                item.event.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            if (isMatchEventType(item.event.type) &&
+                                preparedEventIds.contains(item.event.id)) ...[
+                              const SizedBox(width: 5),
+                              const Icon(Icons.assignment_turned_in_outlined,
+                                  size: 13, color: CX.green),
+                            ],
+                          ],
                         ),
                         Text(
                           _dayLabel(item.day),
@@ -598,6 +620,7 @@ class _DayEditorPanel extends StatefulWidget {
   final DateTime day;
   final List<_CalendarEvent> events;
   final Set<String> loggedKeys;
+  final Set<String> preparedEventIds;
   final String? initialEditEventId;
   final VoidCallback onEditConsumed;
   final ValueChanged<_CalendarEvent> onAdd;
@@ -611,6 +634,7 @@ class _DayEditorPanel extends StatefulWidget {
     required this.day,
     required this.events,
     required this.loggedKeys,
+    this.preparedEventIds = const {},
     this.initialEditEventId,
     required this.onEditConsumed,
     required this.onAdd,
@@ -807,6 +831,7 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
                   day: widget.day,
                   event: event,
                   logged: widget.loggedKeys.contains(event.id),
+                  hasPreparation: widget.preparedEventIds.contains(event.id),
                   onEdit: () => _startEdit(index, event),
                   onDelete: () => _confirmDelete(index, event),
                   onLogResult: () => widget.onLogResult(event),
@@ -911,6 +936,7 @@ class _EventTile extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onLogResult;
   final VoidCallback onPrepareMatch;
+  final bool hasPreparation;
 
   const _EventTile({
     required this.day,
@@ -920,6 +946,7 @@ class _EventTile extends StatelessWidget {
     required this.onDelete,
     required this.onLogResult,
     required this.onPrepareMatch,
+    this.hasPreparation = false,
   });
 
   @override
@@ -1015,8 +1042,13 @@ class _EventTile extends StatelessWidget {
               children: [
                 OutlinedButton.icon(
                   onPressed: onPrepareMatch,
-                  icon: const Icon(Icons.assignment_outlined, size: 16),
-                  label: const Text('Preparar partido'),
+                  icon: Icon(
+                    hasPreparation
+                        ? Icons.assignment_turned_in_outlined
+                        : Icons.assignment_outlined,
+                    size: 16,
+                  ),
+                  label: Text(hasPreparation ? 'Ver plan de partido' : 'Preparar partido'),
                 ),
                 if (past)
                   logged

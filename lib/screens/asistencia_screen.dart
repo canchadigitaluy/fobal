@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../services/attendance_stats_service.dart';
 import '../services/export_download_service.dart';
 import '../services/export_text_service.dart';
 import '../services/offline_mutation_service.dart';
@@ -91,8 +92,51 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       content: payload,
       categoryId: category.id,
     ));
+    _recomputeAttendanceRates(club, category);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Asistencia guardada.')),
+    );
+  }
+
+  /// Attendance taken here is the only real source of truth for
+  /// manual/No-LUD categories, but it only ever landed in localStorage —
+  /// player.attendanceRate (shown in the profile, Plantel, Perfil) never
+  /// reflected it. LUD categories keep their rate from the league sync, so
+  /// this never touches those.
+  void _recomputeAttendanceRates(CanteraClub club, CategorySquad category) {
+    if (isLudCategoryId(category.id)) return;
+    final prefix = 'cantera_attendance_${club.id}_${category.id}_';
+    final sessions = <AttendanceSession>[];
+    for (final entry in html.window.localStorage.entries) {
+      if (!entry.key.startsWith(prefix)) continue;
+      try {
+        final data = jsonDecode(entry.value) as Map<String, dynamic>;
+        final present = List<String>.from(
+          data['presentIds'] as List<dynamic>? ?? const [],
+        );
+        if (present.isEmpty) continue;
+        sessions.add(AttendanceSession(presentIds: present.toSet()));
+      } catch (_) {}
+    }
+    final categoryPlayerIds = club.players
+        .where((player) => player.categoryId == category.id)
+        .map((player) => player.id)
+        .toList();
+    final rates = computeAttendanceRates(
+      sessions: sessions,
+      playerIds: categoryPlayerIds,
+    );
+    if (rates.isEmpty) return;
+    AppScope.of(context).updateClub(
+      club.copyWith(
+        players: [
+          for (final player in club.players)
+            if (rates.containsKey(player.id))
+              player.copyWith(attendanceRate: rates[player.id])
+            else
+              player,
+        ],
+      ),
     );
   }
 

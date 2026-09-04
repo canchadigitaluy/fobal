@@ -6,6 +6,7 @@ import '../services/club_access_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/exercise_animation_preview.dart';
 import '../ui/ui_kit.dart';
+import 'player_profile_screen.dart';
 
 class CuotaScreen extends StatefulWidget {
   const CuotaScreen({super.key});
@@ -2445,17 +2446,21 @@ class _PlayerTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: warning ? warningColor.withValues(alpha: .1) : CX.panel2,
-                borderRadius: BorderRadius.circular(7),
-              ),
-              child: Icon(
-                _positionIcon(player.position),
-                color: warning ? warningColor : CX.green,
-                size: 19,
+            InkWell(
+              onTap: () => openPlayerProfile(context, player),
+              borderRadius: BorderRadius.circular(7),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: warning ? warningColor.withValues(alpha: .1) : CX.panel2,
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Icon(
+                  _positionIcon(player.position),
+                  color: warning ? warningColor : CX.green,
+                  size: 19,
+                ),
               ),
             ),
             const SizedBox(width: 10),

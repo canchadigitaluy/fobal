@@ -16,6 +16,7 @@ import '../services/training_ai_service.dart';
 import '../ui/exercise_animation_preview.dart';
 import '../ui/export_preview_dialog.dart';
 import 'exercise_library_screen.dart';
+import 'match_preparation_screen.dart';
 import 'session_builder_screen.dart';
 
 const _fixtureStylePlaceholder =
@@ -408,7 +409,16 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   ),
                 ],
                 const SizedBox(height: 16),
-                _SectionTitle('Próximo partido'),
+                Row(
+                  children: [
+                    const Expanded(child: _SectionTitle('Próximo partido')),
+                    OutlinedButton.icon(
+                      onPressed: () => openMatchPreparation(context, rival: _rivalName),
+                      icon: const Icon(Icons.assignment_outlined, size: 16),
+                      label: const Text('Panel de partido completo'),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 10),
                 _MatchPrepForm(
                   rivalName: _rivalName,

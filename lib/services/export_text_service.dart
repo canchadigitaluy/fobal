@@ -182,3 +182,159 @@ String formatAttendanceText({
   ];
   return lines.join('\n');
 }
+
+/// Full match-preparation summary: rival context, game plan, set pieces,
+/// availability heads-up and the linked training session, if any. Every
+/// section is omitted when empty — never pads with placeholder text.
+String formatMatchPreparationText({
+  String categoryName = '',
+  String rival = '',
+  String date = '',
+  String time = '',
+  String venue = '', // 'local' | 'visitante' | 'neutral' | ''
+  String opponentNotes = '',
+  String planIdea = '',
+  String planObjective = '',
+  String offensiveKeys = '',
+  String defensiveKeys = '',
+  String transitions = '',
+  String setPiecesFor = '',
+  String setPiecesAgainst = '',
+  String playersToWatch = '',
+  String staffNotes = '',
+  List<String> availabilityNotes = const [],
+  String linkedSessionTitle = '',
+}) {
+  final venueLabel = switch (venue) {
+    'local' => 'Local',
+    'visitante' => 'Visitante',
+    'neutral' => 'Cancha neutral',
+    _ => '',
+  };
+  final lines = <String>[
+    'PARTIDO — ${rival.trim().isEmpty ? 'Rival a definir' : rival.trim()}',
+    if (categoryName.trim().isNotEmpty) categoryName.trim(),
+    if (date.trim().isNotEmpty) 'Fecha: ${date.trim()}',
+    if (time.trim().isNotEmpty) 'Hora: ${time.trim()}',
+    if (venueLabel.isNotEmpty) 'Condición: $venueLabel',
+    if (opponentNotes.trim().isNotEmpty) ...[
+      '',
+      'RIVAL',
+      opponentNotes.trim(),
+    ],
+    if (planObjective.trim().isNotEmpty || planIdea.trim().isNotEmpty) ...[
+      '',
+      'PLAN DE JUEGO',
+      if (planObjective.trim().isNotEmpty) 'Objetivo: ${planObjective.trim()}',
+      if (planIdea.trim().isNotEmpty) planIdea.trim(),
+    ],
+    if (offensiveKeys.trim().isNotEmpty) ...[
+      '',
+      'CLAVES OFENSIVAS',
+      offensiveKeys.trim(),
+    ],
+    if (defensiveKeys.trim().isNotEmpty) ...[
+      '',
+      'CLAVES DEFENSIVAS',
+      defensiveKeys.trim(),
+    ],
+    if (transitions.trim().isNotEmpty) ...[
+      '',
+      'TRANSICIONES',
+      transitions.trim(),
+    ],
+    if (setPiecesFor.trim().isNotEmpty) ...[
+      '',
+      'PELOTA QUIETA A FAVOR',
+      setPiecesFor.trim(),
+    ],
+    if (setPiecesAgainst.trim().isNotEmpty) ...[
+      '',
+      'PELOTA QUIETA EN CONTRA',
+      setPiecesAgainst.trim(),
+    ],
+    if (playersToWatch.trim().isNotEmpty) ...[
+      '',
+      'JUGADORES A OBSERVAR',
+      playersToWatch.trim(),
+    ],
+    if (availabilityNotes.isNotEmpty) ...[
+      '',
+      'A CONFIRMAR ANTES DEL PARTIDO',
+      for (final note in availabilityNotes) '- $note',
+    ],
+    if (linkedSessionTitle.trim().isNotEmpty) ...[
+      '',
+      'ENTRENAMIENTO ASOCIADO',
+      linkedSessionTitle.trim(),
+    ],
+    if (staffNotes.trim().isNotEmpty) ...['', 'NOTAS', staffNotes.trim()],
+  ];
+  return lines.join('\n');
+}
+
+/// Player profile summary — identity, availability, league performance
+/// (only when [hasLeagueStats] is true, never fabricated), attendance and
+/// individual goals. [goalLines] and stat fields are pre-formatted by the
+/// caller so this stays free of Player-model coupling.
+String formatPlayerProfileText({
+  required String fullName,
+  String categoryName = '',
+  String position = '',
+  List<String> secondaryPositions = const [],
+  String dominantFoot = '',
+  required String availabilityLabel,
+  String availabilityNote = '',
+  String expectedReturnDate = '',
+  bool hasLeagueStats = false,
+  int matchesPlayed = 0,
+  int minutesPlayed = 0,
+  int goalsScored = 0,
+  int assists = 0,
+  int yellowCards = 0,
+  int redCards = 0,
+  double attendanceRate = 0,
+  List<String> goalLines = const [],
+  String staffNote = '',
+}) {
+  final positionLine = [
+    if (position.trim().isNotEmpty) position.trim(),
+    if (secondaryPositions.isNotEmpty) '(tb. ${secondaryPositions.join(', ')})',
+  ].join(' ');
+  final lines = <String>[
+    'PERFIL — ${fullName.trim().isEmpty ? 'Jugador' : fullName.trim()}',
+    if (categoryName.trim().isNotEmpty) categoryName.trim(),
+    if (positionLine.trim().isNotEmpty) 'Posición: $positionLine',
+    if (dominantFoot.trim().isNotEmpty) 'Pie hábil: ${dominantFoot.trim()}',
+    '',
+    'DISPONIBILIDAD',
+    availabilityLabel,
+    if (availabilityNote.trim().isNotEmpty) availabilityNote.trim(),
+    if (expectedReturnDate.trim().isNotEmpty)
+      'Regreso estimado: ${expectedReturnDate.trim()}',
+    if (hasLeagueStats) ...[
+      '',
+      'RENDIMIENTO EN LIGA',
+      '$matchesPlayed PJ · $minutesPlayed min · $goalsScored goles · '
+          '$assists asistencias',
+      if (yellowCards > 0 || redCards > 0)
+        '$yellowCards amarillas · $redCards rojas',
+    ],
+    if (attendanceRate > 0) ...[
+      '',
+      'ASISTENCIA',
+      '${(attendanceRate * 100).round()}% promedio',
+    ],
+    if (goalLines.isNotEmpty) ...[
+      '',
+      'OBJETIVOS INDIVIDUALES',
+      for (final line in goalLines) '- $line',
+    ],
+    if (staffNote.trim().isNotEmpty) ...[
+      '',
+      'NOTAS DEL CUERPO TÉCNICO',
+      staffNote.trim(),
+    ],
+  ];
+  return lines.join('\n');
+}

@@ -16,6 +16,7 @@ import '../services/offline_mutation_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
+import 'player_profile_screen.dart';
 
 class AlineacionScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -1048,6 +1049,14 @@ class _LineupPlayerCard extends StatelessWidget {
                     AvailabilityChip(player.availability, compact: true),
                   ],
                 ],
+              ),
+            ),
+            InkWell(
+              onTap: () => openPlayerProfile(context, player),
+              borderRadius: BorderRadius.circular(999),
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(Icons.info_outline, size: 16, color: CX.faint),
               ),
             ),
           ],

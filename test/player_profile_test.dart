@@ -1,0 +1,150 @@
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:cantera_os/data/cantera_data.dart';
+import 'package:cantera_os/services/player_profile_service.dart';
+
+Player _player({
+  bool hasStats = false,
+  String status = '',
+  List<PlayerGoal> goals = const [],
+}) {
+  return Player(
+    id: 'p1',
+    categoryId: 'cat-1',
+    firstName: 'Juan',
+    lastName: 'Pérez',
+    age: 20,
+    position: 'DEL',
+    secondaryPositions: '',
+    dominantFoot: '',
+    status: status,
+    attendanceRate: 0,
+    trend: '',
+    matchesPlayed: hasStats ? 10 : 0,
+    minutesPlayed: hasStats ? 800 : 0,
+    note: '',
+    developmentGoals: goals,
+  );
+}
+
+void main() {
+  group('PlayerGoal serialization / retrocompatibilidad', () {
+    test('round-trips every field through json', () {
+      final goal = PlayerGoal(
+        id: 'g1',
+        title: 'Mejorar el remate',
+        area: PlayerGoalArea.tecnica,
+        detail: 'Trabajar la pierna izquierda',
+        priority: PlayerGoalPriority.alta,
+        status: PlayerGoalStatus.enProgreso,
+        reviewDate: '30/09',
+        createdAt: '2026-01-01T00:00:00Z',
+      );
+      final restored = PlayerGoal.fromJson(goal.toJson());
+      expect(restored.id, goal.id);
+      expect(restored.title, goal.title);
+      expect(restored.area, goal.area);
+      expect(restored.detail, goal.detail);
+      expect(restored.priority, goal.priority);
+      expect(restored.status, goal.status);
+      expect(restored.reviewDate, goal.reviewDate);
+      expect(restored.createdAt, goal.createdAt);
+    });
+
+    test('missing/unknown enum values fall back to safe defaults, never crash', () {
+      final restored = PlayerGoal.fromJson({
+        'id': 'g2',
+        'title': 'Objetivo viejo',
+        'area': 'algo-que-ya-no-existe',
+        'priority': null,
+        'status': 'unknown-status',
+      });
+      expect(restored.title, 'Objetivo viejo');
+      expect(restored.area, PlayerGoalArea.otra);
+      expect(restored.priority, PlayerGoalPriority.media);
+      expect(restored.status, PlayerGoalStatus.pendiente);
+    });
+
+    test('a completely empty json still produces a usable goal (retrocompat)', () {
+      final restored = PlayerGoal.fromJson(const {});
+      expect(restored.id, isNotEmpty);
+      expect(restored.title, '');
+      expect(restored.area, PlayerGoalArea.otra);
+    });
+  });
+
+  group('Player.developmentGoals retrocompatibilidad', () {
+    test('a player json with no developmentGoals key loads with an empty list', () {
+      final player = Player.fromJson({
+        'id': 'p1',
+        'firstName': 'Juan',
+        'lastName': 'Pérez',
+      });
+      expect(player.developmentGoals, isEmpty);
+    });
+
+    test('developmentGoals round-trips through Player json', () {
+      final player = _player(goals: [
+        const PlayerGoal(id: 'g1', title: 'Objetivo 1'),
+      ]);
+      final restored = Player.fromJson(player.toJson());
+      expect(restored.developmentGoals.length, 1);
+      expect(restored.developmentGoals.first.title, 'Objetivo 1');
+    });
+  });
+
+  group('hasReliableLeagueStats — relación segura jugador LUD/manual', () {
+    test('true only when the category is LUD AND the player carries numbers', () {
+      expect(
+        hasReliableLeagueStats(categoryIsLud: true, player: _player(hasStats: true)),
+        isTrue,
+      );
+    });
+
+    test('false for a LUD category if the player has no numbers yet', () {
+      expect(
+        hasReliableLeagueStats(categoryIsLud: true, player: _player(hasStats: false)),
+        isFalse,
+      );
+    });
+
+    test('false for a manual/No-LUD category even if the player somehow has '
+        'numbers — never shown as league stats outside LUD', () {
+      expect(
+        hasReliableLeagueStats(categoryIsLud: false, player: _player(hasStats: true)),
+        isFalse,
+      );
+    });
+  });
+
+  group('formatPlayerGoalLine(s)', () {
+    test('formats title, area and status into one line', () {
+      const goal = PlayerGoal(
+        id: 'g1',
+        title: 'Mejorar el remate',
+        area: PlayerGoalArea.tecnica,
+        status: PlayerGoalStatus.enProgreso,
+      );
+      expect(formatPlayerGoalLine(goal), 'Mejorar el remate (Técnica) — En progreso');
+    });
+  });
+
+  group('activePlayerGoals', () {
+    test('keeps pendiente/en progreso, drops logrado/pausado', () {
+      final goals = [
+        const PlayerGoal(id: 'g1', title: 'A', status: PlayerGoalStatus.pendiente),
+        const PlayerGoal(id: 'g2', title: 'B', status: PlayerGoalStatus.enProgreso),
+        const PlayerGoal(id: 'g3', title: 'C', status: PlayerGoalStatus.logrado),
+        const PlayerGoal(id: 'g4', title: 'D', status: PlayerGoalStatus.pausado),
+      ];
+      final active = activePlayerGoals(goals);
+      expect(active.map((g) => g.id).toSet(), {'g1', 'g2'});
+    });
+  });
+
+  group('newPlayerGoalId', () {
+    test('is never empty', () {
+      expect(newPlayerGoalId(), isNotEmpty);
+    });
+  });
+}

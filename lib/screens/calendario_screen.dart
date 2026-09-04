@@ -11,6 +11,7 @@ import '../services/offline_mutation_service.dart';
 import '../state/calendar_events.dart';
 import '../state/calendar_time.dart';
 import '../ui/ui_kit.dart';
+import 'match_preparation_screen.dart';
 import 'match_result_dialog.dart';
 
 bool isMatchEventType(String type) => type == 'Partido' || type == 'Torneo';
@@ -809,6 +810,15 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
                   onEdit: () => _startEdit(index, event),
                   onDelete: () => _confirmDelete(index, event),
                   onLogResult: () => widget.onLogResult(event),
+                  onPrepareMatch: () => openMatchPreparation(
+                    context,
+                    calendarEventId: event.id,
+                    rival: event.title,
+                    date: '${widget.day.day.toString().padLeft(2, '0')}/'
+                        '${widget.day.month.toString().padLeft(2, '0')}/'
+                        '${widget.day.year}',
+                    time: event.time,
+                  ),
                 ),
             const SizedBox(height: 10),
             PremiumSectionHeader(
@@ -900,6 +910,7 @@ class _EventTile extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onLogResult;
+  final VoidCallback onPrepareMatch;
 
   const _EventTile({
     required this.day,
@@ -908,6 +919,7 @@ class _EventTile extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onLogResult,
+    required this.onPrepareMatch,
   });
 
   @override
@@ -995,20 +1007,29 @@ class _EventTile extends StatelessWidget {
               style: const TextStyle(color: CX.faint, fontSize: 11.5, height: 1.35),
             ),
           ],
-          if (isMatch && past) ...[
+          if (isMatch) ...[
             const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: logged
-                  ? const Chip(
-                      label: Text('Resultado cargado'),
-                      visualDensity: VisualDensity.compact,
-                    )
-                  : OutlinedButton.icon(
-                      onPressed: onLogResult,
-                      icon: const Icon(Icons.scoreboard_outlined, size: 16),
-                      label: const Text('Cargar resultado'),
-                    ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: onPrepareMatch,
+                  icon: const Icon(Icons.assignment_outlined, size: 16),
+                  label: const Text('Preparar partido'),
+                ),
+                if (past)
+                  logged
+                      ? const Chip(
+                          label: Text('Resultado cargado'),
+                          visualDensity: VisualDensity.compact,
+                        )
+                      : OutlinedButton.icon(
+                          onPressed: onLogResult,
+                          icon: const Icon(Icons.scoreboard_outlined, size: 16),
+                          label: const Text('Cargar resultado'),
+                        ),
+              ],
             ),
           ],
         ],

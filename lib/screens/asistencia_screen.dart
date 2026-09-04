@@ -14,6 +14,7 @@ import '../services/offline_mutation_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
+import 'player_profile_screen.dart';
 
 class AsistenciaScreen extends StatefulWidget {
   const AsistenciaScreen({super.key});
@@ -479,14 +480,23 @@ class _AttendanceRow extends StatelessWidget {
               const SizedBox(width: 8),
             ],
             if (!present)
-              const Text(
-                'Falta',
-                style: TextStyle(
-                  color: CX.red,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
+              const Padding(
+                padding: EdgeInsets.only(right: 6),
+                child: Text(
+                  'Falta',
+                  style: TextStyle(
+                    color: CX.red,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
+            IconButton(
+              tooltip: 'Ver perfil',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => openPlayerProfile(context, player),
+              icon: const Icon(Icons.person_outline, size: 18, color: CX.faint),
+            ),
           ],
         ),
       ),

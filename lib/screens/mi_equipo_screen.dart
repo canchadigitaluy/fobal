@@ -8,6 +8,7 @@ import '../data/cantera_data.dart';
 import '../main.dart';
 import '../ui/ui_kit.dart';
 import 'player_availability_dialog.dart';
+import 'player_profile_screen.dart';
 
 class MiEquipoScreen extends StatefulWidget {
   const MiEquipoScreen({super.key});
@@ -433,7 +434,10 @@ class _PlayerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final availability = player.availability;
     final secondary = player.secondaryPositionList.take(3).join(' · ');
-    return Container(
+    return InkWell(
+      onTap: () => openPlayerProfile(context, player),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
       width: 180,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -520,6 +524,7 @@ class _PlayerCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
       ),
     );
   }

@@ -95,6 +95,7 @@ class CanteraClub {
   /// Club-wide reusable exercise library — not filtered by category (an
   /// exercise with an empty `categoryId` applies to every squad).
   final List<Exercise> savedExercises;
+  final List<MatchPreparation> matchPreparations;
   final List<IntelligentAlert> alerts;
   final List<AiReport> aiReports;
   final List<ClubUserAccess> users;
@@ -119,6 +120,7 @@ class CanteraClub {
     required this.trainingReports,
     this.matchResults = const [],
     this.savedExercises = const [],
+    this.matchPreparations = const [],
     required this.alerts,
     required this.aiReports,
     required this.users,
@@ -144,6 +146,7 @@ class CanteraClub {
     List<TrainingReport>? trainingReports,
     List<MatchResult>? matchResults,
     List<Exercise>? savedExercises,
+    List<MatchPreparation>? matchPreparations,
     List<IntelligentAlert>? alerts,
     List<AiReport>? aiReports,
     List<ClubUserAccess>? users,
@@ -168,6 +171,7 @@ class CanteraClub {
       trainingReports: trainingReports ?? this.trainingReports,
       matchResults: matchResults ?? this.matchResults,
       savedExercises: savedExercises ?? this.savedExercises,
+      matchPreparations: matchPreparations ?? this.matchPreparations,
       alerts: alerts ?? this.alerts,
       aiReports: aiReports ?? this.aiReports,
       users: users ?? this.users,
@@ -195,6 +199,7 @@ class CanteraClub {
       'trainingReports': trainingReports.map((r) => r.toJson()).toList(),
       'matchResults': matchResults.map((r) => r.toJson()).toList(),
       'savedExercises': savedExercises.map((e) => e.toJson()).toList(),
+      'matchPreparations': matchPreparations.map((m) => m.toJson()).toList(),
       'users': users.map((u) => u.toJson()).toList(),
     };
   }
@@ -235,6 +240,10 @@ class CanteraClub {
       savedExercises: (json['savedExercises'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map(Exercise.fromJson)
+          .toList(),
+      matchPreparations: (json['matchPreparations'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(MatchPreparation.fromJson)
           .toList(),
       users: (json['users'] as List<dynamic>? ?? [])
           .map((item) => ClubUserAccess.fromJson(item as Map<String, dynamic>))
@@ -365,6 +374,10 @@ class Player {
   final int redCards;
   final String note;
 
+  /// Individual development plan — objectives the DT sets and tracks for
+  /// this player. Named apart from [goals] (season goals scored) on purpose.
+  final List<PlayerGoal> developmentGoals;
+
   const Player({
     required this.id,
     required this.categoryId,
@@ -387,6 +400,7 @@ class Player {
     this.yellowCards = 0,
     this.redCards = 0,
     required this.note,
+    this.developmentGoals = const [],
   });
 
   bool get hasLeagueStats =>
@@ -446,6 +460,7 @@ class Player {
     int? yellowCards,
     int? redCards,
     String? note,
+    List<PlayerGoal>? developmentGoals,
   }) {
     return Player(
       id: id,
@@ -469,6 +484,7 @@ class Player {
       yellowCards: yellowCards ?? this.yellowCards,
       redCards: redCards ?? this.redCards,
       note: note ?? this.note,
+      developmentGoals: developmentGoals ?? this.developmentGoals,
     );
   }
 
@@ -495,6 +511,7 @@ class Player {
       'yellowCards': yellowCards,
       'redCards': redCards,
       'note': note,
+      'developmentGoals': developmentGoals.map((g) => g.toJson()).toList(),
     };
   }
 
@@ -523,6 +540,127 @@ class Player {
       yellowCards: (json['yellowCards'] as num?)?.toInt() ?? 0,
       redCards: (json['redCards'] as num?)?.toInt() ?? 0,
       note: cleanVisiblePlayerNote(json['note'] as String? ?? ''),
+      developmentGoals: (json['developmentGoals'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(PlayerGoal.fromJson)
+          .toList(),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Individual development goals — a small plan the DT tracks per player.
+// ---------------------------------------------------------------------------
+
+enum PlayerGoalArea { tecnica, tactica, fisica, mental, conducta, otra }
+
+enum PlayerGoalPriority { baja, media, alta }
+
+enum PlayerGoalStatus { pendiente, enProgreso, logrado, pausado }
+
+extension PlayerGoalAreaLabel on PlayerGoalArea {
+  String get label => switch (this) {
+    PlayerGoalArea.tecnica => 'Técnica',
+    PlayerGoalArea.tactica => 'Táctica',
+    PlayerGoalArea.fisica => 'Física',
+    PlayerGoalArea.mental => 'Mental',
+    PlayerGoalArea.conducta => 'Conducta',
+    PlayerGoalArea.otra => 'Otra',
+  };
+}
+
+extension PlayerGoalPriorityLabel on PlayerGoalPriority {
+  String get label => switch (this) {
+    PlayerGoalPriority.baja => 'Baja',
+    PlayerGoalPriority.media => 'Media',
+    PlayerGoalPriority.alta => 'Alta',
+  };
+}
+
+extension PlayerGoalStatusLabel on PlayerGoalStatus {
+  String get label => switch (this) {
+    PlayerGoalStatus.pendiente => 'Pendiente',
+    PlayerGoalStatus.enProgreso => 'En progreso',
+    PlayerGoalStatus.logrado => 'Logrado',
+    PlayerGoalStatus.pausado => 'Pausado',
+  };
+}
+
+/// One objective in a player's individual development plan.
+class PlayerGoal {
+  final String id;
+  final String title;
+  final PlayerGoalArea area;
+  final String detail;
+  final PlayerGoalPriority priority;
+  final PlayerGoalStatus status;
+
+  /// Free-text/ISO date — never parsed, just shown as a courtesy.
+  final String reviewDate;
+  final String createdAt;
+
+  const PlayerGoal({
+    required this.id,
+    required this.title,
+    this.area = PlayerGoalArea.otra,
+    this.detail = '',
+    this.priority = PlayerGoalPriority.media,
+    this.status = PlayerGoalStatus.pendiente,
+    this.reviewDate = '',
+    this.createdAt = '',
+  });
+
+  PlayerGoal copyWith({
+    String? title,
+    PlayerGoalArea? area,
+    String? detail,
+    PlayerGoalPriority? priority,
+    PlayerGoalStatus? status,
+    String? reviewDate,
+  }) {
+    return PlayerGoal(
+      id: id,
+      title: title ?? this.title,
+      area: area ?? this.area,
+      detail: detail ?? this.detail,
+      priority: priority ?? this.priority,
+      status: status ?? this.status,
+      reviewDate: reviewDate ?? this.reviewDate,
+      createdAt: createdAt,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'area': area.name,
+    'detail': detail,
+    'priority': priority.name,
+    'status': status.name,
+    'reviewDate': reviewDate,
+    'createdAt': createdAt,
+  };
+
+  factory PlayerGoal.fromJson(Map<String, dynamic> json) {
+    return PlayerGoal(
+      id: json['id'] as String? ??
+          'goal-${DateTime.now().microsecondsSinceEpoch}',
+      title: json['title'] as String? ?? '',
+      area: PlayerGoalArea.values.firstWhere(
+        (item) => item.name == json['area'],
+        orElse: () => PlayerGoalArea.otra,
+      ),
+      detail: json['detail'] as String? ?? '',
+      priority: PlayerGoalPriority.values.firstWhere(
+        (item) => item.name == json['priority'],
+        orElse: () => PlayerGoalPriority.media,
+      ),
+      status: PlayerGoalStatus.values.firstWhere(
+        (item) => item.name == json['status'],
+        orElse: () => PlayerGoalStatus.pendiente,
+      ),
+      reviewDate: json['reviewDate'] as String? ?? '',
+      createdAt: json['createdAt'] as String? ?? '',
     );
   }
 }
@@ -1786,6 +1924,146 @@ class MatchResult {
       kind: MatchResult.kinds.contains(kind) ? kind : 'oficial',
       note: json['note'] as String? ?? '',
       calendarKey: json['calendarKey'] as String? ?? '',
+    );
+  }
+}
+
+/// A match's full preparation: rival context, game plan, set pieces and
+/// notes — one per upcoming/past match, optionally linked to a calendar
+/// event via a stable [calendarEventId] (survives the event being renamed).
+class MatchPreparation {
+  final String id;
+  final String categoryId;
+  final String calendarEventId;
+  final String rival;
+  final String date;
+  final String time;
+  final String venue; // 'local' | 'visitante' | 'neutral' | ''
+  final String opponentNotes; // manual, No-LUD only
+  final String planIdea;
+  final String planObjective;
+  final String offensiveKeys;
+  final String defensiveKeys;
+  final String transitions;
+  final String setPiecesFor;
+  final String setPiecesAgainst;
+  final String playersToWatch;
+  final String staffNotes;
+  final String linkedSessionId;
+  final String createdAt;
+  final String updatedAt;
+
+  const MatchPreparation({
+    required this.id,
+    required this.categoryId,
+    this.calendarEventId = '',
+    this.rival = '',
+    this.date = '',
+    this.time = '',
+    this.venue = '',
+    this.opponentNotes = '',
+    this.planIdea = '',
+    this.planObjective = '',
+    this.offensiveKeys = '',
+    this.defensiveKeys = '',
+    this.transitions = '',
+    this.setPiecesFor = '',
+    this.setPiecesAgainst = '',
+    this.playersToWatch = '',
+    this.staffNotes = '',
+    this.linkedSessionId = '',
+    this.createdAt = '',
+    this.updatedAt = '',
+  });
+
+  MatchPreparation copyWith({
+    String? rival,
+    String? date,
+    String? time,
+    String? venue,
+    String? opponentNotes,
+    String? planIdea,
+    String? planObjective,
+    String? offensiveKeys,
+    String? defensiveKeys,
+    String? transitions,
+    String? setPiecesFor,
+    String? setPiecesAgainst,
+    String? playersToWatch,
+    String? staffNotes,
+    String? linkedSessionId,
+    String? updatedAt,
+  }) {
+    return MatchPreparation(
+      id: id,
+      categoryId: categoryId,
+      calendarEventId: calendarEventId,
+      rival: rival ?? this.rival,
+      date: date ?? this.date,
+      time: time ?? this.time,
+      venue: venue ?? this.venue,
+      opponentNotes: opponentNotes ?? this.opponentNotes,
+      planIdea: planIdea ?? this.planIdea,
+      planObjective: planObjective ?? this.planObjective,
+      offensiveKeys: offensiveKeys ?? this.offensiveKeys,
+      defensiveKeys: defensiveKeys ?? this.defensiveKeys,
+      transitions: transitions ?? this.transitions,
+      setPiecesFor: setPiecesFor ?? this.setPiecesFor,
+      setPiecesAgainst: setPiecesAgainst ?? this.setPiecesAgainst,
+      playersToWatch: playersToWatch ?? this.playersToWatch,
+      staffNotes: staffNotes ?? this.staffNotes,
+      linkedSessionId: linkedSessionId ?? this.linkedSessionId,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'categoryId': categoryId,
+    'calendarEventId': calendarEventId,
+    'rival': rival,
+    'date': date,
+    'time': time,
+    'venue': venue,
+    'opponentNotes': opponentNotes,
+    'planIdea': planIdea,
+    'planObjective': planObjective,
+    'offensiveKeys': offensiveKeys,
+    'defensiveKeys': defensiveKeys,
+    'transitions': transitions,
+    'setPiecesFor': setPiecesFor,
+    'setPiecesAgainst': setPiecesAgainst,
+    'playersToWatch': playersToWatch,
+    'staffNotes': staffNotes,
+    'linkedSessionId': linkedSessionId,
+    'createdAt': createdAt,
+    'updatedAt': updatedAt,
+  };
+
+  factory MatchPreparation.fromJson(Map<String, dynamic> json) {
+    return MatchPreparation(
+      id: json['id'] as String? ??
+          'matchprep-${DateTime.now().microsecondsSinceEpoch}',
+      categoryId: json['categoryId'] as String? ?? '',
+      calendarEventId: json['calendarEventId'] as String? ?? '',
+      rival: json['rival'] as String? ?? '',
+      date: json['date'] as String? ?? '',
+      time: json['time'] as String? ?? '',
+      venue: json['venue'] as String? ?? '',
+      opponentNotes: json['opponentNotes'] as String? ?? '',
+      planIdea: json['planIdea'] as String? ?? '',
+      planObjective: json['planObjective'] as String? ?? '',
+      offensiveKeys: json['offensiveKeys'] as String? ?? '',
+      defensiveKeys: json['defensiveKeys'] as String? ?? '',
+      transitions: json['transitions'] as String? ?? '',
+      setPiecesFor: json['setPiecesFor'] as String? ?? '',
+      setPiecesAgainst: json['setPiecesAgainst'] as String? ?? '',
+      playersToWatch: json['playersToWatch'] as String? ?? '',
+      staffNotes: json['staffNotes'] as String? ?? '',
+      linkedSessionId: json['linkedSessionId'] as String? ?? '',
+      createdAt: json['createdAt'] as String? ?? '',
+      updatedAt: json['updatedAt'] as String? ?? '',
     );
   }
 }

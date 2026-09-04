@@ -1861,15 +1861,42 @@ class _TodayPanel extends StatelessWidget {
                 ),
               ],
             ),
-          ] else
+          ] else ...[
             _HomeAgendaSession(
               session: next,
               overdue: _isOverdue(next),
               formattedDate: _formatDate(next.scheduledDate),
             ),
+            if (_isToday(next) && !_attendanceTakenToday(next.categoryId)) ...[
+              const SizedBox(height: 12),
+              Builder(
+                builder: (context) => OutlinedButton.icon(
+                  onPressed: () => ShellActions.maybeOf(context)
+                      ?.openSection(ShellSection.attendance),
+                  icon: const Icon(Icons.fact_check_outlined, size: 17),
+                  label: const Text('Tomar asistencia de hoy'),
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );
+  }
+
+  bool _isToday(TrainingSession session) {
+    final date = DateTime.tryParse(session.scheduledDate);
+    if (date == null) return false;
+    final now = DateTime.now();
+    return DateTime(date.year, date.month, date.day) ==
+        DateTime(now.year, now.month, now.day);
+  }
+
+  bool _attendanceTakenToday(String categoryId) {
+    final day = DateTime.now().toIso8601String().substring(0, 10);
+    final key = 'cantera_attendance_${club.id}_${categoryId}_$day';
+    final raw = html.window.localStorage[key];
+    return raw != null && raw.isNotEmpty;
   }
 
   String _formatDate(String value) {

@@ -316,7 +316,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           final compact = constraints.maxWidth < 720;
                           final metrics = [
                             _Metric(
-                              'Categorias',
+                              'Categorías',
                               '${club.categories.length}',
                               'Estructura activa',
                               Icons.groups_2_outlined,
@@ -425,7 +425,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 26),
                       const _SectionHeader(
                         eyebrow: 'LECTURA DEL CUERPO TECNICO',
-                        title: 'Que mirar esta semana',
+                        title: 'Qué mirar esta semana',
                       ),
                       const SizedBox(height: 12),
                       _IntelligenceStrip(
@@ -759,7 +759,7 @@ class _RecentResultsPanel extends StatelessWidget {
               const SizedBox(width: 9),
               const Expanded(
                 child: Text(
-                  'Ultimos resultados',
+                  'Últimos resultados',
                   style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
                 ),
               ),
@@ -788,7 +788,7 @@ class _RecentResultsPanel extends StatelessWidget {
               final trimmed = results.take(5).toList();
               if (trimmed.isEmpty) {
                 return const Text(
-                  'Todavia no hay resultados publicados para esta categoria.',
+                  'Todavía no hay resultados publicados para esta categoría.',
                   style: TextStyle(color: CX.muted, fontSize: 12),
                 );
               }
@@ -1621,7 +1621,7 @@ class _StandingsPanel extends StatelessWidget {
                 const LinearProgressIndicator(minHeight: 2)
               else if (table == null || table.rows.isEmpty)
                 const Text(
-                  'La liga todavia no publico tabla para esta categoria.',
+                  'La liga todavía no publicó la tabla de esta categoría.',
                   style: TextStyle(color: CX.muted, fontSize: 12),
                 )
               else
@@ -1802,12 +1802,12 @@ class _TodayPanel extends StatelessWidget {
           ],
           if (next == null) ...[
             const Text(
-              'No hay una sesion planificada',
+              'No hay una sesión planificada',
               style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 7),
             const Text(
-              'Define el objetivo y deja que el asistente construya una sesion aplicable al plantel.',
+              'Definí el objetivo y fobal arma una sesión aplicable al plantel.',
               style: TextStyle(color: CX.muted, height: 1.4, fontSize: 13),
             ),
             const SizedBox(height: 18),
@@ -2056,12 +2056,12 @@ class _HomeSessionActionHint extends StatelessWidget {
         ? CX.green
         : CX.blue;
     final text = overdue
-        ? 'Sesion vencida: reprogramar o cerrar desde Campo.'
+        ? 'Sesión vencida: reprogramala o cerrala desde Planificar.'
         : missingDate
-        ? 'Sesion sin fecha clara: asignar dia desde Campo.'
+        ? 'Sesión sin fecha: asigná el día desde Planificar.'
         : todaySession
-        ? 'Sesion de hoy: revisar consignas antes de cancha.'
-        : 'Proxima sesion ordenada.';
+        ? 'Sesión de hoy: revisá las consignas antes de la cancha.'
+        : 'Próxima sesión ordenada.';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
@@ -2128,7 +2128,7 @@ class _NextMatchPlanCard extends StatelessWidget {
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
-                  'Proximo plan de partido',
+                  'Próximo plan de partido',
                   style: TextStyle(fontWeight: FontWeight.w900),
                 ),
               ),
@@ -2289,12 +2289,12 @@ class _SetupPanel extends StatelessWidget {
         configTarget,
       ),
       (
-        'Categorias',
+        'Categorías',
         club.categories.isNotEmpty,
         role == UserRole.coordinator ? 4 : 1,
       ),
       ('Planteles', club.players.isNotEmpty, 1),
-      ('Metodologia', club.methodology.playingStyle.isNotEmpty, 3),
+      ('Metodología', club.methodology.playingStyle.isNotEmpty, 3),
       ('Equipo de trabajo', club.users.isNotEmpty, configTarget),
     ];
     return Container(
@@ -2415,7 +2415,7 @@ class _IntelligenceStrip extends StatelessWidget {
                 Text(
                   hasContext
                       ? 'Contexto listo para analizar'
-                      : 'La inteligencia necesita contexto',
+                      : 'Todavía falta contexto',
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
@@ -2424,8 +2424,8 @@ class _IntelligenceStrip extends StatelessWidget {
                 const SizedBox(height: 5),
                 Text(
                   hasContext
-                      ? 'fobal ya puede cruzar metodologia, categorias y perfiles del plantel para orientar decisiones.'
-                      : 'Completa metodologia y planteles para obtener lecturas que respondan a la realidad del club.',
+                      ? 'fobal ya cruza tu forma de jugar, las categorías y los perfiles del plantel para orientar decisiones.'
+                      : 'Completá tu forma de jugar y el plantel para tener lecturas ajustadas a tu equipo.',
                   style: const TextStyle(
                     color: CX.muted,
                     fontSize: 12,
@@ -2623,21 +2623,21 @@ class _CommandBoardState extends State<_CommandBoard> {
                 leagueConceding: avgAgainst,
                 played: row.played,
                 formSummary: next != null
-                    ? 'Proximo rival: ${next.opponentName.trim()}'
-                    : '${row.rank} - ultimos ${played.length}: '
+                    ? 'Próximo rival: ${next.opponentName.trim()}'
+                    : '${row.rank}° · últimos ${played.length}: '
                         '${rec.w}G ${rec.d}E ${rec.l}P',
                 origin: 'Inicio',
               )
             : null;
 
         return _BoardShell(
-          title: '${widget.club.name} - panel de mando',
+          title: '${widget.club.name} · panel de mando',
           nextLine: next == null
               ? (row == null
-                  ? 'Sin fixture cargado para esta categoria.'
-                  : 'Sin proximo partido en el fixture.')
-              : 'Proximo: ${next.opponentName.trim()} - ${next.dateLabel}'
-                  '${next.venue.trim().isNotEmpty ? ' - ${next.venue.trim()}' : ''}',
+                  ? 'Sin fixture cargado para esta categoría.'
+                  : 'Sin próximo partido en el fixture.')
+              : 'Próximo: ${next.opponentName.trim()} · ${next.dateLabel}'
+                  '${next.venue.trim().isNotEmpty ? ' · ${next.venue.trim()}' : ''}',
           formPills: played.isEmpty ? null : played.reversed.toList(),
           formSummary: played.isEmpty
               ? 'Sin resultados recientes.'
@@ -2661,14 +2661,14 @@ class _CommandBoardState extends State<_CommandBoard> {
     ({int w, int d, int l, int pts}) rec,
   ) {
     if (row == null) {
-      return 'Cuando la liga publique la tabla vas a ver aca como viene el equipo.';
+      return 'Cuando la liga publique la tabla, vas a ver acá cómo viene el equipo.';
     }
     if (focus != null) return focus.problem;
     if (recentCount >= 3) {
-      return 'Semana estable: ${row.rank} con ${row.points} pts, '
-          '${rec.pts} de los ultimos ${recentCount * 3} en juego.';
+      return 'Semana estable: ${row.rank}° con ${row.points} pts, '
+          '${rec.pts} de los últimos ${recentCount * 3} en juego.';
     }
-    return '${row.rank} con ${row.points} pts en ${row.played} partidos.';
+    return '${row.rank}° con ${row.points} pts en ${row.played} partidos.';
   }
 
   List<_BoardAction> _actions({
@@ -2679,12 +2679,12 @@ class _CommandBoardState extends State<_CommandBoard> {
     final actions = <_BoardAction>[];
     if (next != null) {
       final brief = [
-        'Proximo rival: ${next.opponentName.trim()}',
+        'Próximo rival: ${next.opponentName.trim()}',
         if (next.venue.trim().isNotEmpty) next.venue.trim(),
       ].join(' - ');
       actions.add(
         _BoardAction(
-          label: 'Preparar el proximo partido',
+          label: 'Preparar el próximo partido',
           icon: Icons.sports_soccer_outlined,
           primary: true,
           run: (c) => ShellActions.of(c).openMatchPrep(
@@ -2718,7 +2718,7 @@ class _CommandBoardState extends State<_CommandBoard> {
     } else {
       actions.add(
         _BoardAction(
-          label: 'Planificar el proximo entrenamiento',
+          label: 'Planificar el próximo entrenamiento',
           icon: Icons.event_note_outlined,
           primary: true,
           run: (c) => ShellActions.of(c).openSection(ShellSection.planner),
@@ -2731,13 +2731,13 @@ class _CommandBoardState extends State<_CommandBoard> {
     if (atRisk.isNotEmpty) {
       actions.add(
         _BoardAction(
-          label: 'Revisar citacion',
+          label: 'Revisar citación',
           icon: Icons.how_to_reg_outlined,
           primary: false,
           run: (c) => ShellActions.of(c).openLineup(
             LineupHint(
               reason: atRisk.length == 1
-                  ? '${atRisk.first} en riesgo de suspension'
+                  ? '${atRisk.first} en riesgo de suspensión'
                   : '${atRisk.length} jugadores con 4+ amarillas',
               players: atRisk,
             ),
@@ -2840,13 +2840,13 @@ class _BoardShell extends StatelessWidget {
           const SizedBox(height: 14),
           _BoardRow(
             icon: Icons.event_outlined,
-            label: 'Que viene',
+            label: 'Qué viene',
             value: nextLine,
           ),
           const SizedBox(height: 10),
           _BoardRow(
             icon: Icons.timeline,
-            label: 'Que paso',
+            label: 'Qué pasó',
             value: formSummary,
             trailing: pills.isEmpty
                 ? null
@@ -2885,7 +2885,7 @@ class _BoardShell extends StatelessWidget {
           const SizedBox(height: 10),
           _BoardRow(
             icon: Icons.insights,
-            label: 'Que significa',
+            label: 'Qué significa',
             value: meaning,
           ),
           if (actions.isNotEmpty) ...[
@@ -3069,7 +3069,7 @@ class _ExternalHome extends StatelessWidget {
             scoring: stats.scoring,
             conceding: stats.conceding,
             played: stats.played,
-            formSummary: 'Ultimos ${stats.last5.length}: '
+            formSummary: 'Últimos ${stats.last5.length}: '
                 '${stats.last5.where((o) => o == 'G').length}G '
                 '${stats.last5.where((o) => o == 'E').length}E '
                 '${stats.last5.where((o) => o == 'P').length}P',
@@ -3085,14 +3085,14 @@ class _ExternalHome extends StatelessWidget {
               '${(stats.pointsRate * 100).round()}% de los puntos en juego.';
     } else if (hasResults) {
       meaning =
-          'Cargaste ${stats.all.length} resultado(s). Con algunos mas vas a ver '
+          'Cargaste ${stats.all.length} resultado(s). Con algunos más vas a ver '
           'la tendencia del equipo.';
     } else if (hasSquad) {
       meaning =
-          'Tenes el plantel cargado. Suma resultados y una practica en el '
+          'Tenés el plantel cargado. Sumá resultados y una práctica en el '
           'calendario para tener el panorama completo.';
     } else {
-      meaning = 'Arranca cargando el plantel y el primer resultado.';
+      meaning = 'Arrancá cargando el plantel y el primer resultado.';
     }
 
     final boardActions = <_BoardAction>[
@@ -3106,8 +3106,8 @@ class _ExternalHome extends StatelessWidget {
       else
         _BoardAction(
           label: hasCategory
-              ? 'Planificar el proximo entrenamiento'
-              : 'Crear una categoria para empezar',
+              ? 'Planificar el próximo entrenamiento'
+              : 'Crear una categoría para empezar',
           icon: Icons.event_note_outlined,
           primary: true,
           run: (c) => ShellActions.of(c).openSection(
@@ -3127,17 +3127,17 @@ class _ExternalHome extends StatelessWidget {
                 _TopBar(club: club, role: role),
                 const SizedBox(height: 16),
                 _BoardShell(
-                  title: '${club.name} - panel de mando',
+                  title: '${club.name} · panel de mando',
                   nextLine: event == null
-                      ? 'Sin eventos proximos. Agrega tu proxima practica o partido en el calendario.'
-                      : 'Proximo: ${event.title} - '
+                      ? 'Sin eventos próximos. Agregá tu próxima práctica o partido en el calendario.'
+                      : 'Próximo: ${event.title} · '
                             '${event.when.day.toString().padLeft(2, '0')}/'
                             '${event.when.month.toString().padLeft(2, '0')}',
                   manualPills: hasResults ? stats.last5.reversed.toList() : null,
                   formSummary: hasResults
                       ? '${stats.wins}G ${stats.draws}E ${stats.losses}P - '
                             '${stats.points} pts en ${stats.played} oficiales'
-                      : 'Todavia no cargaste resultados.',
+                      : 'Todavía no cargaste resultados.',
                   meaning: meaning,
                   actions: boardActions,
                   shortcuts: [
@@ -3157,7 +3157,7 @@ class _ExternalHome extends StatelessWidget {
                       onTap: () => actions.openSection(ShellSection.calendar),
                     ),
                     _BoardShortcut(
-                      label: 'Horarios de practica',
+                      label: 'Horarios de práctica',
                       icon: Icons.fact_check_outlined,
                       onTap: () => actions.openSection(ShellSection.attendance),
                     ),
@@ -3216,7 +3216,7 @@ class _ExternalMetrics extends StatelessWidget {
       _Metric(
         'Sesiones',
         '$planned',
-        'Proximas planificadas',
+        'Próximas planificadas',
         Icons.event_note_outlined,
         const Color(0xFFC09BFF),
       ),

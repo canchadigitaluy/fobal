@@ -481,7 +481,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: CX.panelDecoration(),
-                child: const Text('Primero carga una categoria con jugadores.'),
+                child: const Text('Primero cargá una categoría con jugadores.'),
               )
             else if (!_editing) ...[
               _AlignmentStart(
@@ -649,7 +649,7 @@ class _AlignmentHeader extends StatelessWidget {
         children: [
           DropdownButtonFormField<String>(
             value: categoryId,
-            decoration: const InputDecoration(labelText: 'Categoria'),
+            decoration: const InputDecoration(labelText: 'Categoría'),
             items: categories
                 .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
                 .toList(),

@@ -187,7 +187,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
         SnackBar(
           content: Text(
             writeResult.synced
-                ? 'Sesion agregada y guardada para el club.'
+                ? 'Sesión agregada y guardada para el club.'
                 : 'Sesión agregada. Se guardará cuando vuelva la conexión.',
           ),
         ),
@@ -245,7 +245,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
     final request = TrainingAiRequest(
       club: club,
       category: category,
-      objective: 'Preparar tactica de partido',
+      objective: 'Preparar táctica de partido',
       problem: 'Enfrentar al rival segun sus caracteristicas',
       space: 'Cancha completa',
       duration: _duration,
@@ -324,7 +324,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
     final category = club.categories.isEmpty
         ? const CategorySquad(
             id: 'categoria-demo',
-            name: 'Categoria sin cargar',
+            name: 'Categoría sin cargar',
             sport: '',
             ageGroup: '',
             coachName: '',
@@ -388,7 +388,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                     key: ValueKey('tactical-category-$selectedId'),
                     initialValue: selectedId,
                     decoration: const InputDecoration(
-                      labelText: 'Categoria de trabajo',
+                      labelText: 'Categoría de trabajo',
                       prefixIcon: Icon(Icons.groups_2_outlined),
                     ),
                     items: club.categories
@@ -403,7 +403,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   ),
                 ],
                 const SizedBox(height: 16),
-                _SectionTitle('Proximo partido'),
+                _SectionTitle('Próximo partido'),
                 const SizedBox(height: 10),
                 _MatchPrepForm(
                   rivalName: _rivalName,
@@ -826,7 +826,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
         _fixtureMatches = matches;
         _fixtureLoading = false;
         _fixtureError = matches.isEmpty
-            ? 'No hay proximos partidos publicados para ${category.name}. No se usaran rivales de otra categoria.'
+            ? 'No hay próximos partidos publicados para ${category.name}. No se usarán rivales de otra categoría.'
             : null;
       });
       _rememberFixtureState(category.id);
@@ -916,7 +916,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
       setState(() {
         _opponentLoading = false;
         _opponentError =
-            'Se cargo el rival, pero sus estadisticas no estan disponibles ahora.';
+            'Se cargó el rival, pero sus estadísticas no están disponibles ahora.';
       });
     }
   }
@@ -1243,7 +1243,7 @@ class _HistoryTile extends StatelessWidget {
   }
 
   String get _label => switch (record.type) {
-    'session' => 'Sesion',
+    'session' => 'Sesión',
     'match_plan' => 'Plan de partido',
     'rival_report' => 'Informe de rival',
     'staff_note' => 'Registro tecnico',
@@ -1622,7 +1622,7 @@ class _MatchReadiness {
     if (!hasSquadProfile) {
       return 'Usá el contexto automático del plantel o describí virtudes, limitaciones y jugadores clave.';
     }
-    return 'Listo para generar una tactica trazable.';
+    return 'Listo para generar una táctica trazable.';
   }
 }
 
@@ -1680,13 +1680,13 @@ class _ScoutingQuality {
 
   String get nextAction {
     if (!hasWeakness) {
-      return 'Agrega una debilidad o espacio que concede el rival; sin eso la tactica queda demasiado generica.';
+      return 'Agregá una debilidad o un espacio que concede el rival; sin eso la táctica queda demasiado genérica.';
     }
     if (!hasSystem) return 'Agrega sistema o estructura del rival.';
     if (!hasPressing) return 'Agrega como presiona o en que bloque defiende.';
     if (!hasBuildUp) return 'Agrega como inicia o progresa desde el fondo.';
     if (!hasStrength) return 'Agrega una fortaleza o amenaza principal.';
-    return 'Scouting suficiente para una tactica util.';
+    return 'Datos suficientes para una táctica útil.';
   }
 
   static String _normalize(String value) {
@@ -2301,7 +2301,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                       if (w.automaticSquadContext) ...[
                         const SizedBox(height: 10),
                         const _AutopilotNotice(
-                          title: 'Sesion con plantel contextual',
+                          title: 'Sesión con plantel contextual',
                           message:
                               'fobal cruza el objetivo con las posiciones reales, la disponibilidad y las notas guardadas de la categoría.',
                         ),
@@ -2452,7 +2452,7 @@ class _ThinkingCard extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Leyendo patrones tacticos, problema, espacio, cantidad de jugadores y metodologia del club...',
+              'Leyendo patrones tácticos, problema, espacio, plantel y forma de jugar del club…',
               style: TextStyle(color: CX.muted, height: 1.35),
             ),
           ),

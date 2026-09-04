@@ -430,7 +430,7 @@ class _CuotaScreenState extends State<CuotaScreen> {
                   if (reports.isEmpty)
                     const _ActionEmpty(
                       icon: Icons.mic_none_outlined,
-                      title: 'Todavia no hay registros',
+                      title: 'Todavía no hay registros',
                       description:
                           'Despues de entrenar, registra lo que paso para alimentar la continuidad deportiva.',
                     )
@@ -2593,7 +2593,7 @@ class _ManualPlayerQuickDialogState extends State<_ManualPlayerQuickDialog> {
             TextField(
               controller: _position,
               decoration: const InputDecoration(
-                labelText: 'Posicion principal',
+                labelText: 'Posición principal',
               ),
             ),
             const SizedBox(height: 10),
@@ -2735,7 +2735,7 @@ class _PlayerEditDialogState extends State<_PlayerEditDialog> {
               TextField(
                 controller: _position,
                 decoration: const InputDecoration(
-                  labelText: 'Posicion principal en cancha',
+                  labelText: 'Posición principal en cancha',
                   hintText: 'Ej: lateral derecho, volante central, punta',
                 ),
               ),

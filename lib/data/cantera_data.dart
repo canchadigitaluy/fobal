@@ -11,6 +11,63 @@ String cleanVisiblePlayerNote(String value) {
       .trim();
 }
 
+// ---------------------------------------------------------------------------
+// LUD vs manual (No-LUD) identity guards.
+//
+// A club/category pair belongs to exactly one world — LUD (synced from the
+// university league) or manual (a coach's own independent club). These
+// helpers are the single source of truth for telling them apart, so every
+// screen and every hydration path checks the same thing instead of
+// reimplementing (and possibly drifting on) the same OR-expression.
+// ---------------------------------------------------------------------------
+
+/// A LUD category id always looks like `lud-cat-<teamId>-<categoryId>` (see
+/// `LudCategoryRef` in club_access_service.dart). Cheap, no-parse check for
+/// call sites that just need to know "is this id from the league".
+bool isLudCategoryId(String id) => id.startsWith('lud-cat-');
+
+extension CanteraClubKind on CanteraClub {
+  /// True for a coach's own independent club (No-LUD): created locally, not
+  /// synced from the university league.
+  bool get isManualClub =>
+      dataSource == 'manual' || league == 'Trabajo independiente';
+
+  /// True for a club synced from the university league (LUD).
+  bool get isLudClub => !isManualClub;
+}
+
+/// True when [loadedClub] must NOT be trusted as the active club for the
+/// manual/No-LUD flow that needs [requiredManualClubId] — either it's a
+/// different club outright, or (belt-and-suspenders) it's a LUD club even
+/// though the id happened to match. Guards against a stale
+/// `fobal_active_club_id` — left over from a LUD session on the same
+/// browser — leaking LUD data into the No-LUD shell.
+bool clubNeedsManualSwitch({
+  required CanteraClub loadedClub,
+  required String requiredManualClubId,
+}) {
+  if (loadedClub.id != requiredManualClubId) return true;
+  return loadedClub.isLudClub;
+}
+
+/// Resolves the category id a club should use, given what was last stored
+/// for it. Rejects a category that isn't in [club.categories] (stale,
+/// deleted, or from a different club entirely), and — for a manual club —
+/// also rejects a `lud-cat-*` id even if it somehow ended up stored there.
+/// Returns null when nothing stored is valid; the caller decides the
+/// fallback (typically `club.categories.first.id`).
+String? resolveStoredCategoryId({
+  required CanteraClub club,
+  required String? storedCategoryId,
+}) {
+  if (storedCategoryId == null) return null;
+  final belongsToClub =
+      club.categories.any((item) => item.id == storedCategoryId);
+  if (!belongsToClub) return null;
+  if (club.isManualClub && isLudCategoryId(storedCategoryId)) return null;
+  return storedCategoryId;
+}
+
 class CanteraClub {
   final String id;
   final String name;

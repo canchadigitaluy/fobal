@@ -311,11 +311,16 @@ class _CanteraAppState extends State<CanteraApp> {
   }
 
   String? _storedCategoryId(CanteraClub club) {
-    final stored = html.window.localStorage['$_categoryPrefix${club.id}'];
-    if (stored != null && club.categories.any((item) => item.id == stored)) {
-      return stored;
+    final key = '$_categoryPrefix${club.id}';
+    final raw = html.window.localStorage[key];
+    final resolved = resolveStoredCategoryId(club: club, storedCategoryId: raw);
+    if (raw != null && resolved == null) {
+      // Surgical correction: only this club's stored-category key, never a
+      // global localStorage wipe. Covers a category that no longer exists
+      // and — for a manual club — a leaked lud-cat-* id.
+      html.window.localStorage.remove(key);
     }
-    return null;
+    return resolved;
   }
 
   String? _effectiveCategoryId(CanteraClub club) {
@@ -482,6 +487,13 @@ class _CanteraAppState extends State<CanteraApp> {
   }
 
   void _selectCategory(String? categoryId) {
+    // A manual club must never adopt a LUD category id, even if some future
+    // caller passes one in by mistake.
+    if (categoryId != null &&
+        _club.isManualClub &&
+        isLudCategoryId(categoryId)) {
+      return;
+    }
     // The category preference is always written for the currently active club,
     // and the active-club pointer is refreshed so the two never drift apart.
     html.window.localStorage[_activeClubKey] = _club.id;
@@ -726,10 +738,55 @@ class _LocalHomeRoute extends StatelessWidget {
     if (localClubId == null || localClubId.isEmpty) {
       return const _AccessRedirect(route: '/local-setup');
     }
-    return _CloudDocGate(
-      clubId: localClubId,
-      child: MainShell(initialIndex: initialIndex),
+    return _LocalHomeGuard(
+      localClubId: localClubId,
+      child: _CloudDocGate(
+        clubId: localClubId,
+        child: MainShell(initialIndex: initialIndex),
+      ),
     );
+  }
+}
+
+/// Ensures the club actually loaded into app state is the user's own manual
+/// club before rendering the No-LUD shell. Self-heals a stale
+/// `fobal_active_club_id` left over from a LUD session on the same browser
+/// (root cause of LUD data — e.g. a "Sub 20" category — leaking into the
+/// No-LUD flow); mirrors what [_MembershipHydrator] already does for LUD.
+class _LocalHomeGuard extends StatefulWidget {
+  final String localClubId;
+  final Widget child;
+
+  const _LocalHomeGuard({required this.localClubId, required this.child});
+
+  @override
+  State<_LocalHomeGuard> createState() => _LocalHomeGuardState();
+}
+
+class _LocalHomeGuardState extends State<_LocalHomeGuard> {
+  bool _switching = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    final needsSwitch = clubNeedsManualSwitch(
+      loadedClub: scope.fullClub,
+      requiredManualClubId: widget.localClubId,
+    );
+    if (needsSwitch) {
+      if (!_switching) {
+        _switching = true;
+        final corrected = scope.loadClub(widget.localClubId);
+        // Deferred: updateClub triggers setState on the ancestor
+        // _CanteraAppState, which must not happen synchronously mid-build.
+        Future<void>.microtask(() {
+          if (mounted) scope.updateClub(corrected);
+        });
+      }
+      return const _CalmLoadingScaffold();
+    }
+    _switching = false;
+    return widget.child;
   }
 }
 
@@ -1615,8 +1672,7 @@ class _MainShellState extends State<MainShell> {
     Navigator.pushReplacementNamed(context, '/login');
   }
 
-  bool _isExternalClub(CanteraClub club) =>
-      club.dataSource == 'manual' || club.league == 'Trabajo independiente';
+  bool _isExternalClub(CanteraClub club) => club.isManualClub;
 
   List<String> _enabledExternalLabels(CanteraClub club) {
     const fallback = [

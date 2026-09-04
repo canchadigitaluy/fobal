@@ -120,8 +120,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
       );
       return;
     }
-    final manualClub =
-        club.dataSource == 'manual' || club.league == 'Trabajo independiente';
+    final manualClub = club.isManualClub;
     final available = club.players
         .where(
           (player) => player.categoryId == category.id && _isAvailable(player),

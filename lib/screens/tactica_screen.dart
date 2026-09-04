@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/cantera_data.dart';
 import '../main.dart';
 import 'asistencia_screen.dart';
 import 'cuota_screen.dart';
@@ -24,10 +25,8 @@ class TacticaScreenState extends State<TacticaScreen> {
     setState(() => _section = next);
   }
 
-  bool _isExternal(BuildContext context) {
-    final club = AppScope.of(context).fullClub;
-    return club.dataSource == 'manual' || club.league == 'Trabajo independiente';
-  }
+  bool _isExternal(BuildContext context) =>
+      AppScope.of(context).fullClub.isManualClub;
 
   @override
   Widget build(BuildContext context) {

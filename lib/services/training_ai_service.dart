@@ -82,8 +82,7 @@ class TrainingAiRequest {
           },
         )
         .toList();
-    final manualClub =
-        club.dataSource == 'manual' || club.league == 'Trabajo independiente';
+    final manualClub = club.isManualClub;
     final missingProfileFields = <String>[
       if (category.currentFocus.trim().isEmpty) 'foco actual de categoria',
       if (club.methodology.playingStyle.trim().isEmpty)

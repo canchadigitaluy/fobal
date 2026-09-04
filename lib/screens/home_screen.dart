@@ -247,8 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final completePlayerProfiles = club.players
         .where(_hasAiReadyPlayerProfile)
         .length;
-    final isExternal = club.dataSource == 'manual' ||
-        club.league == 'Trabajo independiente';
+    final isExternal = club.isManualClub;
     final selectedCategoryId = scope.selectedCategoryId ??
         (club.categories.isEmpty ? '' : club.categories.first.id);
 

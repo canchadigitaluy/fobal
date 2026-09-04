@@ -184,4 +184,87 @@ void main() {
       expect(restored.categoryId, original.categoryId);
     });
   });
+
+  group('findExerciseDuplicate — deduplicación al guardar desde IA', () {
+    final library = [
+      _ex(id: 'e1', name: 'Rondo 4v2', duration: 15, description: 'Espacio reducido, 2 toques'),
+    ];
+
+    test('exact match (name + duration + description, normalized) — no duplica', () {
+      final result = findExerciseDuplicate(
+        library: library,
+        name: '  Rondo 4v2  ',
+        duration: 15,
+        description: 'espacio reducido, 2 toques',
+      );
+      expect(result, ExerciseDedupResult.exactMatch);
+    });
+
+    test('same name but different duration/description — pide confirmación', () {
+      final result = findExerciseDuplicate(
+        library: library,
+        name: 'Rondo 4v2',
+        duration: 20,
+        description: 'Otra consigna',
+      );
+      expect(result, ExerciseDedupResult.nameMatch);
+    });
+
+    test('no relation to anything saved — se puede guardar sin avisar', () {
+      final result = findExerciseDuplicate(
+        library: library,
+        name: 'Finalización desde el segundo palo',
+        duration: 12,
+        description: 'Centro y definición',
+      );
+      expect(result, ExerciseDedupResult.none);
+    });
+
+    test('empty library — nunca hay duplicado', () {
+      final result = findExerciseDuplicate(
+        library: const [],
+        name: 'Rondo 4v2',
+        duration: 15,
+        description: 'Espacio reducido',
+      );
+      expect(result, ExerciseDedupResult.none);
+    });
+  });
+
+  group('Exercise.fromBlock preserves as much as the block carries', () {
+    test('constraints, coachingPoints, successMetric and animationScene all '
+        'survive the capture', () {
+      final scene = AnimationScene.fromBlockText(
+        text: 'Rondo con presión',
+        space: 'Reducido',
+        playerCount: 8,
+        cues: const ['Presionar rápido'],
+      );
+      final block = TrainingBlock(
+        'Rondo 4v2',
+        '15 min',
+        'Espacio reducido',
+        intensity: 'Alta',
+        constraints: const ['Dos toques'],
+        coachingPoints: const ['Presionar rápido'],
+        successMetric: '5 pases seguidos',
+        animationScene: scene,
+      );
+      final exercise = Exercise.fromBlock(
+        block,
+        id: 'e9',
+        minutes: 15,
+        objective: 'Posesión',
+        players: 8,
+        space: 'Reducido',
+        categoryId: 'cat-1',
+        source: 'ai',
+      );
+      expect(exercise.constraints, ['Dos toques']);
+      expect(exercise.coachingPoints, ['Presionar rápido']);
+      expect(exercise.successMetric, '5 pases seguidos');
+      expect(exercise.animationScene, isNotNull);
+      expect(exercise.animationScene!.hasContent, isTrue);
+    });
+  });
 }

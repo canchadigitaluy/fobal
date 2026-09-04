@@ -444,9 +444,7 @@ class _AttendanceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sub = [player.position, player.status]
-        .where((item) => item.trim().isNotEmpty)
-        .join(' · ');
+    final availability = player.availability;
     return InkWell(
       onTap: () => onChanged(!present),
       child: Container(
@@ -468,14 +466,18 @@ class _AttendanceRow extends StatelessWidget {
                     player.fullName.trim(),
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  if (sub.isNotEmpty)
+                  if (player.position.trim().isNotEmpty)
                     Text(
-                      sub,
+                      player.position,
                       style: const TextStyle(color: CX.faint, fontSize: 11),
                     ),
                 ],
               ),
             ),
+            if (player.hasAvailabilityWarning) ...[
+              AvailabilityChip(availability, compact: true),
+              const SizedBox(width: 8),
+            ],
             if (!present)
               const Text(
                 'Falta',

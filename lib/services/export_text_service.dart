@@ -58,6 +58,10 @@ String formatCitationText({
   required List<String> titulares,
   required List<String> suplentes,
   String notes = '',
+  /// Prudent, non-diagnostic heads-up lines — e.g. "Juan Pérez: tocado,
+  /// confirmar antes del partido" — for citados whose availability isn't
+  /// plain "disponible". Never a medical claim, just a reminder to check.
+  List<String> availabilityNotes = const [],
 }) {
   final lines = <String>[
     'CITACIÓN — ${title.trim().isEmpty ? 'Próximo partido' : title.trim()}',
@@ -76,6 +80,11 @@ String formatCitationText({
       'Sin definir todavía.'
     else
       for (var i = 0; i < suplentes.length; i++) '${i + 1}. ${suplentes[i]}',
+    if (availabilityNotes.isNotEmpty) ...[
+      '',
+      'A CONFIRMAR ANTES DEL PARTIDO',
+      for (final note in availabilityNotes) '- $note',
+    ],
     if (notes.trim().isNotEmpty) ...['', 'NOTAS', notes.trim()],
     '',
     'Quedan citados para el próximo compromiso. Confirmar disponibilidad a '

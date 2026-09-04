@@ -10,6 +10,7 @@ import '../main.dart';
 import '../services/club_access_service.dart';
 import '../services/export_download_service.dart';
 import '../services/export_text_service.dart';
+import '../services/exercise_library_service.dart';
 import '../services/offline_mutation_service.dart';
 import '../services/training_ai_service.dart';
 import '../ui/exercise_animation_preview.dart';
@@ -123,7 +124,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
     final manualClub = club.isManualClub;
     final available = club.players
         .where(
-          (player) => player.categoryId == category.id && _isAvailable(player),
+          (player) => player.categoryId == category.id && player.isAvailable,
         )
         .length;
     // No hard block on squad size: a thin plan is still useful and the
@@ -343,7 +344,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
     final categoryPlayers = club.players
         .where((player) => player.categoryId == category.id)
         .toList();
-    final availablePlayers = categoryPlayers.where(_isAvailable).length;
+    final availablePlayers = categoryPlayers.where((p) => p.isAvailable).length;
     final suggestedSquadProfile = _buildSquadProfile(category, categoryPlayers);
     final effectiveSquadProfile = _effectiveSquadProfile(
       manual: _squadProfile,
@@ -574,8 +575,8 @@ class _ReservasScreenState extends State<ReservasScreen> {
       if (positions.isNotEmpty) 'Posiciones cargadas: $positions',
       if (notes.isNotEmpty) 'Notas: ${notes.map(_cleanStaffNote).join('; ')}',
       if (trends.isNotEmpty) 'Tendencias de la liga: ${trends.join('; ')}',
-      if (players.where(_isAvailable).length != players.length)
-        'Disponibles: ${players.where(_isAvailable).length} de ${players.length}',
+      if (players.where((p) => p.isAvailable).length != players.length)
+        'Disponibles: ${players.where((p) => p.isAvailable).length} de ${players.length}',
     ].join('\n');
   }
 
@@ -967,13 +968,6 @@ class _ReservasScreenState extends State<ReservasScreen> {
 
   String _cleanRivalStyle(String value) =>
       value.trim() == _fixtureStylePlaceholder ? '' : value.trim();
-
-  bool _isAvailable(Player player) {
-    final status = player.status.toLowerCase();
-    return !status.contains('lesion') &&
-        !status.contains('baja') &&
-        !status.contains('suspend');
-  }
 
   String _isoDate(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -2892,6 +2886,68 @@ class _GeneratedBlockTile extends StatefulWidget {
 
 class _GeneratedBlockTileState extends State<_GeneratedBlockTile> {
   bool _open = false;
+  bool _savedToLibrary = false;
+
+  Future<void> _saveToLibrary() async {
+    final scope = AppScope.of(context);
+    final club = scope.club;
+    final block = widget.block;
+    final minutes = parseDurationMinutes(block.duration);
+    final dedup = findExerciseDuplicate(
+      library: club.savedExercises,
+      name: block.name,
+      duration: minutes,
+      description: block.description,
+    );
+    if (dedup == ExerciseDedupResult.exactMatch) {
+      setState(() => _savedToLibrary = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ya estaba guardado en la biblioteca.')),
+      );
+      return;
+    }
+    if (dedup == ExerciseDedupResult.nameMatch) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Ejercicio parecido'),
+          content: Text(
+            'Ya tenés un ejercicio guardado con el nombre "${block.name}" '
+            'pero con otros datos. ¿Guardar este como uno nuevo?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Guardar de todos modos'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+    final exercise = Exercise.fromBlock(
+      block,
+      id: newExerciseId(),
+      minutes: minutes,
+      objective: widget.session.objective,
+      players: widget.session.playerCount,
+      space: widget.session.space,
+      categoryId: widget.session.categoryId,
+      source: 'ai',
+    );
+    scope.updateClub(
+      club.copyWith(savedExercises: [exercise, ...club.savedExercises]),
+    );
+    if (!mounted) return;
+    setState(() => _savedToLibrary = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Guardado en biblioteca: ${block.name}')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2964,20 +3020,40 @@ class _GeneratedBlockTileState extends State<_GeneratedBlockTile> {
             style: const TextStyle(color: CX.muted, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => setState(() => _open = !_open),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                minimumSize: const Size(0, 32),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              TextButton.icon(
+                onPressed: () => setState(() => _open = !_open),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: const Size(0, 32),
+                ),
+                icon: Icon(
+                  _open ? Icons.expand_less : Icons.play_circle_outline,
+                  size: 17,
+                ),
+                label: Text(_open ? 'Ocultar cómo se ve en cancha' : 'Ver cómo se ve en cancha'),
               ),
-              icon: Icon(
-                _open ? Icons.expand_less : Icons.play_circle_outline,
-                size: 17,
+              TextButton.icon(
+                onPressed: _savedToLibrary ? null : _saveToLibrary,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: const Size(0, 32),
+                  foregroundColor: _savedToLibrary ? CX.green : null,
+                ),
+                icon: Icon(
+                  _savedToLibrary
+                      ? Icons.check_circle_outline
+                      : Icons.bookmark_add_outlined,
+                  size: 17,
+                ),
+                label: Text(
+                  _savedToLibrary ? 'Guardado en biblioteca' : 'Guardar en biblioteca',
+                ),
               ),
-              label: Text(_open ? 'Ocultar cómo se ve en cancha' : 'Ver cómo se ve en cancha'),
-            ),
+            ],
           ),
           AnimatedSize(
             duration: CX.motion,

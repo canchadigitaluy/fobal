@@ -344,6 +344,10 @@ class Player {
   final String status;
   final String statusDetail;
   final int suspensionDates;
+
+  /// Optional, free-text ("15/09" or "en 2 semanas") — only meaningful for
+  /// lesionado/tocado. Never parsed/compared, just shown as a courtesy.
+  final String expectedReturnDate;
   final double attendanceRate;
 
   /// Human-readable season line ("12 PJ - 890 min - 4 goles"). Kept for the
@@ -373,6 +377,7 @@ class Player {
     required this.status,
     this.statusDetail = '',
     this.suspensionDates = 0,
+    this.expectedReturnDate = '',
     required this.attendanceRate,
     required this.trend,
     this.matchesPlayed = 0,
@@ -407,6 +412,19 @@ class Player {
     return '$status$suspension - $detail';
   }
 
+  /// Canonical availability, normalized from the free-text [status]. See
+  /// [normalizePlayerAvailability].
+  PlayerAvailability get availability => normalizePlayerAvailability(status);
+
+  /// True only when the player is fully available — the single check every
+  /// screen should use instead of its own ad-hoc `status == '...'` string
+  /// compare (several used to disagree with each other).
+  bool get isAvailable => availability == PlayerAvailability.disponible;
+
+  /// True for anything the DT should see before citing/lining up this
+  /// player — never blocks the action, just flags it.
+  bool get hasAvailabilityWarning => !isAvailable;
+
   Player copyWith({
     String? categoryId,
     String? firstName,
@@ -418,6 +436,7 @@ class Player {
     String? status,
     String? statusDetail,
     int? suspensionDates,
+    String? expectedReturnDate,
     double? attendanceRate,
     String? trend,
     int? matchesPlayed,
@@ -440,6 +459,7 @@ class Player {
       status: status ?? this.status,
       statusDetail: statusDetail ?? this.statusDetail,
       suspensionDates: suspensionDates ?? this.suspensionDates,
+      expectedReturnDate: expectedReturnDate ?? this.expectedReturnDate,
       attendanceRate: attendanceRate ?? this.attendanceRate,
       trend: trend ?? this.trend,
       matchesPlayed: matchesPlayed ?? this.matchesPlayed,
@@ -465,6 +485,7 @@ class Player {
       'status': status,
       'statusDetail': statusDetail,
       'suspensionDates': suspensionDates,
+      'expectedReturnDate': expectedReturnDate,
       'attendanceRate': attendanceRate,
       'trend': trend,
       'matchesPlayed': matchesPlayed,
@@ -492,6 +513,7 @@ class Player {
       status: json['status'] as String? ?? 'Activo',
       statusDetail: json['statusDetail'] as String? ?? '',
       suspensionDates: (json['suspensionDates'] as num?)?.toInt() ?? 0,
+      expectedReturnDate: json['expectedReturnDate'] as String? ?? '',
       attendanceRate: (json['attendanceRate'] as num?)?.toDouble() ?? 0,
       trend: json['trend'] as String? ?? '',
       matchesPlayed: (json['matchesPlayed'] as num?)?.toInt() ?? 0,
@@ -503,6 +525,53 @@ class Player {
       note: cleanVisiblePlayerNote(json['note'] as String? ?? ''),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Player availability — one canonical status, normalized from the free-text
+// [Player.status] field so every screen agrees on what "available" means.
+// Never blocks a DT's decision, only flags it.
+// ---------------------------------------------------------------------------
+
+enum PlayerAvailability { disponible, tocado, lesionado, sancionado, ausente }
+
+/// Maps free-text status — old presets ('Activo', 'Suspendido', 'Duda',
+/// 'Viaje', 'Examen') and the current canonical labels alike — to one of
+/// the 5 states. Unknown or empty text defaults to disponible: a player
+/// never becomes invisible/unavailable just because older data used a
+/// different word for "fine".
+PlayerAvailability normalizePlayerAvailability(String rawStatus) {
+  final s = rawStatus.trim().toLowerCase();
+  if (s.contains('lesion')) return PlayerAvailability.lesionado;
+  if (s.contains('sancion') || s.contains('suspend')) {
+    return PlayerAvailability.sancionado;
+  }
+  if (s.contains('duda') || s.contains('tocado')) return PlayerAvailability.tocado;
+  if (s.contains('ausente') || s.contains('viaje') || s.contains('examen')) {
+    return PlayerAvailability.ausente;
+  }
+  return PlayerAvailability.disponible;
+}
+
+extension PlayerAvailabilityPresentation on PlayerAvailability {
+  String get label => switch (this) {
+    PlayerAvailability.disponible => 'Disponible',
+    PlayerAvailability.tocado => 'Tocado',
+    PlayerAvailability.lesionado => 'Lesionado',
+    PlayerAvailability.sancionado => 'Sancionado',
+    PlayerAvailability.ausente => 'Ausente avisado',
+  };
+
+  /// Mirrors CX.green/amber/red/faint from lib/ui — kept as literal hex here
+  /// (not imported) since cantera_data.dart is the data layer main.dart
+  /// itself depends on, and must not import back into the app shell.
+  Color get color => switch (this) {
+    PlayerAvailability.disponible => const Color(0xFF159463),
+    PlayerAvailability.tocado => const Color(0xFFE0A11A),
+    PlayerAvailability.lesionado => const Color(0xFFDC3D3D),
+    PlayerAvailability.sancionado => const Color(0xFFDC3D3D),
+    PlayerAvailability.ausente => const Color(0xFF8CA39B),
+  };
 }
 
 class Methodology {

@@ -77,6 +77,28 @@ void main() {
       expect(text, isNot(contains('Rival:')));
       expect(text, isNot(contains('NOTAS')));
     });
+
+    test('includes a prudent availability warning section when there is one', () {
+      final text = formatCitationText(
+        title: 'Vs Rampla',
+        titulares: ['POR — Juan Pérez'],
+        suplentes: const [],
+        availabilityNotes: [
+          'Juan Pérez: tocado, confirmar antes del partido.',
+        ],
+      );
+      expect(text, contains('A CONFIRMAR ANTES DEL PARTIDO'));
+      expect(text, contains('- Juan Pérez: tocado, confirmar antes del partido.'));
+    });
+
+    test('omits the warning section when nobody has one', () {
+      final text = formatCitationText(
+        title: 'Vs Rampla',
+        titulares: const [],
+        suplentes: const [],
+      );
+      expect(text, isNot(contains('A CONFIRMAR ANTES DEL PARTIDO')));
+    });
   });
 
   group('formatSessionText', () {

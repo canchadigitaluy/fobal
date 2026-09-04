@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/cantera_data.dart';
 import '../main.dart';
 
 /// Small, shared visual primitives for the flagship screens (Inicio and
@@ -240,6 +241,38 @@ class ConfidenceBadge extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 9,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+/// Sober status pill for a player's availability — same 5-state palette
+/// (green/amber/red/red/gray) everywhere it appears. Never implies a block:
+/// it's a heads-up, not a lock.
+class AvailabilityChip extends StatelessWidget {
+  final PlayerAvailability availability;
+  final bool compact;
+  const AvailabilityChip(this.availability, {super.key, this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = availability.color;
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 6 : 8,
+        vertical: compact ? 2 : 3,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        availability.label,
+        style: TextStyle(
+          color: color,
+          fontSize: compact ? 9 : 10,
           fontWeight: FontWeight.w900,
         ),
       ),

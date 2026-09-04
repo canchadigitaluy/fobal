@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../ui/ui_kit.dart';
+import 'player_availability_dialog.dart';
 
 class MiEquipoScreen extends StatefulWidget {
   const MiEquipoScreen({super.key});
@@ -51,6 +52,23 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
     reader.readAsDataUrl(file);
     await reader.onLoad.first;
     return reader.result as String?;
+  }
+
+  Future<void> _editAvailability(Player player) async {
+    final updated = await showPlayerAvailabilityDialog(context, player: player);
+    if (updated == null || !mounted) return;
+    final scope = AppScope.of(context);
+    scope.updateClub(
+      scope.fullClub.copyWith(
+        players: [
+          for (final item in scope.fullClub.players)
+            if (item.id == updated.id) updated else item,
+        ],
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Disponibilidad actualizada: ${updated.availability.label}')),
+    );
   }
 
   Future<void> _addPlayer() async {
@@ -192,7 +210,11 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
               spacing: 12,
               runSpacing: 12,
               children: [
-                for (final player in players) _PlayerCard(player: player),
+                for (final player in players)
+                  _PlayerCard(
+                    player: player,
+                    onEditAvailability: () => _editAvailability(player),
+                  ),
                 _AddPlayerTile(onTap: _addPlayer),
               ],
             ),
@@ -217,12 +239,7 @@ class _SquadProgress extends StatelessWidget {
             p.dominantFoot.trim().isNotEmpty &&
             p.status.trim().isNotEmpty)
         .length;
-    final available = players
-        .where((p) {
-          final s = p.status.trim().toLowerCase();
-          return s.isEmpty || s == 'activo' || s == 'disponible';
-        })
-        .length;
+    final available = players.where((p) => p.isAvailable).length;
     return MetricGrid(
       tiles: [
         MetricTile(
@@ -408,20 +425,13 @@ class _SoftChip extends StatelessWidget {
 
 class _PlayerCard extends StatelessWidget {
   final Player player;
+  final VoidCallback onEditAvailability;
 
-  const _PlayerCard({required this.player});
+  const _PlayerCard({required this.player, required this.onEditAvailability});
 
   @override
   Widget build(BuildContext context) {
-    final status = player.status.trim();
-    final available = status.isEmpty ||
-        status.toLowerCase() == 'activo' ||
-        status.toLowerCase() == 'disponible';
-    final dotColor = status.isEmpty
-        ? CX.faint
-        : available
-            ? CX.green
-            : CX.amber;
+    final availability = player.availability;
     final secondary = player.secondaryPositionList.take(3).join(' · ');
     return Container(
       width: 180,
@@ -453,7 +463,7 @@ class _PlayerCard extends StatelessWidget {
                   width: 12,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: dotColor,
+                    color: availability.color,
                     shape: BoxShape.circle,
                     border: Border.all(color: CX.canvas, width: 2),
                   ),
@@ -468,6 +478,12 @@ class _PlayerCard extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w800, height: 1.2),
+          ),
+          const SizedBox(height: 6),
+          InkWell(
+            onTap: onEditAvailability,
+            borderRadius: BorderRadius.circular(999),
+            child: AvailabilityChip(availability, compact: true),
           ),
           const SizedBox(height: 6),
           if (player.position.trim().isNotEmpty)

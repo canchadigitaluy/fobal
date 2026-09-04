@@ -302,6 +302,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     CategorySquad category,
     List<Player> players,
   ) {
+    final byId = {for (final player in players) player.id: player};
     final names = {for (final player in players) player.id: player.fullName};
     final titulares = [
       for (var i = 0; i < _xi.length; i++)
@@ -310,6 +311,11 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     final suplentes = [
       for (final id in _subs)
         if (id != null) names[id] ?? '-',
+    ];
+    final availabilityNotes = [
+      for (final id in [..._xi.whereType<String>(), ..._subs.whereType<String>()])
+        if (byId[id]?.hasAvailabilityWarning ?? false)
+          '${byId[id]!.fullName.trim()}: ${byId[id]!.availability.label.toLowerCase()}, confirmar antes del partido.',
     ];
     final content = formatCitationText(
       title: _titleController.text.trim().isEmpty
@@ -320,6 +326,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
       date: _dateController.text.trim(),
       titulares: titulares,
       suplentes: suplentes,
+      availabilityNotes: availabilityNotes,
     );
     final fileName = buildExportFileName(
       club: club.name,
@@ -502,6 +509,23 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                 xiTotal: _xi.length,
                 subsFilled: _subs.where((id) => id != null).length,
                 subsTotal: _subs.length,
+              ),
+              Builder(
+                builder: (context) {
+                  final citedWithWarning = [
+                    ..._xi.whereType<String>(),
+                    ..._subs.whereType<String>(),
+                  ]
+                      .map((id) => playerById[id])
+                      .whereType<Player>()
+                      .where((player) => player.hasAvailabilityWarning)
+                      .toList();
+                  if (citedWithWarning.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: _AvailabilityWarningBanner(players: citedWithWarning),
+                  );
+                },
               ),
               const SizedBox(height: 14),
               LayoutBuilder(
@@ -1019,13 +1043,10 @@ class _LineupPlayerCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: CX.muted, fontSize: 10),
                   ),
-                  if (player.availabilityLabel.trim().isNotEmpty)
-                    Text(
-                      player.availabilityLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: CX.faint, fontSize: 9),
-                    ),
+                  if (player.hasAvailabilityWarning) ...[
+                    const SizedBox(height: 3),
+                    AvailabilityChip(player.availability, compact: true),
+                  ],
                 ],
               ),
             ),
@@ -1235,33 +1256,59 @@ class _PlayerDisc extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = goalkeeper ? CX.amber : CX.green;
     final name = player?.fullName ?? label;
+    final warning = player?.hasAvailabilityWarning ?? false;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: const [
-                BoxShadow(color: Color(0x66000000), blurRadius: 10),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                player == null || name.isEmpty ? '+' : name[0].toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x66000000), blurRadius: 10),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    player == null || name.isEmpty ? '+' : name[0].toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                    ),
+                  ),
                 ),
               ),
-            ),
+              if (warning)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: player!.availability.color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: const Icon(
+                      Icons.priority_high,
+                      size: 11,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 4),
           Container(
@@ -1424,11 +1471,12 @@ class _PlayerPickerSheetState extends State<_PlayerPickerSheet> {
                               ),
                             ),
                             title: Text(player.fullName),
-                            subtitle: Text(
-                              [player.position, player.status]
-                                  .where((item) => item.trim().isNotEmpty)
-                                  .join(' / '),
-                            ),
+                            subtitle: player.position.trim().isEmpty
+                                ? null
+                                : Text(player.position),
+                            trailing: player.hasAvailabilityWarning
+                                ? AvailabilityChip(player.availability, compact: true)
+                                : null,
                             onTap: () => Navigator.pop(context, player.id),
                           ),
                         ),
@@ -1624,6 +1672,58 @@ class _Spot {
   final bool goalkeeper;
 
   const _Spot(this.label, this.x, this.y, this.goalkeeper);
+}
+
+/// Never blocks — just a clear, prudent heads-up when the XI or banco
+/// includes a player who isn't plain "disponible".
+class _AvailabilityWarningBanner extends StatelessWidget {
+  final List<Player> players;
+  const _AvailabilityWarningBanner({required this.players});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(13, 10, 13, 10),
+      decoration: BoxDecoration(
+        color: CX.amber.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border(left: BorderSide(color: CX.amber, width: 3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, size: 16, color: CX.amber),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  players.length == 1
+                      ? 'Hay un citado con estado a confirmar'
+                      : 'Hay ${players.length} citados con estado a confirmar',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  players
+                      .map((p) => '${p.fullName.trim()} (${p.availability.label})')
+                      .join(' · '),
+                  style: const TextStyle(color: CX.muted, fontSize: 11, height: 1.3),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'No se los saca del XI ni del banco: es un aviso para que lo '
+                  'confirmes vos.',
+                  style: TextStyle(color: CX.faint, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _LineupHintBanner extends StatelessWidget {

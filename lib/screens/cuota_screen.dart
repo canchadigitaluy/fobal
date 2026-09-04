@@ -596,9 +596,7 @@ class _CategoryOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final available = players
-        .where((item) => item.status.toLowerCase() != 'lesionado')
-        .length;
+    final available = players.where((item) => item.isAvailable).length;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: CX.panelDecoration(),
@@ -708,9 +706,7 @@ class _CategoryReadinessPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final available = players
-        .where((player) => player.status.toLowerCase() != 'lesionado')
-        .length;
+    final available = players.where((player) => player.isAvailable).length;
     final checks = [
       _ReadinessCheck(
         'Plantel cargado',
@@ -891,6 +887,14 @@ class _SquadPositionMap extends StatelessWidget {
             color: diagnosisColor,
             diagnosis: diagnosis,
           ),
+          if (players.any((p) => p.hasAvailabilityWarning)) ...[
+            const SizedBox(height: 12),
+            _AvailabilityAlerts(
+              players: players.where((p) => p.hasAvailabilityWarning).toList(),
+              canEdit: canEdit,
+              onEdit: onEdit,
+            ),
+          ],
           if (groups['Sin posicion']!.isNotEmpty) ...[
             const SizedBox(height: 12),
             _MissingPositionQueue(
@@ -1014,6 +1018,73 @@ class _SquadPositionMap extends StatelessWidget {
       player.dominantFoot.trim().isNotEmpty &&
       player.status.trim().isNotEmpty &&
       player.note.trim().length >= 12;
+}
+
+/// Short, sober list of players who aren't plain "disponible" — a heads-up
+/// for the DT, never a block. Tapping a chip opens the same availability
+/// editor as the squad grid below.
+class _AvailabilityAlerts extends StatelessWidget {
+  final List<Player> players;
+  final bool canEdit;
+  final ValueChanged<Player> onEdit;
+
+  const _AvailabilityAlerts({
+    required this.players,
+    required this.canEdit,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: CX.amber.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.amber.withValues(alpha: .22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.health_and_safety_outlined, color: CX.amber, size: 17),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  players.length == 1
+                      ? '1 jugador no disponible o en duda'
+                      : '${players.length} jugadores no disponibles o en duda',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [
+              for (final player in players)
+                OutlinedButton.icon(
+                  onPressed: canEdit ? () => onEdit(player) : null,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: player.availability.color,
+                    side: BorderSide(color: player.availability.color.withValues(alpha: .4)),
+                  ),
+                  icon: const Icon(Icons.info_outline, size: 15),
+                  label: Text(
+                    '${player.fullName.trim()} · ${player.availability.label}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PositionPlayerChip extends StatelessWidget {
@@ -2362,14 +2433,15 @@ class _PlayerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final injury = player.status.toLowerCase() == 'lesionado';
+    final warning = player.hasAvailabilityWarning;
+    final warningColor = player.availability.color;
     return InkWell(
       onTap: canEdit ? onEdit : null,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.all(13),
         decoration: CX.panelDecoration(
-          borderColor: injury ? CX.red.withValues(alpha: .3) : null,
+          borderColor: warning ? warningColor.withValues(alpha: .3) : null,
         ),
         child: Row(
           children: [
@@ -2377,12 +2449,12 @@ class _PlayerTile extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: injury ? CX.red.withValues(alpha: .1) : CX.panel2,
+                color: warning ? warningColor.withValues(alpha: .1) : CX.panel2,
                 borderRadius: BorderRadius.circular(7),
               ),
               child: Icon(
                 _positionIcon(player.position),
-                color: injury ? CX.red : CX.green,
+                color: warning ? warningColor : CX.green,
                 size: 19,
               ),
             ),
@@ -2787,12 +2859,11 @@ class _PlayerEditDialogState extends State<_PlayerEditDialog> {
               const SizedBox(height: 8),
               _QuickValueRow(
                 values: const [
-                  'Activo',
+                  'Disponible',
+                  'Tocado',
                   'Lesionado',
-                  'Suspendido',
-                  'Viaje',
-                  'Examen',
-                  'Duda',
+                  'Sancionado',
+                  'Ausente avisado',
                 ],
                 onSelected: (value) => _status.text = value,
               ),

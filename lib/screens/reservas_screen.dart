@@ -1534,25 +1534,31 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
             ),
           ],
           const SizedBox(height: 14),
-          ElevatedButton.icon(
-            onPressed:
-                widget.generating || !widget.canGenerate || !readiness.ready
-                ? null
-                : widget.onGenerateTactic,
-            icon: widget.generating
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.black,
-                    ),
-                  )
-                : const Icon(Icons.sports_soccer),
-            label: Text(
-              widget.generating
-                  ? 'Pensando la táctica…'
-                  : 'Generar táctica de partido',
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed:
+                  widget.generating || !widget.canGenerate || !readiness.ready
+                  ? null
+                  : widget.onGenerateTactic,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              icon: widget.generating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.black,
+                      ),
+                    )
+                  : const Icon(Icons.sports_soccer),
+              label: Text(
+                widget.generating
+                    ? 'Pensando la táctica…'
+                    : 'Generar táctica de partido',
+              ),
             ),
           ),
           if (!widget.canGenerate) ...[
@@ -2291,8 +2297,19 @@ class _GeneratorFormState extends State<_GeneratorForm> {
             alignment: Alignment.topCenter,
             child: _showContext
                 ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'CONTEXTO OPCIONAL — MEJORA LA SESIÓN, NO ES OBLIGATORIO',
+                        style: TextStyle(
+                          color: CX.faint,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: .4,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       _PlanningDateField(
                         label: 'Fecha de la sesión',
                         date: w.scheduledDate,
@@ -2345,19 +2362,27 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                 : const SizedBox(width: double.infinity),
           ),
           const SizedBox(height: 14),
-          ElevatedButton.icon(
-            onPressed: w.generating || !w.canGenerate ? null : w.onGenerate,
-            icon: w.generating
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.black,
-                    ),
-                  )
-                : const Icon(Icons.auto_awesome),
-            label: Text(w.generating ? 'Pensando la sesión…' : 'Generar sesión'),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: w.generating || !w.canGenerate ? null : w.onGenerate,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              icon: w.generating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.black,
+                      ),
+                    )
+                  : const Icon(Icons.auto_awesome),
+              label: Text(
+                w.generating ? 'Pensando la sesión…' : 'Generar sesión',
+              ),
+            ),
           ),
           if (!w.canGenerate) ...[
             const SizedBox(height: 9),
@@ -2689,17 +2714,31 @@ class _GeneratedSessionCard extends StatelessWidget {
             session.title,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
+          const Text(
+            'OBJETIVO',
+            style: TextStyle(
+              color: CX.faint,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .5,
+            ),
+          ),
+          const SizedBox(height: 3),
           Text(
             session.objective,
-            style: TextStyle(color: CX.muted, height: 1.35),
+            style: const TextStyle(
+              fontSize: 13.5,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+            ),
           ),
+          const SizedBox(height: 12),
+          _GeneratedSessionBrief(session: session),
           const SizedBox(height: 12),
           _WhySessionPanel(session: session),
           const SizedBox(height: 12),
           _OperationalScoreBanner(session: session),
-          const SizedBox(height: 12),
-          _GeneratedSessionBrief(session: session),
           const SizedBox(height: 12),
           _PreFieldChecklist(session: session),
           const SizedBox(height: 12),
@@ -2707,9 +2746,13 @@ class _GeneratedSessionCard extends StatelessWidget {
           const SizedBox(height: 12),
           _PostTrainingReviewPanel(session: session),
           const SizedBox(height: 12),
-          ...session.blocks.map(
-            (block) => _GeneratedBlockTile(block: block, session: session),
-          ),
+          for (final (i, block) in session.blocks.indexed)
+            _GeneratedBlockTile(
+              block: block,
+              session: session,
+              index: i + 1,
+              total: session.blocks.length,
+            ),
           const SizedBox(height: 12),
           _DetailBlock('Consignas del entrenador', session.coachCues),
           const SizedBox(height: 10),
@@ -2739,8 +2782,15 @@ class _GeneratedSessionCard extends StatelessWidget {
 class _GeneratedBlockTile extends StatefulWidget {
   final TrainingBlock block;
   final TrainingSession session;
+  final int index;
+  final int total;
 
-  const _GeneratedBlockTile({required this.block, required this.session});
+  const _GeneratedBlockTile({
+    required this.block,
+    required this.session,
+    required this.index,
+    required this.total,
+  });
 
   @override
   State<_GeneratedBlockTile> createState() => _GeneratedBlockTileState();
@@ -2756,20 +2806,70 @@ class _GeneratedBlockTileState extends State<_GeneratedBlockTile> {
       space: widget.session.space,
       playerCount: widget.session.playerCount,
     );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: CX.panel,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: CX.line),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${block.name} - ${block.duration}',
-            style: const TextStyle(fontWeight: FontWeight.w800),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: CX.greenDark,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '${widget.index}',
+                  style: const TextStyle(
+                    color: CX.green,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  block.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: CX.greenDark,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  block.duration,
+                  style: const TextStyle(
+                    color: CX.green,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10.5,
+                  ),
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 8),
           Text(
             block.description,
-            style: TextStyle(color: CX.muted, fontSize: 13),
+            style: const TextStyle(color: CX.muted, fontSize: 13, height: 1.4),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
@@ -2779,19 +2879,26 @@ class _GeneratedBlockTileState extends State<_GeneratedBlockTile> {
                 minimumSize: const Size(0, 32),
               ),
               icon: Icon(
-                _open ? Icons.expand_less : Icons.animation,
-                size: 16,
+                _open ? Icons.expand_less : Icons.play_circle_outline,
+                size: 17,
               ),
-              label: Text(_open ? 'Ocultar animación' : 'Ver animación'),
+              label: Text(_open ? 'Ocultar cómo se ve en cancha' : 'Ver cómo se ve en cancha'),
             ),
           ),
-          if (_open) ...[
-            const SizedBox(height: 4),
-            ExerciseAnimationPreview(
-              scene: scene,
-              title: '${widget.session.title} ${block.name}',
-            ),
-          ],
+          AnimatedSize(
+            duration: CX.motion,
+            curve: CX.curve,
+            alignment: Alignment.topCenter,
+            child: _open
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: ExerciseAnimationPreview(
+                      scene: scene,
+                      title: '${widget.session.title} ${block.name}',
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
         ],
       ),
     );
@@ -3093,11 +3200,12 @@ class _WhySessionPanel extends StatelessWidget {
             children: [
               Icon(Icons.insights_outlined, size: 16, color: color),
               const SizedBox(width: 7),
-              const Text(
-                'Por qué esta sesión',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+              const Expanded(
+                child: Text(
+                  'Por qué esta sesión',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                ),
               ),
-              const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -3118,7 +3226,7 @@ class _WhySessionPanel extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             blurb,
-            style: const TextStyle(color: CX.muted, fontSize: 11, height: 1.35),
+            style: const TextStyle(color: CX.muted, fontSize: 11.5, height: 1.4),
           ),
           if (session.contextSources.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -3821,9 +3929,29 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 3,
+          height: 18,
+          decoration: BoxDecoration(
+            color: CX.green,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .1,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -3841,44 +3969,57 @@ class _HandoffBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ctx = this.context.trim();
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
       decoration: BoxDecoration(
-        color: CX.green.withValues(alpha: .08),
+        color: CX.green.withValues(alpha: .06),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CX.green.withValues(alpha: .28)),
+        border: Border(
+          left: BorderSide(color: CX.green, width: 3),
+        ),
       ),
+      padding: const EdgeInsets.fromLTRB(13, 10, 6, 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.link, size: 16, color: CX.green),
-          const SizedBox(width: 8),
+          const Icon(Icons.auto_awesome, size: 15, color: CX.green),
+          const SizedBox(width: 9),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Sugerido desde $origin',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      const TextSpan(
+                        text: 'Sugerido desde ',
+                        style: TextStyle(color: CX.muted, fontSize: 12),
+                      ),
+                      TextSpan(
+                        text: origin,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                if (this.context.trim().isNotEmpty) ...[
-                  const SizedBox(height: 2),
+                if (ctx.isNotEmpty) ...[
+                  const SizedBox(height: 3),
                   Text(
-                    this.context.trim(),
+                    ctx,
                     style: const TextStyle(
                       color: CX.muted,
                       fontSize: 11,
-                      height: 1.3,
+                      height: 1.35,
                     ),
                   ),
                 ],
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 const Text(
-                  'Revisá y ajustá los campos antes de generar.',
-                  style: TextStyle(color: CX.faint, fontSize: 10),
+                  'Ya cargamos lo que se pudo. Revisá y ajustá antes de generar.',
+                  style: TextStyle(color: CX.faint, fontSize: 10, height: 1.3),
                 ),
               ],
             ),

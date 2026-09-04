@@ -119,7 +119,7 @@ class _ExerciseAnimationPreviewState extends State<ExerciseAnimationPreview>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: CX.panel,
+        color: CX.panel2,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: CX.line),
       ),
@@ -128,13 +128,13 @@ class _ExerciseAnimationPreviewState extends State<ExerciseAnimationPreview>
         children: [
           Row(
             children: [
-              const Icon(Icons.animation, color: CX.green, size: 16),
+              const Icon(Icons.stadium_outlined, color: CX.green, size: 15),
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
                   _pitchLabel(scene.pitchArea),
                   style: const TextStyle(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                     fontSize: 12,
                   ),
                 ),
@@ -150,7 +150,7 @@ class _ExerciseAnimationPreviewState extends State<ExerciseAnimationPreview>
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: const Text(
-                    'aproximada',
+                    'escena aproximada',
                     style: TextStyle(
                       color: CX.amber,
                       fontSize: 9,
@@ -160,13 +160,20 @@ class _ExerciseAnimationPreviewState extends State<ExerciseAnimationPreview>
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          if (scene.isFallback) ...[
+            const SizedBox(height: 3),
+            const Text(
+              'Dibujada a partir de la consigna del bloque. Ajustá en cancha.',
+              style: TextStyle(color: CX.faint, fontSize: 10, height: 1.3),
+            ),
+          ],
+          const SizedBox(height: 9),
           RepaintBoundary(
             key: _boardKey,
             child: AspectRatio(
               aspectRatio: 3 / 2,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: AnimatedBuilder(
                   animation: _controller,
                   builder: (context, _) => CustomPaint(
@@ -183,12 +190,16 @@ class _ExerciseAnimationPreviewState extends State<ExerciseAnimationPreview>
           const SizedBox(height: 8),
           Row(
             children: [
-              IconButton(
-                tooltip: _playing ? 'Pausar' : 'Reproducir',
+              FilledButton.tonalIcon(
                 onPressed: _togglePlay,
-                icon: Icon(_playing ? Icons.pause : Icons.play_arrow),
-                iconSize: 20,
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+                icon: Icon(_playing ? Icons.pause : Icons.play_arrow, size: 18),
+                label: Text(_playing ? 'Pausa' : 'Reproducir'),
               ),
+              const SizedBox(width: 6),
               IconButton(
                 tooltip: 'Reiniciar',
                 onPressed: _restart,
@@ -199,18 +210,31 @@ class _ExerciseAnimationPreviewState extends State<ExerciseAnimationPreview>
               TextButton.icon(
                 onPressed: _downloadPng,
                 icon: const Icon(Icons.download, size: 16),
-                label: const Text('Descargar'),
+                label: const Text('PNG'),
               ),
             ],
           ),
-          if (scene.coachingCues.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                scene.coachingCues.join('  ·  '),
-                style: const TextStyle(color: CX.muted, fontSize: 11, height: 1.3),
-              ),
+          if (scene.coachingCues.isNotEmpty) ...[
+            const Divider(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.tips_and_updates_outlined,
+                    size: 13, color: CX.green),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    scene.coachingCues.join('  ·  '),
+                    style: const TextStyle(
+                      color: CX.muted,
+                      fontSize: 11,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
             ),
+          ],
         ],
       ),
     );

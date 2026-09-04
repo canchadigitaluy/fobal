@@ -251,6 +251,23 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     ).showSnackBar(SnackBar(content: Text('Guardada en Alineación: $title')));
   }
 
+  void _deleteSaved(
+    CanteraClub club,
+    CategorySquad category,
+    _SavedAlignment item,
+  ) {
+    final nextHistory = _savedAlignments
+        .where((candidate) => candidate.savedAt != item.savedAt)
+        .toList();
+    html.window.localStorage[_historyKey(club, category)] = jsonEncode(
+      nextHistory.map((entry) => entry.toJson()).toList(),
+    );
+    setState(() => _savedAlignments = nextHistory);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Borrada: ${item.title}')),
+    );
+  }
+
   Future<void> _exportImage(CategorySquad category) async {
     final boundary =
         _captureKey.currentContext?.findRenderObject()
@@ -435,6 +452,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                 onCategory: (value) => setState(() => _categoryId = value),
                 onCreate: _createNew,
                 onOpen: _openSaved,
+                onDelete: (item) => _deleteSaved(club, category, item),
               ),
             ] else ...[
               _AlignmentHeader(
@@ -726,6 +744,7 @@ class _AlignmentStart extends StatelessWidget {
   final ValueChanged<String?> onCategory;
   final VoidCallback onCreate;
   final ValueChanged<_SavedAlignment> onOpen;
+  final ValueChanged<_SavedAlignment> onDelete;
 
   const _AlignmentStart({
     required this.categories,
@@ -735,6 +754,7 @@ class _AlignmentStart extends StatelessWidget {
     required this.onCategory,
     required this.onCreate,
     required this.onOpen,
+    required this.onDelete,
   });
 
   @override
@@ -827,11 +847,14 @@ class _AlignmentStart extends StatelessWidget {
           title: 'Alineaciones guardadas',
         ),
         if (players.isEmpty)
-          const EmptyStatePanel(
+          EmptyStatePanel(
             icon: Icons.groups_2_outlined,
             title: 'Esta categoría todavía no tiene jugadores',
             message: 'Sumá el plantel en Mi equipo para poder armar un XI '
                 'y citar jugadores.',
+            primaryLabel: 'Ir a Mi equipo',
+            onPrimary: () => ShellActions.maybeOf(context)
+                ?.openSection(ShellSection.myTeam),
           )
         else if (saved.isEmpty)
           EmptyStatePanel(
@@ -843,7 +866,7 @@ class _AlignmentStart extends StatelessWidget {
             onPrimary: onCreate,
           )
         else
-          _SavedAlignmentsList(saved: saved, onOpen: onOpen),
+          _SavedAlignmentsList(saved: saved, onOpen: onOpen, onDelete: onDelete),
       ],
     );
   }
@@ -1402,8 +1425,36 @@ class _PlayerPickerSheetState extends State<_PlayerPickerSheet> {
 class _SavedAlignmentsList extends StatelessWidget {
   final List<_SavedAlignment> saved;
   final ValueChanged<_SavedAlignment> onOpen;
+  final ValueChanged<_SavedAlignment> onDelete;
 
-  const _SavedAlignmentsList({required this.saved, required this.onOpen});
+  const _SavedAlignmentsList({
+    required this.saved,
+    required this.onOpen,
+    required this.onDelete,
+  });
+
+  Future<void> _confirmDelete(BuildContext context, _SavedAlignment item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Borrar alineación'),
+        content: Text(
+          'Vas a borrar "${item.title}". No se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) onDelete(item);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1433,7 +1484,18 @@ class _SavedAlignmentsList extends StatelessWidget {
                   item.formation,
                 ].where((value) => value.trim().isNotEmpty).join(' / '),
               ),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Borrar alineación',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _confirmDelete(context, item),
+                    icon: const Icon(Icons.delete_outline, color: CX.red, size: 20),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
               onTap: () => onOpen(item),
             ),
           ),

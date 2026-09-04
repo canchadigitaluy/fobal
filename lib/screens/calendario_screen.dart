@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../services/offline_mutation_service.dart';
+import '../state/calendar_time.dart';
+import '../ui/ui_kit.dart';
 import 'match_result_dialog.dart';
 
 /// Stable-enough link between a calendar Match event and a logged result.
@@ -120,6 +122,25 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
   void _addEvent(DateTime day, _CalendarEvent event) {
     setState(() {
       _events.update(_key(day), (items) => [...items, event], ifAbsent: () => [event]);
+      _save();
+    });
+  }
+
+  void _editEvent(DateTime day, int index, _CalendarEvent updated) {
+    setState(() {
+      final items = _events[_key(day)];
+      if (items == null || index < 0 || index >= items.length) return;
+      items[index] = updated;
+      _save();
+    });
+  }
+
+  void _deleteEvent(DateTime day, int index) {
+    setState(() {
+      final items = _events[_key(day)];
+      if (items == null || index < 0 || index >= items.length) return;
+      items.removeAt(index);
+      if (items.isEmpty) _events.remove(_key(day));
       _save();
     });
   }
@@ -341,6 +362,10 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                               if (r.calendarKey.isNotEmpty) r.calendarKey,
                           },
                           onAdd: (event) => _addEvent(_selectedDay!, event),
+                          onEdit: (index, event) =>
+                              _editEvent(_selectedDay!, index, event),
+                          onDelete: (index) =>
+                              _deleteEvent(_selectedDay!, index),
                           onLogResult: (event) =>
                               _logResult(_selectedDay!, event),
                           onClose: () => setState(() => _selectedDay = null),
@@ -532,6 +557,8 @@ class _DayEditorPanel extends StatefulWidget {
   final List<_CalendarEvent> events;
   final Set<String> loggedKeys;
   final ValueChanged<_CalendarEvent> onAdd;
+  final void Function(int index, _CalendarEvent updated) onEdit;
+  final ValueChanged<int> onDelete;
   final ValueChanged<_CalendarEvent> onLogResult;
   final VoidCallback onClose;
 
@@ -541,6 +568,8 @@ class _DayEditorPanel extends StatefulWidget {
     required this.events,
     required this.loggedKeys,
     required this.onAdd,
+    required this.onEdit,
+    required this.onDelete,
     required this.onLogResult,
     required this.onClose,
   });
@@ -551,18 +580,104 @@ class _DayEditorPanel extends StatefulWidget {
 
 class _DayEditorPanelState extends State<_DayEditorPanel> {
   final _title = TextEditingController();
-  final _time = TextEditingController();
+  final _notes = TextEditingController();
   String _type = 'Entrenamiento';
+  String _timeValue = '';
+  int? _editingIndex;
 
   @override
   void dispose() {
     _title.dispose();
-    _time.dispose();
+    _notes.dispose();
     super.dispose();
+  }
+
+  void _resetForm() {
+    _title.clear();
+    _notes.clear();
+    setState(() {
+      _type = 'Entrenamiento';
+      _timeValue = '';
+      _editingIndex = null;
+    });
+  }
+
+  void _startEdit(int index, _CalendarEvent event) {
+    _title.text = event.title;
+    _notes.text = event.notes;
+    setState(() {
+      _type = event.type;
+      _timeValue = event.time;
+      _editingIndex = index;
+    });
+  }
+
+  Future<void> _confirmDelete(int index, _CalendarEvent event) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Borrar evento'),
+        content: Text('Vas a borrar "${event.title}". No se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (_editingIndex == index) _resetForm();
+    widget.onDelete(index);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Evento borrado: ${event.title}')),
+    );
+  }
+
+  Future<void> _pickTime() async {
+    final preset = parseHm(_timeValue);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: preset == null
+          ? TimeOfDay.now()
+          : TimeOfDay(hour: preset.hour, minute: preset.minute),
+      helpText: 'Hora del evento',
+    );
+    if (picked == null) return;
+    setState(() => _timeValue = formatHm(picked.hour, picked.minute));
+  }
+
+  void _submit() {
+    final title = _title.text.trim();
+    if (title.isEmpty) return;
+    final event = _CalendarEvent(
+      type: _type,
+      title: title,
+      time: _timeValue.trim(),
+      notes: _notes.text.trim(),
+    );
+    final editing = _editingIndex;
+    if (editing != null) {
+      widget.onEdit(editing, event);
+    } else {
+      widget.onAdd(event);
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(editing != null ? 'Evento actualizado.' : 'Evento agregado.'),
+      ),
+    );
+    _resetForm();
   }
 
   @override
   Widget build(BuildContext context) {
+    final editing = _editingIndex != null;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -583,71 +698,49 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
                   style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
                 ),
               ),
+              if (widget.events.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: CX.panel2,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${widget.events.length}',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+                  ),
+                ),
               IconButton(onPressed: widget.onClose, icon: const Icon(Icons.close)),
             ],
           ),
           const SizedBox(height: 8),
             if (widget.events.isEmpty)
-              const Padding(
-              padding: EdgeInsets.symmetric(vertical: 18),
-                child: Column(
-                  children: [
-                  CircleAvatar(
-                    radius: 34,
-                    backgroundColor: CX.greenDark,
-                    child: Icon(Icons.calendar_month, color: CX.green, size: 32),
-                  ),
-                    SizedBox(height: 14),
-                    Text('No hay eventos este día', style: TextStyle(color: CX.muted)),
-                  ],
-                ),
+              const EmptyStatePanel(
+                icon: Icons.calendar_month,
+                title: 'No hay eventos este día',
+                message: 'Cargá un entrenamiento, partido u otro evento con '
+                    'el formulario de abajo.',
               )
             else
-              ...widget.events.map((event) {
-                final past = DateTime(
-                  widget.day.year,
-                  widget.day.month,
-                  widget.day.day,
-                ).isBefore(
-                  DateTime(
-                    DateTime.now().year,
-                    DateTime.now().month,
-                    DateTime.now().day,
-                  ),
-                );
-                final isMatch = isMatchEventType(event.type);
-                final key = calendarMatchKey(widget.day, event.title);
-                final logged = widget.loggedKeys.contains(key);
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(_icon(event.type), color: _color(event.type)),
-                  title: Text(event.title),
-                  subtitle: Text(
-                    event.time.trim().isEmpty
-                        ? event.type
-                        : '${event.type} · ${event.time}',
-                  ),
-                  trailing: (isMatch && past)
-                      ? (logged
-                          ? const Chip(
-                              label: Text('Resultado cargado'),
-                              visualDensity: VisualDensity.compact,
-                            )
-                          : TextButton.icon(
-                              onPressed: () => widget.onLogResult(event),
-                              icon: const Icon(Icons.scoreboard_outlined, size: 16),
-                              label: const Text('Cargar resultado'),
-                            ))
-                      : null,
-                );
-              }),
-            const Divider(height: 28),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('CREAR UN EVENTO NUEVO', style: TextStyle(color: CX.faint, fontSize: 11, fontWeight: FontWeight.w900)),
+              for (final (index, event) in widget.events.indexed)
+                _EventTile(
+                  day: widget.day,
+                  event: event,
+                  logged: widget.loggedKeys
+                      .contains(calendarMatchKey(widget.day, event.title)),
+                  onEdit: () => _startEdit(index, event),
+                  onDelete: () => _confirmDelete(index, event),
+                  onLogResult: () => widget.onLogResult(event),
+                ),
+            const SizedBox(height: 10),
+            PremiumSectionHeader(
+              eyebrow: editing ? 'Editando' : 'Nuevo',
+              title: editing ? 'Editar evento' : 'Crear un evento',
             ),
             DropdownButtonFormField<String>(
               value: _type,
+              decoration: const InputDecoration(labelText: 'Tipo de evento'),
               items: const ['Entrenamiento', 'Partido', 'Torneo', 'Evento', 'Cumpleaños', 'Tarea']
                   .map((item) => DropdownMenuItem(value: item, child: Text(item)))
                   .toList(),
@@ -659,26 +752,59 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
               decoration: const InputDecoration(labelText: 'Título'),
             ),
             const SizedBox(height: 10),
+            InkWell(
+              onTap: _pickTime,
+              borderRadius: BorderRadius.circular(8),
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: 'Hora',
+                  prefixIcon: const Icon(Icons.schedule_outlined),
+                  suffixIcon: _timeValue.trim().isEmpty
+                      ? const Icon(Icons.expand_more)
+                      : IconButton(
+                          tooltip: 'Quitar hora',
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () => setState(() => _timeValue = ''),
+                        ),
+                ),
+                child: Text(
+                  _timeValue.trim().isEmpty ? 'Sin hora definida' : _timeValue.trim(),
+                  style: TextStyle(
+                    color: _timeValue.trim().isEmpty ? CX.faint : CX.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             TextField(
-              controller: _time,
-              keyboardType: TextInputType.datetime,
+              controller: _notes,
+              minLines: 1,
+              maxLines: 3,
               decoration: const InputDecoration(
-                labelText: 'Hora',
-                hintText: 'Ej: 19:30',
-                prefixIcon: Icon(Icons.schedule_outlined),
+                labelText: 'Notas (opcional)',
+                hintText: 'Ej: traer petos, confirmar cancha',
+                alignLabelWithHint: true,
               ),
             ),
             const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: () {
-                final title = _title.text.trim();
-                if (title.isEmpty) return;
-                widget.onAdd(_CalendarEvent(type: _type, title: title, time: _time.text.trim()));
-                _title.clear();
-                _time.clear();
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('Agregar evento'),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _submit,
+                    icon: Icon(editing ? Icons.save_outlined : Icons.add),
+                    label: Text(editing ? 'Guardar cambios' : 'Agregar evento'),
+                  ),
+                ),
+                if (editing) ...[
+                  const SizedBox(width: 10),
+                  OutlinedButton(
+                    onPressed: _resetForm,
+                    child: const Text('Cancelar'),
+                  ),
+                ],
+              ],
             ),
           ],
         ),
@@ -688,22 +814,130 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
 
   static String _weekday(int day) => const ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'][day - 1];
   static String _month(int month) => const ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'setiembre', 'octubre', 'noviembre', 'diciembre'][month - 1];
-  static IconData _icon(String type) => switch (type) {
-        'Partido' => Icons.sports_soccer_outlined,
-        'Torneo' => Icons.emoji_events_outlined,
-        'Evento' => Icons.event_outlined,
-        'Cumpleaños' => Icons.cake_outlined,
-        'Tarea' => Icons.task_alt,
-        _ => Icons.flag_outlined,
-      };
-  static Color _color(String type) => switch (type) {
-        'Partido' => CX.blue,
-        'Torneo' => Colors.purple,
-        'Evento' => Colors.indigo,
-        'Cumpleaños' => Colors.pink,
-        'Tarea' => Colors.orange,
-        _ => CX.green,
-      };
+}
+
+class _EventTile extends StatelessWidget {
+  final DateTime day;
+  final _CalendarEvent event;
+  final bool logged;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback onLogResult;
+
+  const _EventTile({
+    required this.day,
+    required this.event,
+    required this.logged,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onLogResult,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime.now();
+    final past = DateTime(day.year, day.month, day.day)
+        .isBefore(DateTime(today.year, today.month, today.day));
+    final isMatch = isMatchEventType(event.type);
+    final color = _eventColor(event.type);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: CX.panel2,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: CX.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(_eventIcon(event.type), color: color, size: 17),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      event.title,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Text(
+                          event.type,
+                          style: const TextStyle(color: CX.muted, fontSize: 11),
+                        ),
+                        if (event.time.trim().isNotEmpty) ...[
+                          const SizedBox(width: 7),
+                          const Icon(Icons.schedule, size: 11, color: CX.faint),
+                          const SizedBox(width: 2),
+                          Text(
+                            event.time.trim(),
+                            style: const TextStyle(
+                              color: CX.muted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Editar',
+                visualDensity: VisualDensity.compact,
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, size: 18, color: CX.muted),
+              ),
+              IconButton(
+                tooltip: 'Borrar',
+                visualDensity: VisualDensity.compact,
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline, size: 18, color: CX.red),
+              ),
+            ],
+          ),
+          if (event.notes.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              event.notes.trim(),
+              style: const TextStyle(color: CX.faint, fontSize: 11.5, height: 1.35),
+            ),
+          ],
+          if (isMatch && past) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: logged
+                  ? const Chip(
+                      label: Text('Resultado cargado'),
+                      visualDensity: VisualDensity.compact,
+                    )
+                  : OutlinedButton.icon(
+                      onPressed: onLogResult,
+                      icon: const Icon(Icons.scoreboard_outlined, size: 16),
+                      label: const Text('Cargar resultado'),
+                    ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _Legend extends StatelessWidget {
@@ -742,14 +976,22 @@ class _CalendarEvent {
   final String type;
   final String title;
   final String time;
+  final String notes;
 
-  const _CalendarEvent({required this.type, required this.title, this.time = ''});
+  const _CalendarEvent({
+    required this.type,
+    required this.title,
+    this.time = '',
+    this.notes = '',
+  });
 
-  Map<String, dynamic> toJson() => {'type': type, 'title': title, 'time': time};
+  Map<String, dynamic> toJson() =>
+      {'type': type, 'title': title, 'time': time, 'notes': notes};
 
   factory _CalendarEvent.fromJson(Map<String, dynamic> json) => _CalendarEvent(
         type: json['type'] as String? ?? 'Entrenamiento',
         title: json['title'] as String? ?? '',
         time: json['time'] as String? ?? '',
+        notes: json['notes'] as String? ?? '',
       );
 }

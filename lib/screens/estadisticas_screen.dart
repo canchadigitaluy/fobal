@@ -4,6 +4,7 @@ import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
 import '../state/section_handoff.dart';
+import '../ui/ui_kit.dart';
 import 'match_result_dialog.dart';
 
 class EstadisticasScreen extends StatefulWidget {
@@ -184,9 +185,17 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
                 data: data,
                 isLud: isLud,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 20),
+              const PremiumSectionHeader(
+                eyebrow: 'Panorama',
+                title: 'Números de la categoría',
+              ),
               _MetricGrid(data: data),
-              const SizedBox(height: 14),
+              const SizedBox(height: 20),
+              const PremiumSectionHeader(
+                eyebrow: 'Rendimiento',
+                title: 'Forma y goles',
+              ),
               LayoutBuilder(
                 builder: (context, constraints) {
                   final form = _FormPanel(
@@ -209,7 +218,11 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
                   );
                 },
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 20),
+              const PremiumSectionHeader(
+                eyebrow: 'Detalle',
+                title: 'Lectura, plantel y tabla',
+              ),
               _AutomaticReading(data: data),
               const SizedBox(height: 14),
               _PlayerLeaders(players: data.players),
@@ -560,105 +573,41 @@ class _WeekReading extends StatelessWidget {
     List<_ReadingAction> actions = const [],
     String? empty,
   }) {
-    const fg = Color(0xFFE8F1ED);
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF102019),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.auto_graph, color: Color(0xFF6EF2C7), size: 20),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Lectura de la semana',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .2,
+    return InsightCard(
+      icon: Icons.auto_graph,
+      title: 'Lectura de la semana',
+      subtitle: title,
+      badge: confidence == null
+          ? null
+          : ConfidenceBadge(_kitConfidence(confidence)),
+      notes: limits,
+      actions: actions.isEmpty
+          ? null
+          : ActionStrip(
+              onDark: true,
+              actions: [
+                for (final a in actions)
+                  ActionSpec(
+                    label: a.label,
+                    icon: a.icon,
+                    primary: a.primary,
+                    onTap: a.run,
                   ),
-                ),
-              ),
-              if (confidence != null) _ConfidencePill(confidence),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Color(0xFFB8C5BF),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              ],
             ),
-          ),
-          const SizedBox(height: 14),
-          if (empty != null)
-            Text(empty, style: const TextStyle(color: fg, fontSize: 13, height: 1.4))
-          else
-            ...lines.map(
-              (line) => Padding(
-                padding: const EdgeInsets.only(bottom: 9),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 6, right: 8),
-                      child: _Dot(),
-                    ),
-                    Expanded(
-                      child: Text(
-                        line,
-                        style: const TextStyle(
-                          color: fg,
-                          fontSize: 13.5,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+      child: empty != null
+          ? Text(
+              empty,
+              style: const TextStyle(
+                color: Color(0xFFE8F1ED),
+                fontSize: 13,
+                height: 1.45,
               ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [for (final line in lines) InsightLine(line)],
             ),
-          if (limits.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            ...limits.map(
-              (l) => Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.info_outline,
-                        size: 13, color: Color(0xFF8CA39B)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        l,
-                        style: const TextStyle(
-                          color: Color(0xFF8CA39B),
-                          fontSize: 11,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-          if (actions.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            const Divider(height: 1, color: Color(0x33FFFFFF)),
-            const SizedBox(height: 10),
-            _ReadingActionsRow(actions: actions),
-          ],
-        ],
-      ),
     );
   }
 }
@@ -678,78 +627,11 @@ class _ReadingAction {
   });
 }
 
-class _ReadingActionsRow extends StatelessWidget {
-  final List<_ReadingAction> actions;
-  const _ReadingActionsRow({required this.actions});
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: actions.map((action) {
-        if (action.primary) {
-          return ElevatedButton.icon(
-            onPressed: () => action.run(context),
-            icon: Icon(action.icon, size: 17),
-            label: Text(action.label),
-          );
-        }
-        return OutlinedButton.icon(
-          onPressed: () => action.run(context),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF6EF2C7),
-            side: const BorderSide(color: Color(0x556EF2C7)),
-          ),
-          icon: Icon(action.icon, size: 16),
-          label: Text(action.label),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _Dot extends StatelessWidget {
-  const _Dot();
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 4,
-    height: 4,
-    decoration: const BoxDecoration(
-      color: Color(0xFF6EF2C7),
-      shape: BoxShape.circle,
-    ),
-  );
-}
-
-class _ConfidencePill extends StatelessWidget {
-  final _Confidence level;
-  const _ConfidencePill(this.level);
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, color) = switch (level) {
-      _Confidence.alta => ('Confianza alta', const Color(0xFF6EF2C7)),
-      _Confidence.media => ('Confianza media', CX.amber),
-      _Confidence.baja => ('Confianza baja', const Color(0xFFFF9B9B)),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .16),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 9,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
+Confidence _kitConfidence(_Confidence c) => switch (c) {
+  _Confidence.alta => Confidence.alta,
+  _Confidence.media => Confidence.media,
+  _Confidence.baja => Confidence.baja,
+};
 
 class _Metric {
   final String label;
@@ -831,49 +713,17 @@ class _MetricGrid extends StatelessWidget {
       ];
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) => GridView.count(
-        crossAxisCount: constraints.maxWidth < 650
-            ? 2
-            : (constraints.maxWidth < 980 ? 3 : items.length),
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: constraints.maxWidth < 650 ? 1.35 : 1.5,
-        children: items
-            .map(
-              (item) => Container(
-                padding: const EdgeInsets.all(14),
-                decoration: CX.panelDecoration(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Icon(item.icon, color: item.color, size: 19),
-                    Text(
-                      item.value,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      item.label,
-                      style: const TextStyle(color: CX.white, fontSize: 11, fontWeight: FontWeight.w700),
-                    ),
-                    Text(
-                      item.context,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: CX.faint, fontSize: 10, height: 1.25),
-                    ),
-                  ],
-                ),
-              ),
-            )
-            .toList(),
-      ),
+    return MetricGrid(
+      tiles: [
+        for (final item in items)
+          MetricTile(
+            icon: item.icon,
+            value: item.value,
+            label: item.label,
+            context: item.context,
+            accent: item.color,
+          ),
+      ],
     );
   }
 
@@ -951,72 +801,30 @@ class _FormPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: recent.map((match) {
-              final home = _isHome(match);
-              final gf = home ? match.homeScore! : match.awayScore!;
-              final ga = home ? match.awayScore! : match.homeScore!;
-              final draw = gf == ga;
-              final won = gf > ga;
-              final rival = match.opponentName.trim().isNotEmpty
-                  ? match.opponentName.trim()
-                  : (home ? match.awayTeamName : match.homeTeamName).trim();
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: Column(
-                    children: [
-                      Container(
-                        height: 58,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: draw
-                              ? CX.amber.withValues(alpha: .75)
-                              : won
-                              ? CX.green.withValues(alpha: .8)
-                              : CX.red.withValues(alpha: .7),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          draw ? 'E' : (won ? 'G' : 'P'),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                          ),
+            children: [
+              for (final match in recent)
+                Builder(
+                  builder: (_) {
+                    final home = _isHome(match);
+                    final gf = home ? match.homeScore! : match.awayScore!;
+                    final ga = home ? match.awayScore! : match.homeScore!;
+                    final rival = match.opponentName.trim().isNotEmpty
+                        ? match.opponentName.trim()
+                        : (home ? match.awayTeamName : match.homeTeamName).trim();
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: FormPill(
+                          outcome: gf == ga ? 'E' : (gf > ga ? 'G' : 'P'),
+                          score: '$gf-$ga',
+                          rival: rival,
+                          home: home,
                         ),
                       ),
-                      const SizedBox(height: 5),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            home ? Icons.home : Icons.flight_takeoff,
-                            size: 10,
-                            color: CX.faint,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            '$gf-$ga',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        rival,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: CX.faint, fontSize: 8.5),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
-              );
-            }).toList(),
+            ],
           ),
           const SizedBox(height: 12),
           Text(
@@ -1494,11 +1302,23 @@ class _NoLudStatsBody extends StatelessWidget {
           _NoLudEmpty(onAdd: () => _add(context))
         else ...[
           _NoLudReading(summary: summary),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
+          const PremiumSectionHeader(
+            eyebrow: 'Panorama',
+            title: 'Números del equipo',
+          ),
           _NoLudMetrics(summary: summary),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
+          const PremiumSectionHeader(
+            eyebrow: 'Rendimiento',
+            title: 'Forma reciente',
+          ),
           _NoLudForm(summary: summary),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
+          const PremiumSectionHeader(
+            eyebrow: 'Historial',
+            title: 'Resultados cargados',
+          ),
           _NoLudResultsList(
             results: summary.all,
             onEdit: (r) => _edit(context, r),
@@ -1516,40 +1336,13 @@ class _NoLudEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(26),
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CX.line),
-      ),
-      child: Column(
-        children: [
-          const CircleAvatar(
-            radius: 30,
-            backgroundColor: CX.greenDark,
-            child: Icon(Icons.scoreboard_outlined, color: CX.green, size: 30),
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'Todavía no cargaste resultados',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Cargá los partidos de tu equipo y fobal arma la tabla, la forma '
-            'reciente y una lectura de cómo viene el rendimiento.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: onAdd,
-            icon: const Icon(Icons.add),
-            label: const Text('Cargar el primer resultado'),
-          ),
-        ],
-      ),
+    return EmptyStatePanel(
+      icon: Icons.scoreboard_outlined,
+      title: 'Todavía no cargaste resultados',
+      message: 'Cargá los partidos de tu equipo y fobal arma la tabla, la '
+          'forma reciente y una lectura de cómo viene el rendimiento.',
+      primaryLabel: 'Cargar el primer resultado',
+      onPrimary: onAdd,
     );
   }
 }
@@ -1560,7 +1353,6 @@ class _NoLudReading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const fg = Color(0xFFE8F1ED);
     final lines = <String>[];
     final limits = <String>[];
     _Confidence? confidence;
@@ -1637,95 +1429,30 @@ class _NoLudReading extends StatelessWidget {
           )
         : null;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF102019),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.auto_graph, color: Color(0xFF6EF2C7), size: 20),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Lectura de la semana',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              if (confidence != null) _ConfidencePill(confidence),
-            ],
-          ),
-          const SizedBox(height: 14),
-          ...lines.map(
-            (line) => Padding(
-              padding: const EdgeInsets.only(bottom: 9),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 6, right: 8),
-                    child: _Dot(),
-                  ),
-                  Expanded(
-                    child: Text(
-                      line,
-                      style: const TextStyle(color: fg, fontSize: 13.5, height: 1.4),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (limits.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            ...limits.map(
-              (l) => Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.info_outline, size: 13, color: Color(0xFF8CA39B)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        l,
-                        style: const TextStyle(
-                          color: Color(0xFF8CA39B),
-                          fontSize: 11,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-          if (focus != null) ...[
-            const SizedBox(height: 14),
-            const Divider(height: 1, color: Color(0x33FFFFFF)),
-            const SizedBox(height: 10),
-            _ReadingActionsRow(
+    return InsightCard(
+      icon: Icons.auto_graph,
+      title: 'Lectura de la semana',
+      badge: confidence == null
+          ? null
+          : ConfidenceBadge(_kitConfidence(confidence)),
+      notes: limits,
+      actions: focus == null
+          ? null
+          : ActionStrip(
+              onDark: true,
               actions: [
-                _ReadingAction(
+                ActionSpec(
                   label: 'Preparar entrenamiento con este foco',
                   icon: Icons.auto_awesome,
                   primary: true,
-                  run: (context) =>
+                  onTap: (context) =>
                       ShellActions.of(context).openPlannerWithFocus(focus),
                 ),
               ],
             ),
-          ],
-        ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [for (final line in lines) InsightLine(line)],
       ),
     );
   }
@@ -1774,50 +1501,17 @@ class _NoLudMetrics extends StatelessWidget {
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) => GridView.count(
-        crossAxisCount: constraints.maxWidth < 650
-            ? 2
-            : (constraints.maxWidth < 980 ? 3 : items.length),
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: constraints.maxWidth < 650 ? 1.35 : 1.5,
-        children: items
-            .map(
-              (item) => Container(
-                padding: const EdgeInsets.all(14),
-                decoration: CX.panelDecoration(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Icon(item.icon, color: item.color, size: 19),
-                    Text(
-                      item.value,
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-                    ),
-                    Text(
-                      item.label,
-                      style: const TextStyle(
-                        color: CX.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      item.context,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: CX.faint, fontSize: 10, height: 1.25),
-                    ),
-                  ],
-                ),
-              ),
-            )
-            .toList(),
-      ),
+    return MetricGrid(
+      tiles: [
+        for (final item in items)
+          MetricTile(
+            icon: item.icon,
+            value: item.value,
+            label: item.label,
+            context: item.context,
+            accent: item.color,
+          ),
+      ],
     );
   }
 }
@@ -1831,7 +1525,7 @@ class _NoLudForm extends StatelessWidget {
     final recent = summary.competitive.take(5).toList().reversed.toList();
     if (recent.isEmpty) {
       return const _Panel(
-        title: 'Forma reciente',
+        title: 'Detalle de los oficiales',
         icon: Icons.timeline,
         child: Text(
           'Cargá partidos oficiales para ver la forma reciente.',
@@ -1844,75 +1538,26 @@ class _NoLudForm extends StatelessWidget {
     final d = recent.where((r) => r.outcome == 'E').length;
     final l = recent.length - w - d;
     return _Panel(
-      title: 'Forma reciente',
+      title: 'Detalle de los oficiales',
       icon: Icons.timeline,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: recent.map((r) {
-              final color = r.outcome == 'E'
-                  ? CX.amber.withValues(alpha: .75)
-                  : r.outcome == 'G'
-                  ? CX.green.withValues(alpha: .8)
-                  : CX.red.withValues(alpha: .7);
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: Column(
-                    children: [
-                      Container(
-                        height: 58,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          r.outcome,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            r.venue == 'away'
-                                ? Icons.flight_takeoff
-                                : r.venue == 'neutral'
-                                ? Icons.place_outlined
-                                : Icons.home,
-                            size: 10,
-                            color: CX.faint,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${r.goalsFor}-${r.goalsAgainst}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        r.opponent,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: CX.faint, fontSize: 8.5),
-                      ),
-                    ],
+            children: [
+              for (final r in recent)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: FormPill(
+                      outcome: r.outcome,
+                      score: '${r.goalsFor}-${r.goalsAgainst}',
+                      rival: r.opponent,
+                      home: r.venue != 'away',
+                    ),
                   ),
                 ),
-              );
-            }).toList(),
+            ],
           ),
           const SizedBox(height: 12),
           Text(

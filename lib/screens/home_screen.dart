@@ -10,6 +10,7 @@ import '../main.dart';
 import '../services/supabase_auth_service.dart';
 import '../services/club_access_service.dart';
 import '../state/section_handoff.dart';
+import '../ui/ui_kit.dart';
 
 class HomeScreen extends StatefulWidget {
   final ValueChanged<int> onNavigate;
@@ -2797,126 +2798,88 @@ class _BoardShell extends StatelessWidget {
       ...?manualPills,
     ];
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF102019),
-        borderRadius: BorderRadius.circular(8),
-      ),
+    final pillRow = pills.isEmpty
+        ? null
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: pills
+                .map(
+                  (o) => Container(
+                    margin: const EdgeInsets.only(left: 4),
+                    width: 18,
+                    height: 18,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color:
+                          (o == 'E'
+                                  ? CX.amber
+                                  : o == 'G'
+                                  ? CX.green
+                                  : CX.red)
+                              .withValues(alpha: .85),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      o,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          );
+
+    return InsightCard(
+      icon: Icons.dashboard_customize_outlined,
+      title: title,
+      badge: isLoading
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF6EF2C7),
+              ),
+            )
+          : null,
+      actions: actions.isEmpty
+          ? null
+          : ActionStrip(
+              onDark: true,
+              actions: [
+                for (final a in actions)
+                  ActionSpec(
+                    label: a.label,
+                    icon: a.icon,
+                    primary: a.primary,
+                    onTap: a.run,
+                  ),
+              ],
+            ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.dashboard_customize_outlined,
-                color: Color(0xFF6EF2C7),
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              if (isLoading)
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Color(0xFF6EF2C7),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _BoardRow(
+          InsightRow(
             icon: Icons.event_outlined,
             label: 'Qué viene',
             value: nextLine,
           ),
-          const SizedBox(height: 10),
-          _BoardRow(
+          InsightRow(
             icon: Icons.timeline,
             label: 'Qué pasó',
             value: formSummary,
-            trailing: pills.isEmpty
-                ? null
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: pills
-                        .map(
-                          (o) => Container(
-                            margin: const EdgeInsets.only(left: 4),
-                            width: 18,
-                            height: 18,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color:
-                                  (o == 'E'
-                                          ? CX.amber
-                                          : o == 'G'
-                                          ? CX.green
-                                          : CX.red)
-                                      .withValues(alpha: .85),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              o,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
+            trailing: pillRow,
           ),
-          const SizedBox(height: 10),
-          _BoardRow(
+          InsightRow(
             icon: Icons.insights,
             label: 'Qué significa',
             value: meaning,
           ),
-          if (actions.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            const Divider(height: 1, color: Color(0x33FFFFFF)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: actions.map((a) {
-                if (a.primary) {
-                  return ElevatedButton.icon(
-                    onPressed: () => a.run(context),
-                    icon: Icon(a.icon, size: 17),
-                    label: Text(a.label),
-                  );
-                }
-                return OutlinedButton.icon(
-                  onPressed: () => a.run(context),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF6EF2C7),
-                    side: const BorderSide(color: Color(0x556EF2C7)),
-                  ),
-                  icon: Icon(a.icon, size: 16),
-                  label: Text(a.label),
-                );
-              }).toList(),
-            ),
-          ],
           if (shortcuts.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
             Wrap(spacing: 8, runSpacing: 8, children: shortcuts),
           ],
         ],
@@ -2925,55 +2888,6 @@ class _BoardShell extends StatelessWidget {
   }
 }
 
-class _BoardRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Widget? trailing;
-  const _BoardRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.trailing,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 14, color: const Color(0xFF6EF2C7)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label.toUpperCase(),
-                style: const TextStyle(
-                  color: Color(0xFF8CA39B),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: .4,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Color(0xFFE8F1ED),
-                  fontSize: 12.5,
-                  height: 1.35,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (trailing != null) ...[const SizedBox(width: 8), trailing!],
-      ],
-    );
-  }
-}
 
 class _BoardShortcut extends StatelessWidget {
   final String label;

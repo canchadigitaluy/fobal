@@ -1207,6 +1207,12 @@ class CanteraClubContext {
             status: 'Activo',
             attendanceRate: 0,
             trend: _playerTrend(item),
+            matchesPlayed: _intOf(item['matches']),
+            minutesPlayed: _intOf(item['minutes']),
+            goals: _intOf(item['goals']),
+            assists: _intOf(item['assists']),
+            yellowCards: _intOf(item['yellowCards']),
+            redCards: _intOf(item['redCards']),
             note: _playerNote(item),
           );
         })
@@ -1223,6 +1229,9 @@ class CanteraClubContext {
       players: players,
     );
   }
+
+  static int _intOf(Object? value) =>
+      value is num ? value.toInt() : int.tryParse('${value ?? ''}') ?? 0;
 
   static String _playerTrend(Map<String, dynamic> item) {
     final matches = item['matches'] ?? 0;

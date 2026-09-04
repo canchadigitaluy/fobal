@@ -263,7 +263,20 @@ class Player {
   final String statusDetail;
   final int suspensionDates;
   final double attendanceRate;
+
+  /// Human-readable season line ("12 PJ - 890 min - 4 goles"). Kept for the
+  /// screens and the AI payload that still consume it as text; the typed fields
+  /// below are the source of truth for anything that does maths.
   final String trend;
+
+  /// Season stats from the league. 0 for players without league data
+  /// (No-LUD, or a LUD player with no minutes yet).
+  final int matchesPlayed;
+  final int minutesPlayed;
+  final int goals;
+  final int assists;
+  final int yellowCards;
+  final int redCards;
   final String note;
 
   const Player({
@@ -280,8 +293,22 @@ class Player {
     this.suspensionDates = 0,
     required this.attendanceRate,
     required this.trend,
+    this.matchesPlayed = 0,
+    this.minutesPlayed = 0,
+    this.goals = 0,
+    this.assists = 0,
+    this.yellowCards = 0,
+    this.redCards = 0,
     required this.note,
   });
+
+  bool get hasLeagueStats =>
+      matchesPlayed > 0 ||
+      minutesPlayed > 0 ||
+      goals > 0 ||
+      assists > 0 ||
+      yellowCards > 0 ||
+      redCards > 0;
 
   String get fullName => '$firstName $lastName';
 
@@ -311,6 +338,12 @@ class Player {
     int? suspensionDates,
     double? attendanceRate,
     String? trend,
+    int? matchesPlayed,
+    int? minutesPlayed,
+    int? goals,
+    int? assists,
+    int? yellowCards,
+    int? redCards,
     String? note,
   }) {
     return Player(
@@ -327,6 +360,12 @@ class Player {
       suspensionDates: suspensionDates ?? this.suspensionDates,
       attendanceRate: attendanceRate ?? this.attendanceRate,
       trend: trend ?? this.trend,
+      matchesPlayed: matchesPlayed ?? this.matchesPlayed,
+      minutesPlayed: minutesPlayed ?? this.minutesPlayed,
+      goals: goals ?? this.goals,
+      assists: assists ?? this.assists,
+      yellowCards: yellowCards ?? this.yellowCards,
+      redCards: redCards ?? this.redCards,
       note: note ?? this.note,
     );
   }
@@ -346,6 +385,12 @@ class Player {
       'suspensionDates': suspensionDates,
       'attendanceRate': attendanceRate,
       'trend': trend,
+      'matchesPlayed': matchesPlayed,
+      'minutesPlayed': minutesPlayed,
+      'goals': goals,
+      'assists': assists,
+      'yellowCards': yellowCards,
+      'redCards': redCards,
       'note': note,
     };
   }
@@ -367,6 +412,12 @@ class Player {
       suspensionDates: (json['suspensionDates'] as num?)?.toInt() ?? 0,
       attendanceRate: (json['attendanceRate'] as num?)?.toDouble() ?? 0,
       trend: json['trend'] as String? ?? '',
+      matchesPlayed: (json['matchesPlayed'] as num?)?.toInt() ?? 0,
+      minutesPlayed: (json['minutesPlayed'] as num?)?.toInt() ?? 0,
+      goals: (json['goals'] as num?)?.toInt() ?? 0,
+      assists: (json['assists'] as num?)?.toInt() ?? 0,
+      yellowCards: (json['yellowCards'] as num?)?.toInt() ?? 0,
+      redCards: (json['redCards'] as num?)?.toInt() ?? 0,
       note: cleanVisiblePlayerNote(json['note'] as String? ?? ''),
     );
   }

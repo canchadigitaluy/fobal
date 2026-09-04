@@ -59,4 +59,63 @@ void main() {
     expect(restored!.name, 'Z');
     expect(restored.categories, isEmpty);
   });
+
+  test('typed league stats survive the club round-trip', () {
+    const player = Player(
+      id: 'lud-player-9-mayores',
+      categoryId: 'cat-1',
+      firstName: 'Juan',
+      lastName: 'Pérez',
+      age: 0,
+      position: 'Delantero',
+      secondaryPositions: '',
+      dominantFoot: '',
+      status: 'Activo',
+      attendanceRate: 0,
+      trend: '12 PJ - 890 min - 7 goles',
+      matchesPlayed: 12,
+      minutesPlayed: 890,
+      goals: 7,
+      assists: 3,
+      yellowCards: 4,
+      redCards: 1,
+      note: '',
+    );
+    final withPlayer = club.copyWith(players: [player]);
+    final restored = ClubBackupCodec.parseClubJson(
+      ClubBackupCodec.exportJson(withPlayer),
+    );
+    expect(restored, isNotNull);
+    final back = restored!.players.single;
+    expect(back.matchesPlayed, 12);
+    expect(back.minutesPlayed, 890);
+    expect(back.goals, 7);
+    expect(back.assists, 3);
+    expect(back.yellowCards, 4);
+    expect(back.redCards, 1);
+    expect(back.goals + back.assists, 10);
+  });
+
+  test('a player without league stats reads zero and hasLeagueStats is false', () {
+    const player = Player(
+      id: 'manual-1',
+      categoryId: 'cat-1',
+      firstName: 'Ana',
+      lastName: 'Gómez',
+      age: 0,
+      position: '',
+      secondaryPositions: '',
+      dominantFoot: '',
+      status: 'Activo',
+      attendanceRate: 0,
+      trend: '',
+      note: '',
+    );
+    expect(player.hasLeagueStats, isFalse);
+    final restored = ClubBackupCodec.parseClubJson(
+      ClubBackupCodec.exportJson(club.copyWith(players: [player])),
+    );
+    expect(restored!.players.single.goals, 0);
+    expect(restored.players.single.hasLeagueStats, isFalse);
+  });
 }

@@ -86,20 +86,16 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
   }
 
   List<_PlayerStat> _playerStats(List<Player> players) {
-    int value(String text, String suffix) {
-      final match = RegExp('(\\d+)\\s+$suffix', caseSensitive: false)
-          .firstMatch(text);
-      return int.tryParse(match?.group(1) ?? '') ?? 0;
-    }
-
     return players
         .map(
           (player) => _PlayerStat(
             name: player.fullName.trim(),
             position: player.position.trim(),
-            matches: value(player.trend, 'PJ'),
-            minutes: value(player.trend, 'min'),
-            goals: value(player.trend, 'goles?'),
+            matches: player.matchesPlayed,
+            minutes: player.minutesPlayed,
+            goals: player.goals,
+            assists: player.assists,
+            yellowCards: player.yellowCards,
           ),
         )
         .where((player) => player.name.isNotEmpty)
@@ -159,10 +155,22 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           final data = snapshot.data ?? const _StatsData();
+          final isLud = LudCategoryRef.teamIdOf(
+                scope.selectedCategoryId ??
+                    (scope.fullClub.categories.isEmpty
+                        ? ''
+                        : scope.fullClub.categories.first.id),
+              ) !=
+              null;
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
             children: [
-              _StatsHero(clubName: club.name, category: category, data: data),
+              _WeekReading(
+                clubName: club.name,
+                category: category,
+                data: data,
+                isLud: isLud,
+              ),
               const SizedBox(height: 14),
               _MetricGrid(data: data),
               const SizedBox(height: 14),
@@ -222,6 +230,8 @@ class _PlayerStat {
   final int matches;
   final int minutes;
   final int goals;
+  final int assists;
+  final int yellowCards;
 
   const _PlayerStat({
     required this.name,
@@ -229,59 +239,391 @@ class _PlayerStat {
     required this.matches,
     required this.minutes,
     required this.goals,
+    this.assists = 0,
+    this.yellowCards = 0,
   });
+
+  int get goalContributions => goals + assists;
+  bool get hasData => matches > 0 || minutes > 0 || goalContributions > 0;
 }
 
-class _StatsHero extends StatelessWidget {
+/// League averages for the selected category, derived from the standings table.
+/// Null when the table is too thin to average.
+class _CategoryAverages {
+  final int teamCount;
+  final double pointsPerGame;
+  final double goalsForPerGame;
+  final double goalsAgainstPerGame;
+  final int? attackRank; // own rank by goals for (1 = best)
+  final int? defenseRank; // own rank by goals against (1 = best)
+
+  const _CategoryAverages({
+    required this.teamCount,
+    required this.pointsPerGame,
+    required this.goalsForPerGame,
+    required this.goalsAgainstPerGame,
+    this.attackRank,
+    this.defenseRank,
+  });
+
+  static _CategoryAverages? from(LudStandingsTable? table) {
+    final rows = (table?.rows ?? const <LudStandingRow>[])
+        .where((r) => r.played > 0)
+        .toList();
+    if (rows.length < 3) return null;
+    final games = rows.fold<int>(0, (s, r) => s + r.played);
+    if (games == 0) return null;
+    int? attackRank;
+    int? defenseRank;
+    final own = table?.ownRow;
+    if (own != null && own.played > 0) {
+      final byAttack = [...rows]
+        ..sort((a, b) => b.goalsFor.compareTo(a.goalsFor));
+      final byDefense = [...rows]
+        ..sort((a, b) => a.goalsAgainst.compareTo(b.goalsAgainst));
+      final a = byAttack.indexWhere((r) => r.isOwnTeam);
+      final d = byDefense.indexWhere((r) => r.isOwnTeam);
+      attackRank = a < 0 ? null : a + 1;
+      defenseRank = d < 0 ? null : d + 1;
+    }
+    return _CategoryAverages(
+      teamCount: rows.length,
+      pointsPerGame: rows.fold<int>(0, (s, r) => s + r.points) / games,
+      goalsForPerGame: rows.fold<int>(0, (s, r) => s + r.goalsFor) / games,
+      goalsAgainstPerGame:
+          rows.fold<int>(0, (s, r) => s + r.goalsAgainst) / games,
+      attackRank: attackRank,
+      defenseRank: defenseRank,
+    );
+  }
+}
+
+enum _Confidence { alta, media, baja }
+
+/// The headline read: 3-5 deterministic sentences built only from real rows,
+/// with a confidence badge and an explicit note when the sample is short.
+class _WeekReading extends StatelessWidget {
   final String clubName;
   final String category;
   final _StatsData data;
+  final bool isLud;
 
-  const _StatsHero({
+  const _WeekReading({
     required this.clubName,
     required this.category,
     required this.data,
+    required this.isLud,
   });
+
+  bool _sameClub(String value) {
+    String clean(String t) => t.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final l = clean(value);
+    final r = clean(clubName);
+    return l.isNotEmpty && r.isNotEmpty && (l == r || l.contains(r) || r.contains(l));
+  }
+
+  bool _isHome(LudFixtureMatch m) {
+    final opp = m.opponentName.trim();
+    if (opp.isNotEmpty) return m.awayTeamName.trim() == opp;
+    return _sameClub(m.homeTeamName);
+  }
+
+  ({int w, int d, int l, int pts}) _record(List<LudFixtureMatch> matches) {
+    var w = 0, d = 0, l = 0;
+    for (final m in matches) {
+      final home = _isHome(m);
+      final gf = home ? m.homeScore! : m.awayScore!;
+      final ga = home ? m.awayScore! : m.homeScore!;
+      if (gf > ga) {
+        w++;
+      } else if (gf == ga) {
+        d++;
+      } else {
+        l++;
+      }
+    }
+    return (w: w, d: d, l: l, pts: w * 3 + d);
+  }
 
   @override
   Widget build(BuildContext context) {
     final row = data.ownRow;
+    final title = '$clubName · $category';
+
+    if (row == null || row.played == 0) {
+      return _shell(
+        title: title,
+        confidence: null,
+        lines: const [],
+        empty: isLud
+            ? 'La liga todavía no publicó partidos jugados para esta categoría.'
+            : 'Todavía no hay datos de liga para esta categoría.',
+      );
+    }
+
+    final avg = _CategoryAverages.from(data.standings);
+    final played = data.results.where((m) => m.isPlayedResult).toList();
+    final scoring = row.goalsFor / row.played;
+    final conceding = row.goalsAgainst / row.played;
+    final pointsRate = row.points / (row.played * 3);
+
+    final lines = <String>[];
+
+    // 1. Posición y ritmo de puntos.
+    final rateText = '${(pointsRate * 100).round()}% de los puntos en juego';
+    lines.add(
+      avg == null
+          ? '${row.rank}° con ${row.points} pts en ${row.played} partidos — $rateText.'
+          : '${row.rank}° con ${row.points} pts — $rateText, '
+                '${_cmp(pointsRate, avg.pointsPerGame / 3, tol: 0.05)} la media de la categoría '
+                '(${(avg.pointsPerGame / 3 * 100).round()}%).',
+    );
+
+    // 2. Ataque.
+    if (scoring >= 1.4) {
+      lines.add(
+        'Ataque productivo: ${scoring.toStringAsFixed(1)} goles por partido'
+        '${avg?.attackRank != null && avg!.attackRank! <= 3 ? ' — 3° o mejor de la categoría' : ''}.',
+      );
+    } else {
+      lines.add(
+        'Producción ofensiva baja: ${scoring.toStringAsFixed(1)} goles por partido'
+        '${avg != null ? ', ${_cmp(scoring, avg.goalsForPerGame)} la media (${avg.goalsForPerGame.toStringAsFixed(1)})' : ''}.',
+      );
+    }
+
+    // 3. Defensa.
+    if (conceding <= 1.1) {
+      lines.add(
+        'Defensa sólida: ${conceding.toStringAsFixed(1)} recibidos por partido'
+        '${avg?.defenseRank != null && avg!.defenseRank! <= 3 ? ' — 3° o mejor de la categoría' : ''}.',
+      );
+    } else {
+      lines.add(
+        'Cuidar la defensa: ${conceding.toStringAsFixed(1)} recibidos por partido'
+        '${avg != null ? ', ${_cmp(conceding, avg.goalsAgainstPerGame)} la media (${avg.goalsAgainstPerGame.toStringAsFixed(1)})' : ''}.',
+      );
+    }
+
+    // 4. Forma reciente (últimos 5 resultados reales).
+    if (played.length >= 3) {
+      final last5 = played.take(5).toList();
+      final rec = _record(last5);
+      final prev5 = played.skip(5).take(5).toList();
+      var trend = '';
+      if (prev5.length >= 3) {
+        final prev = _record(prev5);
+        trend = rec.pts > prev.pts
+            ? ' — en alza (venía de ${prev.pts})'
+            : rec.pts < prev.pts
+            ? ' — en baja (venía de ${prev.pts})'
+            : '';
+      }
+      lines.add(
+        'Últimos ${last5.length}: ${rec.w}G ${rec.d}E ${rec.l}P, ${rec.pts} pts$trend.',
+      );
+    }
+
+    // 5. Local vs visitante.
+    if (played.length >= 4) {
+      final home = _record(played.where(_isHome).toList());
+      final away = _record(played.where((m) => !_isHome(m)).toList());
+      final homeGames = home.w + home.d + home.l;
+      final awayGames = away.w + away.d + away.l;
+      if (homeGames >= 2 && awayGames >= 2) {
+        final homeRate = home.pts / (homeGames * 3);
+        final awayRate = away.pts / (awayGames * 3);
+        if ((homeRate - awayRate).abs() >= 0.25) {
+          lines.add(
+            homeRate > awayRate
+                ? 'Rendís mejor de local: ${home.pts} pts en $homeGames vs ${away.pts} en $awayGames de visitante.'
+                : 'Rendís mejor de visitante: ${away.pts} pts en $awayGames vs ${home.pts} en $homeGames de local.',
+          );
+        }
+      }
+    }
+
+    final confidence = row.played >= 8 && played.length >= 4
+        ? _Confidence.alta
+        : row.played >= 4
+        ? _Confidence.media
+        : _Confidence.baja;
+
+    final limits = <String>[
+      if (row.played < 4)
+        'Datos de ${row.played} partido${row.played == 1 ? '' : 's'}: tomalo como tendencia preliminar.',
+      if (played.length < 3)
+        'Pocos resultados recientes disponibles para leer la forma.',
+      if (avg == null) 'Sin tabla completa de la categoría para comparar.',
+    ];
+
+    return _shell(
+      title: title,
+      confidence: confidence,
+      lines: lines,
+      limits: limits,
+    );
+  }
+
+  /// "sobre" / "bajo" / "en" [reference], comparing [value].
+  String _cmp(double value, double reference, {double tol = 0.1}) {
+    if ((value - reference).abs() <= tol) return 'en';
+    return value > reference ? 'sobre' : 'bajo';
+  }
+
+  Widget _shell({
+    required String title,
+    required _Confidence? confidence,
+    required List<String> lines,
+    List<String> limits = const [],
+    String? empty,
+  }) {
+    const fg = Color(0xFFE8F1ED);
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: const Color(0xFF102019),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.query_stats, color: Color(0xFF6EF2C7), size: 34),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$clubName · $category',
-                  style: const TextStyle(
+          Row(
+            children: [
+              const Icon(Icons.auto_graph, color: Color(0xFF6EF2C7), size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Lectura de la semana',
+                  style: TextStyle(
                     color: Colors.white,
-                    fontSize: 22,
+                    fontSize: 13,
                     fontWeight: FontWeight.w900,
+                    letterSpacing: .2,
                   ),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  row == null
-                      ? 'Esperando estadísticas oficiales de esta categoría.'
-                      : '${row.rank}° en la tabla · ${row.points} puntos · ${row.goalDifference >= 0 ? '+' : ''}${row.goalDifference} de diferencia',
-                  style: const TextStyle(color: Color(0xFFB8C5BF), fontSize: 13),
-                ),
-              ],
+              ),
+              if (confidence != null) _ConfidencePill(confidence),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFFB8C5BF),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
             ),
           ),
+          const SizedBox(height: 14),
+          if (empty != null)
+            Text(empty, style: const TextStyle(color: fg, fontSize: 13, height: 1.4))
+          else
+            ...lines.map(
+              (line) => Padding(
+                padding: const EdgeInsets.only(bottom: 9),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 6, right: 8),
+                      child: _Dot(),
+                    ),
+                    Expanded(
+                      child: Text(
+                        line,
+                        style: const TextStyle(
+                          color: fg,
+                          fontSize: 13.5,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (limits.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            ...limits.map(
+              (l) => Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline,
+                        size: 13, color: Color(0xFF8CA39B)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        l,
+                        style: const TextStyle(
+                          color: Color(0xFF8CA39B),
+                          fontSize: 11,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+}
+
+class _Dot extends StatelessWidget {
+  const _Dot();
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 4,
+    height: 4,
+    decoration: const BoxDecoration(
+      color: Color(0xFF6EF2C7),
+      shape: BoxShape.circle,
+    ),
+  );
+}
+
+class _ConfidencePill extends StatelessWidget {
+  final _Confidence level;
+  const _ConfidencePill(this.level);
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (level) {
+      _Confidence.alta => ('Confianza alta', const Color(0xFF6EF2C7)),
+      _Confidence.media => ('Confianza media', CX.amber),
+      _Confidence.baja => ('Confianza baja', const Color(0xFFFF9B9B)),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .16),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _Metric {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final String context; // one short line: comparison / verdict / "sin datos"
+  const _Metric(this.label, this.value, this.icon, this.color, this.context);
 }
 
 class _MetricGrid extends StatelessWidget {
@@ -291,43 +633,107 @@ class _MetricGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final row = data.ownRow;
-    final pointsRate = row == null || row.played == 0
-        ? 0
-        : (row.points / (row.played * 3) * 100).round();
-    final items = [
-      ('Posición', row == null ? '—' : '${row.rank}°', Icons.emoji_events, CX.amber),
-      ('Puntos', row == null ? '—' : '${row.points}', Icons.stars, CX.blue),
-      (
-        'Puntos obtenidos',
-        row == null ? '—' : '$pointsRate%',
-        Icons.trending_up,
-        CX.green,
-      ),
-      ('Goles', row == null ? '—' : '${row.goalsFor}', Icons.sports_soccer, CX.red),
-    ];
+    final avg = _CategoryAverages.from(data.standings);
+
+    List<_Metric> items;
+    if (row == null || row.played == 0) {
+      items = const [
+        _Metric('Posición', '—', Icons.emoji_events, CX.amber, 'Sin tabla'),
+        _Metric('Puntos', '—', Icons.stars, CX.blue, 'Sin datos'),
+        _Metric('Puntos obtenidos', '—', Icons.trending_up, CX.green, 'Sin datos'),
+        _Metric('Goles a favor', '—', Icons.sports_soccer, CX.red, 'Sin datos'),
+      ];
+    } else {
+      final pointsRate = row.points / (row.played * 3);
+      final scoring = row.goalsFor / row.played;
+      final conceding = row.goalsAgainst / row.played;
+      final leagueRate = avg == null ? null : avg.pointsPerGame / 3;
+
+      items = [
+        _Metric(
+          'Posición',
+          '${row.rank}°',
+          Icons.emoji_events,
+          CX.amber,
+          avg == null ? '${row.played} PJ' : 'de ${avg.teamCount} equipos',
+        ),
+        _Metric(
+          'Puntos',
+          '${row.points}',
+          Icons.stars,
+          CX.blue,
+          '${row.won}G ${row.drawn}E ${row.lost}P',
+        ),
+        _Metric(
+          'Puntos obtenidos',
+          '${(pointsRate * 100).round()}%',
+          Icons.trending_up,
+          CX.green,
+          leagueRate == null
+              ? 'de los disputados'
+              : _verdict(pointsRate, leagueRate, 0.05,
+                  '(media ${(leagueRate * 100).round()}%)'),
+        ),
+        _Metric(
+          'Goles / partido',
+          scoring.toStringAsFixed(1),
+          Icons.sports_soccer,
+          CX.red,
+          avg == null
+              ? '${row.goalsFor} a favor'
+              : '${_verdict(scoring, avg.goalsForPerGame, 0.15, '')}'
+                  '${avg.attackRank != null ? ' · ${avg.attackRank}° ataque' : ''}',
+        ),
+        _Metric(
+          'Recibidos / partido',
+          conceding.toStringAsFixed(1),
+          Icons.shield_outlined,
+          conceding <= 1.1 ? CX.green : CX.amber,
+          avg == null
+              ? '${row.goalsAgainst} en contra'
+              : '${_verdict(conceding, avg.goalsAgainstPerGame, 0.15, '')}'
+                  '${avg.defenseRank != null ? ' · ${avg.defenseRank}° defensa' : ''}',
+        ),
+      ];
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) => GridView.count(
-        crossAxisCount: constraints.maxWidth < 650 ? 2 : 4,
+        crossAxisCount: constraints.maxWidth < 650
+            ? 2
+            : (constraints.maxWidth < 980 ? 3 : items.length),
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        childAspectRatio: constraints.maxWidth < 650 ? 1.55 : 1.75,
+        childAspectRatio: constraints.maxWidth < 650 ? 1.35 : 1.5,
         children: items
             .map(
               (item) => Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 decoration: CX.panelDecoration(),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(item.$3, color: item.$4, size: 20),
+                    Icon(item.icon, color: item.color, size: 19),
                     Text(
-                      item.$2,
-                      style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900),
+                      item.value,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                    Text(item.$1, style: const TextStyle(color: CX.muted, fontSize: 11)),
+                    Text(
+                      item.label,
+                      style: const TextStyle(color: CX.white, fontSize: 11, fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      item.context,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: CX.faint, fontSize: 10, height: 1.25),
+                    ),
                   ],
                 ),
               ),
@@ -335,6 +741,19 @@ class _MetricGrid extends StatelessWidget {
             .toList(),
       ),
     );
+  }
+
+  /// Literal position of [value] against [reference] ("sobre / bajo / en la
+  /// media"). The reader interprets whether that is good or bad from the label
+  /// ("Goles / partido" vs "Recibidos / partido").
+  String _verdict(double value, double reference, double tol, String suffix) {
+    final within = (value - reference).abs() <= tol;
+    final word = within
+        ? 'en la media'
+        : value > reference
+        ? 'sobre la media'
+        : 'bajo la media';
+    return suffix.isEmpty ? word : '$word $suffix';
   }
 }
 
@@ -368,47 +787,114 @@ class _FormPanel extends StatelessWidget {
         .toList()
         .reversed
         .toList();
+    if (recent.isEmpty) {
+      return const _Panel(
+        title: 'Forma reciente',
+        icon: Icons.timeline,
+        child: _NoData(),
+      );
+    }
+    var points = 0;
+    var wins = 0;
+    var draws = 0;
+    for (final match in recent) {
+      final home = _isHome(match);
+      final gf = home ? match.homeScore! : match.awayScore!;
+      final ga = home ? match.awayScore! : match.homeScore!;
+      if (gf > ga) {
+        points += 3;
+        wins++;
+      } else if (gf == ga) {
+        points += 1;
+        draws++;
+      }
+    }
+    final losses = recent.length - wins - draws;
     return _Panel(
       title: 'Forma reciente',
       icon: Icons.timeline,
-      child: recent.isEmpty
-          ? const _NoData()
-          : Row(
-              children: recent.map((match) {
-                final isHome = _isHome(match);
-                final goalsFor = isHome ? match.homeScore! : match.awayScore!;
-                final goalsAgainst = isHome
-                    ? match.awayScore!
-                    : match.homeScore!;
-                final draw = goalsFor == goalsAgainst;
-                final won = goalsFor > goalsAgainst;
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 72,
-                          decoration: BoxDecoration(
-                            color: draw
-                                ? CX.amber.withValues(alpha: .75)
-                                : won
-                                ? CX.green.withValues(alpha: .8)
-                                : CX.red.withValues(alpha: .7),
-                            borderRadius: BorderRadius.circular(6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: recent.map((match) {
+              final home = _isHome(match);
+              final gf = home ? match.homeScore! : match.awayScore!;
+              final ga = home ? match.awayScore! : match.homeScore!;
+              final draw = gf == ga;
+              final won = gf > ga;
+              final rival = match.opponentName.trim().isNotEmpty
+                  ? match.opponentName.trim()
+                  : (home ? match.awayTeamName : match.homeTeamName).trim();
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 58,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: draw
+                              ? CX.amber.withValues(alpha: .75)
+                              : won
+                              ? CX.green.withValues(alpha: .8)
+                              : CX.red.withValues(alpha: .7),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          draw ? 'E' : (won ? 'G' : 'P'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '$goalsFor-$goalsAgainst',
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            home ? Icons.home : Icons.flight_takeoff,
+                            size: 10,
+                            color: CX.faint,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            '$gf-$ga',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        rival,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: CX.faint, fontSize: 8.5),
+                      ),
+                    ],
                   ),
-                );
-              }).toList(),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '$wins G · $draws E · $losses P — $points de ${recent.length * 3} pts',
+            style: const TextStyle(
+              color: CX.muted,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -466,31 +952,88 @@ class _AutomaticReading extends StatelessWidget {
   Widget build(BuildContext context) {
     final row = data.ownRow;
     final messages = <String>[];
-    if (row != null && row.played > 0) {
-      final scoring = row.goalsFor / row.played;
-      final conceding = row.goalsAgainst / row.played;
-      messages.add(
-        scoring >= 1.5
-            ? 'El equipo sostiene una producción alta: ${scoring.toStringAsFixed(1)} goles por partido.'
-            : 'La producción ofensiva es un área de mejora: ${scoring.toStringAsFixed(1)} goles por partido.',
+
+    // Table context: distance to positions above.
+    final rows = data.standings?.rows ?? const <LudStandingRow>[];
+    if (row != null && rows.isNotEmpty && row.rank > 1) {
+      final above = rows.firstWhere(
+        (r) => r.rank == row.rank - 1,
+        orElse: () => row,
       );
-      messages.add(
-        conceding <= 1
-            ? 'La solidez defensiva es una fortaleza: ${conceding.toStringAsFixed(1)} goles recibidos por partido.'
-            : 'Conviene priorizar el control defensivo: ${conceding.toStringAsFixed(1)} goles recibidos por partido.',
-      );
-      final pointsRate = row.points / (row.played * 3) * 100;
-      messages.add('Se obtuvo el ${pointsRate.toStringAsFixed(0)}% de los puntos disputados.');
-    }
-    if (data.players.isNotEmpty) {
-      final scorer = [...data.players]..sort((a, b) => b.goals.compareTo(a.goals));
-      if (scorer.first.goals > 0) {
-        messages.add('${scorer.first.name} lidera el goleo del plantel con ${scorer.first.goals}.');
+      if (above.rank == row.rank - 1) {
+        final gap = above.points - row.points;
+        messages.add(
+          gap <= 0
+              ? 'Igualás en puntos al ${above.rank}° (${above.teamName}); te separa la diferencia de gol.'
+              : 'Estás a $gap ${gap == 1 ? 'punto' : 'puntos'} del ${above.rank}° (${above.teamName}).',
+        );
       }
     }
+
+    // Streak from the last 3 results, own perspective. Needs the opponent side
+    // to be resolvable; skip the rule otherwise.
+    final recent = data.results.where((m) => m.isPlayedResult).take(3).toList();
+    if (recent.length == 3) {
+      int? ownDiff(LudFixtureMatch m) {
+        final opp = m.opponentName.trim();
+        if (opp.isEmpty || m.homeScore == null || m.awayScore == null) {
+          return null;
+        }
+        final clubHome = m.awayTeamName.trim() == opp;
+        final gf = clubHome ? m.homeScore! : m.awayScore!;
+        final ga = clubHome ? m.awayScore! : m.homeScore!;
+        return gf - ga;
+      }
+
+      final diffs = recent.map(ownDiff).toList();
+      if (!diffs.contains(null)) {
+        if (diffs.every((d) => d! > 0)) {
+          messages.add(
+            '3 victorias al hilo: el equipo está fino, sostener la idea.',
+          );
+        } else if (diffs.every((d) => d! <= 0)) {
+          messages.add(
+            '3 partidos seguidos sin ganar: revisar por qué se corta el rendimiento.',
+          );
+        }
+      }
+    }
+
+    // Goal concentration + top scorer, from typed player stats.
+    final scorers = [...data.players.where((p) => p.goalContributions > 0)]
+      ..sort((a, b) => b.goalContributions.compareTo(a.goalContributions));
+    if (scorers.isNotEmpty) {
+      final totalGoals = data.players.fold<int>(0, (s, p) => s + p.goals);
+      final top = scorers.first;
+      messages.add(
+        top.assists > 0
+            ? '${top.name} es el más determinante: ${top.goals} goles y ${top.assists} asistencias.'
+            : '${top.name} lidera el goleo del plantel con ${top.goals}.',
+      );
+      if (totalGoals >= 6 && scorers.length >= 2) {
+        final topTwo = scorers.take(2).fold<int>(0, (s, p) => s + p.goals);
+        final share = (topTwo / totalGoals * 100).round();
+        if (share >= 55) {
+          messages.add(
+            'El gol depende de pocos: 2 jugadores concentran el $share% de los goles del plantel.',
+          );
+        }
+      }
+    }
+
+    // Suspension risk from yellow cards.
+    final atRisk = data.players.where((p) => p.yellowCards >= 4).toList();
+    if (atRisk.isNotEmpty) {
+      messages.add(
+        atRisk.length == 1
+            ? '${atRisk.first.name} acumula ${atRisk.first.yellowCards} amarillas: cuidar la suspensión.'
+            : '${atRisk.length} jugadores con 4+ amarillas: riesgo de suspensión.',
+      );
+    }
+
     return _Panel(
-      title: 'Lectura automática',
-      icon: Icons.auto_graph,
+      title: 'Otras señales',
+      icon: Icons.insights,
       accent: CX.green,
       child: messages.isEmpty
           ? const _NoData()
@@ -521,46 +1064,123 @@ class _PlayerLeaders extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ranked = [...players]
-      ..sort((a, b) => b.minutes.compareTo(a.minutes));
+    final withData = players.where((p) => p.hasData).toList();
+    if (withData.isEmpty) {
+      return const _Panel(
+        title: 'Jugadores',
+        icon: Icons.groups_2_outlined,
+        child: _NoData(),
+      );
+    }
+    // Goal contributions first, then minutes as the tiebreaker / participation
+    // proxy.
+    final ranked = [...withData]
+      ..sort((a, b) {
+        final byContribution = b.goalContributions.compareTo(a.goalContributions);
+        return byContribution != 0
+            ? byContribution
+            : b.minutes.compareTo(a.minutes);
+      });
     return _Panel(
-      title: 'Jugadores con mayor participación',
+      title: 'Jugadores',
       icon: Icons.groups_2_outlined,
-      child: ranked.isEmpty
-          ? const _NoData()
-          : Column(
-              children: ranked.take(8).map((player) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 15,
-                        backgroundColor: CX.greenDark,
-                        child: Icon(Icons.person_outline, size: 17, color: CX.green),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        children: [
+          Row(
+            children: const [
+              Spacer(),
+              _ColHead('G', 34),
+              _ColHead('A', 34),
+              _ColHead('PJ', 40),
+              _ColHead('min', 56),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ...ranked.take(10).map((player) {
+            final risk = player.yellowCards >= 4;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 14,
+                    backgroundColor: CX.greenDark,
+                    child: Icon(Icons.person_outline, size: 16, color: CX.green),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Text(player.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                            Text(player.position.isEmpty ? 'Sin posición cargada' : player.position, style: const TextStyle(color: CX.faint, fontSize: 10)),
+                            Flexible(
+                              child: Text(
+                                player.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                            if (risk) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.warning_amber_rounded,
+                                  size: 13, color: CX.amber),
+                            ],
                           ],
                         ),
-                      ),
-                      Text('${player.matches} PJ', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      const SizedBox(width: 18),
-                      SizedBox(width: 68, child: Text('${player.minutes} min', textAlign: TextAlign.right)),
-                      const SizedBox(width: 18),
-                      SizedBox(width: 52, child: Text('${player.goals} gol', textAlign: TextAlign.right)),
-                    ],
+                        Text(
+                          player.position.isEmpty
+                              ? 'Sin posición cargada'
+                              : player.position,
+                          style: const TextStyle(color: CX.faint, fontSize: 10),
+                        ),
+                      ],
+                    ),
                   ),
-                );
-              }).toList(),
-            ),
+                  _Cell('${player.goals}', 34, bold: player.goals > 0),
+                  _Cell('${player.assists}', 34),
+                  _Cell('${player.matches}', 40),
+                  _Cell('${player.minutes}', 56),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
+}
+
+class _ColHead extends StatelessWidget {
+  final String text;
+  final double width;
+  const _ColHead(this.text, this.width);
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    child: Text(
+      text,
+      textAlign: TextAlign.right,
+      style: const TextStyle(color: CX.faint, fontSize: 10, fontWeight: FontWeight.w800),
+    ),
+  );
+}
+
+class _Cell extends StatelessWidget {
+  final String text;
+  final double width;
+  final bool bold;
+  const _Cell(this.text, this.width, {this.bold = false});
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    child: Text(
+      text,
+      textAlign: TextAlign.right,
+      style: TextStyle(fontWeight: bold ? FontWeight.w900 : FontWeight.w600),
+    ),
+  );
 }
 
 class _TablePanel extends StatelessWidget {

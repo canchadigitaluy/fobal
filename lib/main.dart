@@ -418,6 +418,8 @@ class _CanteraAppState extends State<CanteraApp> {
           (result) => result.categoryId == categoryId,
         ),
       ],
+      // Club-wide, not category-scoped — same treatment as name/league/etc.
+      savedExercises: scopedClub.savedExercises,
       alerts: [
         ..._club.alerts.where((alert) => alert.categoryId != categoryId),
         ...scopedClub.alerts.where((alert) => alert.categoryId == categoryId),

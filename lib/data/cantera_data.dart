@@ -34,6 +34,10 @@ class CanteraClub {
   /// from the league and normally leave this empty; a friendly the league does
   /// not track can still be added here.
   final List<MatchResult> matchResults;
+
+  /// Club-wide reusable exercise library — not filtered by category (an
+  /// exercise with an empty `categoryId` applies to every squad).
+  final List<Exercise> savedExercises;
   final List<IntelligentAlert> alerts;
   final List<AiReport> aiReports;
   final List<ClubUserAccess> users;
@@ -57,6 +61,7 @@ class CanteraClub {
     required this.sessions,
     required this.trainingReports,
     this.matchResults = const [],
+    this.savedExercises = const [],
     required this.alerts,
     required this.aiReports,
     required this.users,
@@ -81,6 +86,7 @@ class CanteraClub {
     List<TrainingSession>? sessions,
     List<TrainingReport>? trainingReports,
     List<MatchResult>? matchResults,
+    List<Exercise>? savedExercises,
     List<IntelligentAlert>? alerts,
     List<AiReport>? aiReports,
     List<ClubUserAccess>? users,
@@ -104,6 +110,7 @@ class CanteraClub {
       sessions: sessions ?? this.sessions,
       trainingReports: trainingReports ?? this.trainingReports,
       matchResults: matchResults ?? this.matchResults,
+      savedExercises: savedExercises ?? this.savedExercises,
       alerts: alerts ?? this.alerts,
       aiReports: aiReports ?? this.aiReports,
       users: users ?? this.users,
@@ -130,6 +137,7 @@ class CanteraClub {
       'sessions': sessions.map((s) => s.toJson()).toList(),
       'trainingReports': trainingReports.map((r) => r.toJson()).toList(),
       'matchResults': matchResults.map((r) => r.toJson()).toList(),
+      'savedExercises': savedExercises.map((e) => e.toJson()).toList(),
       'users': users.map((u) => u.toJson()).toList(),
     };
   }
@@ -166,6 +174,10 @@ class CanteraClub {
       matchResults: (json['matchResults'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map(MatchResult.fromJson)
+          .toList(),
+      savedExercises: (json['savedExercises'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(Exercise.fromJson)
           .toList(),
       users: (json['users'] as List<dynamic>? ?? [])
           .map((item) => ClubUserAccess.fromJson(item as Map<String, dynamic>))
@@ -807,6 +819,165 @@ class TrainingBlock {
       space: space,
       playerCount: playerCount,
       cues: coachingPoints,
+    );
+  }
+}
+
+/// A reusable exercise in the club's library: saved from a generated session
+/// block, or created by hand. [categoryId] empty means shared across every
+/// category in the club (most exercises — a rondo works for any squad).
+class Exercise {
+  final String id;
+  final String name;
+  final String description;
+  final String objective;
+  final String space;
+  final int players;
+  final int duration; // minutes — structured so a session can sum it
+  final String intensity;
+  final List<String> coachingPoints;
+  final List<String> constraints;
+  final String successMetric;
+  final String categoryId;
+  final String source; // 'manual' | 'ai'
+  final String createdAt; // ISO
+  final AnimationScene? animationScene;
+
+  const Exercise({
+    required this.id,
+    required this.name,
+    this.description = '',
+    this.objective = '',
+    this.space = '',
+    this.players = 0,
+    this.duration = 0,
+    this.intensity = '',
+    this.coachingPoints = const [],
+    this.constraints = const [],
+    this.successMetric = '',
+    this.categoryId = '',
+    this.source = 'manual',
+    this.createdAt = '',
+    this.animationScene,
+  });
+
+  Exercise copyWith({
+    String? name,
+    String? description,
+    String? objective,
+    String? space,
+    int? players,
+    int? duration,
+    String? intensity,
+    List<String>? coachingPoints,
+    List<String>? constraints,
+    String? successMetric,
+    String? categoryId,
+    AnimationScene? animationScene,
+  }) {
+    return Exercise(
+      id: id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      objective: objective ?? this.objective,
+      space: space ?? this.space,
+      players: players ?? this.players,
+      duration: duration ?? this.duration,
+      intensity: intensity ?? this.intensity,
+      coachingPoints: coachingPoints ?? this.coachingPoints,
+      constraints: constraints ?? this.constraints,
+      successMetric: successMetric ?? this.successMetric,
+      categoryId: categoryId ?? this.categoryId,
+      source: source,
+      createdAt: createdAt,
+      animationScene: animationScene ?? this.animationScene,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'description': description,
+    'objective': objective,
+    'space': space,
+    'players': players,
+    'duration': duration,
+    'intensity': intensity,
+    'coachingPoints': coachingPoints,
+    'constraints': constraints,
+    'successMetric': successMetric,
+    'categoryId': categoryId,
+    'source': source,
+    'createdAt': createdAt,
+    if (animationScene != null) 'animation_scene': animationScene!.toJson(),
+  };
+
+  factory Exercise.fromJson(Map<String, dynamic> json) {
+    final rawScene = json['animation_scene'] ?? json['animationScene'];
+    AnimationScene? scene;
+    if (rawScene is Map) {
+      final parsed = AnimationScene.fromJson(Map<String, dynamic>.from(rawScene));
+      scene = parsed.hasContent ? parsed : null;
+    }
+    return Exercise(
+      id: json['id'] as String? ?? 'exercise-${DateTime.now().microsecondsSinceEpoch}',
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      objective: json['objective'] as String? ?? '',
+      space: json['space'] as String? ?? '',
+      players: json['players'] as int? ?? 0,
+      duration: json['duration'] as int? ?? 0,
+      intensity: json['intensity'] as String? ?? '',
+      coachingPoints: List<String>.from(json['coachingPoints'] as List<dynamic>? ?? []),
+      constraints: List<String>.from(json['constraints'] as List<dynamic>? ?? []),
+      successMetric: json['successMetric'] as String? ?? '',
+      categoryId: json['categoryId'] as String? ?? '',
+      source: json['source'] as String? ?? 'manual',
+      createdAt: json['createdAt'] as String? ?? '',
+      animationScene: scene,
+    );
+  }
+
+  /// Renders this exercise as a session block — the shape the pitch/list UI
+  /// and the existing text/PNG exports already know how to draw.
+  TrainingBlock toBlock() => TrainingBlock(
+    name,
+    duration > 0 ? '$duration min' : '',
+    description,
+    intensity: intensity,
+    constraints: constraints,
+    coachingPoints: coachingPoints,
+    successMetric: successMetric,
+    animationScene: animationScene,
+  );
+
+  /// Captures a session block (AI-generated or manual) into the library.
+  factory Exercise.fromBlock(
+    TrainingBlock block, {
+    required String id,
+    required int minutes,
+    String objective = '',
+    int players = 0,
+    String space = '',
+    String categoryId = '',
+    String source = 'ai',
+  }) {
+    return Exercise(
+      id: id,
+      name: block.name,
+      description: block.description,
+      objective: objective,
+      space: space,
+      players: players,
+      duration: minutes,
+      intensity: block.intensity,
+      coachingPoints: block.coachingPoints,
+      constraints: block.constraints,
+      successMetric: block.successMetric,
+      categoryId: categoryId,
+      source: source,
+      createdAt: DateTime.now().toUtc().toIso8601String(),
+      animationScene: block.animationScene,
     );
   }
 }

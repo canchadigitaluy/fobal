@@ -14,6 +14,8 @@ import '../services/offline_mutation_service.dart';
 import '../services/training_ai_service.dart';
 import '../ui/exercise_animation_preview.dart';
 import '../ui/export_preview_dialog.dart';
+import 'exercise_library_screen.dart';
+import 'session_builder_screen.dart';
 
 const _fixtureStylePlaceholder =
     'Fixture detectado desde la liga. Completar observaciones del rival sin inventar: sistema, presion, salida, zonas fuertes y debilidades vistas.';
@@ -460,6 +462,35 @@ class _ReservasScreenState extends State<ReservasScreen> {
                 const SizedBox(height: 16),
                 _SectionTitle('Preparar entrenamiento'),
                 const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ExerciseLibraryScreen(
+                            initialCategoryId: category.id,
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.auto_awesome_motion_outlined, size: 17),
+                      label: const Text('Biblioteca de ejercicios'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SessionBuilderScreen(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.view_agenda_outlined, size: 17),
+                      label: const Text('Armar sesión a mano'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 _GeneratorForm(
                   objective: _objective,
                   problem: _problem,

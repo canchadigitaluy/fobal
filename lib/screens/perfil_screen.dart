@@ -323,8 +323,8 @@ class _PlayerRadar extends StatelessWidget {
           if (foot.isNotEmpty) foot,
           if (status.isNotEmpty && status.toLowerCase() != 'activo') status,
         ];
-        final color = player.status.toLowerCase() == 'lesionado'
-            ? CX.red
+        final color = player.hasAvailabilityWarning
+            ? player.availability.color
             : player.attendanceRate > 0 && player.attendanceRate < .7
             ? CX.amber
             : CX.green;

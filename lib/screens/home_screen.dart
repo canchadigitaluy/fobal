@@ -11,6 +11,7 @@ import '../services/supabase_auth_service.dart';
 import '../services/club_access_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/ui_kit.dart';
+import 'match_preparation_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final ValueChanged<int> onNavigate;
@@ -1768,6 +1769,19 @@ class _TodayPanel extends StatelessWidget {
     final nextMatchPlan = upcomingMatchPlans.isEmpty
         ? null
         : upcomingMatchPlans.first;
+    MatchPreparation? nextPreparation;
+    if (nextMatchPlan == null) {
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      final preps = [...club.matchPreparations]
+        ..sort((a, b) => a.date.compareTo(b.date));
+      for (final item in preps) {
+        if (item.date.isEmpty || item.date.compareTo(today) >= 0) {
+          nextPreparation = item;
+          break;
+        }
+      }
+      nextPreparation ??= preps.isEmpty ? null : preps.last;
+    }
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: CX.panelDecoration(),
@@ -1797,6 +1811,23 @@ class _TodayPanel extends StatelessWidget {
               plan: nextMatchPlan,
               categoryName: _categoryName(nextMatchPlan.categoryId),
               onOpenAssistant: onOpenAssistant,
+            ),
+            const SizedBox(height: 14),
+          ] else if (nextPreparation != null) ...[
+            Builder(
+              builder: (context) {
+                final prep = nextPreparation!;
+                return _NextMatchPreparationCard(
+                  prep: prep,
+                  onOpen: () => openMatchPreparation(
+                    context,
+                    calendarEventId: prep.calendarEventId,
+                    rival: prep.rival,
+                    date: prep.date,
+                    time: prep.time,
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 14),
           ],
@@ -2092,6 +2123,59 @@ class _HomeSessionActionHint extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NextMatchPreparationCard extends StatelessWidget {
+  final MatchPreparation prep;
+  final VoidCallback onOpen;
+
+  const _NextMatchPreparationCard({required this.prep, required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    final rival = prep.rival.isEmpty ? 'Rival a definir' : prep.rival;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: CX.greenDark.withValues(alpha: .42),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.green.withValues(alpha: .25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.assignment_outlined, color: CX.green, size: 18),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Próximo partido',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+              TextButton(onPressed: onOpen, child: const Text('Abrir')),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'vs $rival',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          ),
+          if (prep.date.isNotEmpty || prep.time.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(
+              [prep.date, prep.time].where((s) => s.isNotEmpty).join(' · '),
+              style: const TextStyle(color: CX.muted, fontSize: 12),
+            ),
+          ],
         ],
       ),
     );

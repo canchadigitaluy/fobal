@@ -5,9 +5,11 @@ import '../main.dart';
 import '../services/club_access_service.dart';
 import '../services/export_download_service.dart';
 import '../services/export_text_service.dart';
+import '../services/player_match_stats_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
+import 'match_result_dialog.dart';
 
 /// Opens the match-preparation panel. If [calendarEventId] matches an
 /// existing [MatchPreparation] for the active category, that one opens for
@@ -215,6 +217,63 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     );
   }
 
+  /// Same log-result flow the calendar offers, but reachable from the prep
+  /// itself — no need to leave to Calendario just to close out a match this
+  /// screen already has all the context for. Recomputes matchesPlayed/goals
+  /// for the category the same way calendario_screen and estadisticas_screen
+  /// do, so all three entry points stay consistent (never double-counts).
+  Future<void> _logResult(
+    CanteraClub club,
+    CategorySquad category,
+    bool categoryIsLud,
+    MatchResult? existing,
+  ) async {
+    final categoryPlayers = categoryIsLud
+        ? const <Player>[]
+        : club.players.where((p) => p.categoryId == category.id).toList();
+    final result = await showMatchResultDialog(
+      context,
+      categoryId: category.id,
+      existing: existing,
+      initialDate: DateTime.tryParse(_date.text.trim()),
+      initialOpponent: _rival.text.trim(),
+      calendarKey: widget.calendarEventId,
+      players: categoryPlayers,
+    );
+    if (result == null || !mounted) return;
+    final nextResults = [
+      for (final r in club.matchResults)
+        if (r.id != result.id) r,
+      result,
+    ];
+    var players = club.players;
+    if (categoryPlayers.isNotEmpty) {
+      final categoryResults =
+          nextResults.where((r) => r.categoryId == category.id).toList();
+      final stats = computePlayerMatchStats(
+        lineups: [for (final r in categoryResults) r.lineupIds],
+        scorers: [for (final r in categoryResults) r.scorerIds],
+        playerIds: categoryPlayers.map((p) => p.id).toList(),
+      );
+      players = [
+        for (final player in club.players)
+          if (stats.containsKey(player.id))
+            player.copyWith(
+              matchesPlayed: stats[player.id]!.matchesPlayed,
+              goals: stats[player.id]!.goals,
+            )
+          else
+            player,
+      ];
+    }
+    AppScope.of(context).updateClub(
+      club.copyWith(matchResults: nextResults, players: players),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Resultado guardado.')),
+    );
+  }
+
   void _goToLineup() {
     ShellActions.of(context).openLineup();
     Navigator.of(context).popUntil((route) => route.isFirst);
@@ -322,6 +381,15 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
       for (final player in warningPlayers)
         '${player.fullName.trim()}: ${player.availability.label.toLowerCase()}, confirmar antes del partido.',
     ];
+    MatchResult? existingResult;
+    if (widget.calendarEventId.isNotEmpty) {
+      for (final result in club.matchResults) {
+        if (result.calendarKey == widget.calendarEventId) {
+          existingResult = result;
+          break;
+        }
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -540,6 +608,28 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                       ],
                     ),
                   ),
+                if (widget.calendarEventId.isNotEmpty) ...[
+                  OutlinedButton.icon(
+                    onPressed: () => _logResult(
+                      club,
+                      category,
+                      categoryIsLud,
+                      existingResult,
+                    ),
+                    icon: Icon(
+                      existingResult == null
+                          ? Icons.scoreboard_outlined
+                          : Icons.edit_outlined,
+                      size: 17,
+                    ),
+                    label: Text(
+                      existingResult == null
+                          ? 'Cargar resultado'
+                          : 'Editar resultado (${existingResult.goalsFor}-${existingResult.goalsAgainst})',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
                   onPressed: _goToLineup,

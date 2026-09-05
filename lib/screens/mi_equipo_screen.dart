@@ -428,6 +428,23 @@ class _SquadGoalsPanel extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(color: CX.muted, fontSize: 12),
                           ),
+                          if (goalReviewStatus(entry.goal.reviewDate)
+                              case final review
+                              when review != GoalReviewStatus.none) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              review == GoalReviewStatus.overdue
+                                  ? 'Revisión vencida · ${entry.goal.reviewDate.trim()}'
+                                  : 'Revisar pronto · ${entry.goal.reviewDate.trim()}',
+                              style: TextStyle(
+                                color: review == GoalReviewStatus.overdue
+                                    ? CX.red
+                                    : CX.amber,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

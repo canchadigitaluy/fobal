@@ -652,9 +652,25 @@ class _GoalTile extends StatelessWidget {
                 ],
                 if (goal.reviewDate.trim().isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(
-                    'Revisión: ${goal.reviewDate.trim()}',
-                    style: const TextStyle(color: CX.faint, fontSize: 10.5),
+                  Builder(
+                    builder: (context) {
+                      final review = goalReviewStatus(goal.reviewDate);
+                      final (Color color, String prefix) = switch (review) {
+                        GoalReviewStatus.overdue => (CX.red, 'Revisión vencida'),
+                        GoalReviewStatus.upcoming => (CX.amber, 'Revisar pronto'),
+                        GoalReviewStatus.none => (CX.faint, 'Revisión'),
+                      };
+                      return Text(
+                        '$prefix: ${goal.reviewDate.trim()}',
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 10.5,
+                          fontWeight: review == GoalReviewStatus.none
+                              ? FontWeight.w400
+                              : FontWeight.w800,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ],
@@ -793,12 +809,46 @@ class _PlayerGoalDialogState extends State<_PlayerGoalDialog> {
                 ],
               ),
               const SizedBox(height: 10),
-              TextField(
-                controller: _reviewDate,
-                decoration: const InputDecoration(
-                  labelText: 'Fecha de revisión (opcional)',
-                  hintText: 'Ej: 30/09',
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () async {
+                        final base =
+                            DateTime.tryParse(_reviewDate.text.trim()) ??
+                                DateTime.now().add(const Duration(days: 14));
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: base,
+                          firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (picked != null) {
+                          setState(() => _reviewDate.text =
+                              picked.toIso8601String().split('T').first);
+                        }
+                      },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Fecha de revisión (opcional)',
+                          prefixIcon: Icon(Icons.event_outlined),
+                        ),
+                        child: Text(
+                          _reviewDate.text.trim().isEmpty
+                              ? 'Sin fecha'
+                              : _reviewDate.text.trim(),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (_reviewDate.text.trim().isNotEmpty)
+                    TextButton(
+                      onPressed: () => setState(() => _reviewDate.text = ''),
+                      child: const Text('Quitar'),
+                    ),
+                ],
               ),
             ],
           ),

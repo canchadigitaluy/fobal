@@ -167,6 +167,44 @@ void main() {
     });
   });
 
+  group('goalReviewStatus', () {
+    final now = DateTime(2026, 9, 5);
+    test('ISO date in the past -> overdue', () {
+      expect(goalReviewStatus('2026-09-01', now: now), GoalReviewStatus.overdue);
+    });
+    test('ISO date within 7 days -> upcoming', () {
+      expect(goalReviewStatus('2026-09-10', now: now), GoalReviewStatus.upcoming);
+    });
+    test('ISO date further out -> none', () {
+      expect(goalReviewStatus('2026-10-30', now: now), GoalReviewStatus.none);
+    });
+    test('legacy free text -> none, never a guessed date', () {
+      expect(goalReviewStatus('30/09', now: now), GoalReviewStatus.none);
+      expect(goalReviewStatus('en un mes', now: now), GoalReviewStatus.none);
+      expect(goalReviewStatus('', now: now), GoalReviewStatus.none);
+    });
+  });
+
+  group('squadGoalTracker review-date bump', () {
+    final now = DateTime(2026, 9, 5);
+    test('an overdue-review goal outranks a higher-priority goal with no review', () {
+      final overdueLowPri = _player(
+        id: 'p-a',
+        goals: [
+          const PlayerGoal(id: 'g1', title: 'A', priority: PlayerGoalPriority.baja, reviewDate: '2026-09-01'),
+        ],
+      );
+      final highPriNoReview = _player(
+        id: 'p-b',
+        goals: [
+          const PlayerGoal(id: 'g2', title: 'B', priority: PlayerGoalPriority.alta),
+        ],
+      );
+      final result = squadGoalTracker([highPriNoReview, overdueLowPri], now: now);
+      expect(result.first.goal.id, 'g1');
+    });
+  });
+
   group('newPlayerGoalId', () {
     test('is never empty', () {
       expect(newPlayerGoalId(), isNotEmpty);

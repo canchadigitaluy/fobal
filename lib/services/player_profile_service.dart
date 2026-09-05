@@ -48,27 +48,54 @@ List<PlayerGoal> activePlayerGoals(List<PlayerGoal> goals) => goals
 String newPlayerGoalId() =>
     'goal-${DateTime.now().microsecondsSinceEpoch}-${(1000 + DateTime.now().microsecond) % 1000}';
 
+enum GoalReviewStatus { none, upcoming, overdue }
+
+/// Where a goal's review date sits relative to today. Only an ISO
+/// `yyyy-MM-dd` (what the date picker now writes) is understood — a legacy
+/// free-text value like "30/09" or "en un mes" simply yields [none], never a
+/// wrong guess. [overdue] = date already past; [upcoming] = within 7 days.
+GoalReviewStatus goalReviewStatus(String reviewDate, {DateTime? now}) {
+  final parsed = DateTime.tryParse(reviewDate.trim());
+  if (parsed == null) return GoalReviewStatus.none;
+  final today = now ?? DateTime.now();
+  final day = DateTime(parsed.year, parsed.month, parsed.day);
+  final ref = DateTime(today.year, today.month, today.day);
+  final diff = day.difference(ref).inDays;
+  if (diff < 0) return GoalReviewStatus.overdue;
+  if (diff <= 7) return GoalReviewStatus.upcoming;
+  return GoalReviewStatus.none;
+}
+
 /// One active goal, paired with the player it belongs to — the unit the
 /// squad-wide tracker below hands back so the UI can show "who" next to
 /// "what" without re-joining the two lists itself.
 typedef PlayerGoalEntry = ({Player player, PlayerGoal goal});
 
-/// Every player's open goals, flattened into one list and ordered by
-/// priority (alta first) so the most urgent work surfaces without the DT
-/// opening each player's profile one by one. `reviewDate` is free text (not
-/// a real date), so priority — the one reliable structured signal — drives
-/// order, never a parsed/guessed date.
-List<PlayerGoalEntry> squadGoalTracker(List<Player> players) {
+/// Every player's open goals, flattened into one list. Goals with a review
+/// date that's overdue or due within a week bubble to the top (that's the
+/// DT's actual next action); the rest fall back to priority order (alta
+/// first). A legacy free-text `reviewDate` that doesn't parse just doesn't
+/// get the bump — never a guessed date.
+List<PlayerGoalEntry> squadGoalTracker(List<Player> players, {DateTime? now}) {
   final entries = <PlayerGoalEntry>[
     for (final player in players)
       for (final goal in activePlayerGoals(player.developmentGoals))
         (player: player, goal: goal),
   ];
-  int rank(PlayerGoalPriority priority) => switch (priority) {
+  int reviewRank(PlayerGoal goal) => switch (goalReviewStatus(goal.reviewDate, now: now)) {
+    GoalReviewStatus.overdue => 0,
+    GoalReviewStatus.upcoming => 1,
+    GoalReviewStatus.none => 2,
+  };
+  int priorityRank(PlayerGoalPriority priority) => switch (priority) {
     PlayerGoalPriority.alta => 0,
     PlayerGoalPriority.media => 1,
     PlayerGoalPriority.baja => 2,
   };
-  entries.sort((a, b) => rank(a.goal.priority).compareTo(rank(b.goal.priority)));
+  entries.sort((a, b) {
+    final byReview = reviewRank(a.goal).compareTo(reviewRank(b.goal));
+    if (byReview != 0) return byReview;
+    return priorityRank(a.goal.priority).compareTo(priorityRank(b.goal.priority));
+  });
   return entries;
 }

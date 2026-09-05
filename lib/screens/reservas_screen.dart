@@ -523,6 +523,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   duration: _duration,
                   players: _players,
                   suggestedPlayers: availablePlayers,
+                  totalPlayers: categoryPlayers.length,
                   scheduledDate: _sessionDate,
                   automaticSquadContext: suggestedSquadProfile
                       .trim()
@@ -2225,6 +2226,7 @@ class _GeneratorForm extends StatefulWidget {
   final int duration;
   final int players;
   final int suggestedPlayers;
+  final int totalPlayers;
   final DateTime scheduledDate;
   final bool automaticSquadContext;
   final bool canGenerate;
@@ -2244,6 +2246,7 @@ class _GeneratorForm extends StatefulWidget {
     required this.duration,
     required this.players,
     required this.suggestedPlayers,
+    required this.totalPlayers,
     required this.scheduledDate,
     required this.automaticSquadContext,
     required this.canGenerate,
@@ -2412,9 +2415,19 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                             ),
                             icon: const Icon(Icons.groups_2_outlined, size: 17),
                             label: Text(
-                              'Usar plantel cargado (${w.suggestedPlayers})',
+                              'Usar disponibles (${w.suggestedPlayers})',
                             ),
                           ),
+                        ),
+                      ],
+                      if (w.totalPlayers > w.suggestedPlayers) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '${w.totalPlayers - w.suggestedPlayers} jugador'
+                          '${w.totalPlayers - w.suggestedPlayers == 1 ? '' : 'es'} '
+                          'no disponible${w.totalPlayers - w.suggestedPlayers == 1 ? '' : 's'} '
+                          '(lesión/sanción) — no cuentan en el plantel sugerido.',
+                          style: const TextStyle(color: CX.faint, fontSize: 10.5),
                         ),
                       ],
                     ],

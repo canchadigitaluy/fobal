@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../ui/ui_kit.dart';
 
 /// Fast, single-screen form to log or edit a match result by hand.
 /// Returns the [MatchResult] on save, or null on cancel.
@@ -333,11 +334,21 @@ class _PlayerStatRow extends StatelessWidget {
             onChanged: (value) => onPlayedChanged(value ?? false),
           ),
           Expanded(
-            child: Text(
-              player.fullName.trim(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    player.fullName.trim(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                ),
+                if (player.hasAvailabilityWarning) ...[
+                  const SizedBox(width: 6),
+                  AvailabilityChip(player.availability, compact: true),
+                ],
+              ],
             ),
           ),
           IconButton(

@@ -25,6 +25,8 @@ class MiEquipoScreen extends StatefulWidget {
 
 class _MiEquipoScreenState extends State<MiEquipoScreen> {
   String? _teamPhoto;
+  final _searchController = TextEditingController();
+  String _search = '';
 
   String get _photoKey => 'cantera_team_photo_${AppScope.of(context).fullClub.id}';
 
@@ -32,6 +34,12 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _teamPhoto ??= html.window.localStorage[_photoKey];
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _pickLogo() async {
@@ -266,17 +274,54 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
               onPrimary: _addPlayer,
             )
           else ...[
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                for (final player in players)
-                  _PlayerCard(
-                    player: player,
-                    onEditAvailability: () => _editAvailability(player),
-                  ),
-                _AddPlayerTile(onTap: _addPlayer),
-              ],
+            if (players.length > 6) ...[
+              TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _search = value),
+                decoration: InputDecoration(
+                  hintText: 'Buscar jugador por nombre',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _search.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () => setState(() {
+                            _searchController.clear();
+                            _search = '';
+                          }),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            Builder(
+              builder: (context) {
+                final query = _search.trim().toLowerCase();
+                final visible = query.isEmpty
+                    ? players
+                    : players
+                        .where((p) => p.fullName.toLowerCase().contains(query))
+                        .toList();
+                if (visible.isEmpty) {
+                  return const EmptyStatePanel(
+                    icon: Icons.search_off,
+                    title: 'Sin resultados',
+                    message: 'Ningún jugador coincide con esa búsqueda.',
+                  );
+                }
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (final player in visible)
+                      _PlayerCard(
+                        player: player,
+                        onEditAvailability: () => _editAvailability(player),
+                      ),
+                    if (query.isEmpty) _AddPlayerTile(onTap: _addPlayer),
+                  ],
+                );
+              },
             ),
           ],
         ],

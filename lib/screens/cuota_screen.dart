@@ -3143,28 +3143,46 @@ class _ReportCard extends StatelessWidget {
           '${report.attendanceCount}/${report.totalPlayers} presentes  -  ${report.date}',
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        const SizedBox(height: 10),
-        Text(
-          report.objectiveWorked,
-          style: const TextStyle(color: CX.muted, fontSize: 12),
-        ),
-        const SizedBox(height: 14),
-        const Text(
-          'SIGUIENTE DECISION',
-          style: TextStyle(
-            color: CX.green,
-            fontSize: 9,
-            fontWeight: FontWeight.w800,
+        if (report.objectiveWorked.trim().isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            report.objectiveWorked,
+            style: const TextStyle(color: CX.muted, fontSize: 12),
           ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          report.nextRecommendation,
-          style: const TextStyle(fontSize: 13, height: 1.4),
-        ),
+        ],
+        if (report.whatWentWell.trim().isNotEmpty)
+          _reportLine('LO QUE FUNCIONÓ', report.whatWentWell, CX.green),
+        if (report.whatWentWrong.trim().isNotEmpty)
+          _reportLine('A CORREGIR', report.whatWentWrong, CX.amber),
+        if (report.highlightedPlayers.isNotEmpty)
+          _reportLine(
+            'DESTACADOS',
+            report.highlightedPlayers.join(', '),
+            CX.blue,
+          ),
+        if (report.injuries.isNotEmpty)
+          _reportLine('MOLESTIAS/LESIONES', report.injuries.join(', '), CX.red),
+        if (report.nextRecommendation.trim().isNotEmpty)
+          _reportLine('SIGUIENTE DECISIÓN', report.nextRecommendation, CX.green),
       ],
     ),
   );
+
+  static Widget _reportLine(String label, String value, Color color) => Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                  color: color, fontSize: 9, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            Text(value, style: const TextStyle(fontSize: 12.5, height: 1.4)),
+          ],
+        ),
+      );
 }
 
 class _EmptyWorkspace extends StatelessWidget {

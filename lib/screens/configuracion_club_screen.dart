@@ -219,18 +219,20 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
       trend: '',
       note: _playerNoteController.text.trim(),
     );
+    final nextPlayers = [...scope.club.players, player];
     final categories = scope.club.categories
         .map(
           (category) => category.id == categoryId
-              ? category.copyWith(playerCount: category.playerCount + 1)
+              ? category.copyWith(
+                  playerCount: nextPlayers
+                      .where((candidate) => candidate.categoryId == categoryId)
+                      .length,
+                )
               : category,
         )
         .toList();
     scope.updateClub(
-      scope.club.copyWith(
-        players: [...scope.club.players, player],
-        categories: categories,
-      ),
+      scope.club.copyWith(players: nextPlayers, categories: categories),
     );
     _playerFirstNameController.clear();
     _playerLastNameController.clear();
@@ -253,24 +255,22 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
         break;
       }
     }
+    final nextPlayers = scope.club.players.where((p) => p.id != id).toList();
     final categories = removed == null
         ? scope.club.categories
         : scope.club.categories
               .map(
                 (category) => category.id == removed!.categoryId
                     ? category.copyWith(
-                        playerCount: category.playerCount > 0
-                            ? category.playerCount - 1
-                            : 0,
+                        playerCount: nextPlayers
+                            .where((candidate) => candidate.categoryId == removed!.categoryId)
+                            .length,
                       )
                     : category,
               )
               .toList();
     scope.updateClub(
-      scope.club.copyWith(
-        players: scope.club.players.where((p) => p.id != id).toList(),
-        categories: categories,
-      ),
+      scope.club.copyWith(players: nextPlayers, categories: categories),
     );
   }
 

@@ -3077,11 +3077,32 @@ class _ExternalHome extends StatelessWidget {
     }
   }
 
+  TrainingSession? _todaySession() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    for (final session in club.sessions) {
+      if (session.status == 'completed') continue;
+      if (session.categoryId != categoryId) continue;
+      final date = DateTime.tryParse(session.scheduledDate);
+      if (date == null) continue;
+      if (DateTime(date.year, date.month, date.day) == today) return session;
+    }
+    return null;
+  }
+
+  bool _attendanceTakenToday() {
+    final day = DateTime.now().toIso8601String().substring(0, 10);
+    final raw = html.window
+        .localStorage['cantera_attendance_${club.id}_${categoryId}_$day'];
+    return raw != null && raw.isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = MatchStats.forCategory(club.matchResults, categoryId);
     final event = _nextCalendarEvent();
     final actions = ShellActions.of(context);
+    final todaySession = _todaySession();
 
     final hasSquad = club.players.isNotEmpty;
     final hasResults = stats.all.isNotEmpty;
@@ -3187,6 +3208,15 @@ class _ExternalHome extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (todaySession != null) ...[
+                  const SizedBox(height: 14),
+                  _ExternalTodayCard(
+                    session: todaySession,
+                    attendanceTaken: _attendanceTakenToday(),
+                    onTakeAttendance: () =>
+                        actions.openSection(ShellSection.attendance),
+                  ),
+                ],
                 if (!bootstrapping) ...[
                   const SizedBox(height: 14),
                   _ExternalMetrics(club: club, stats: stats, planned: planned),
@@ -3195,6 +3225,79 @@ class _ExternalHome extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ExternalTodayCard extends StatelessWidget {
+  final TrainingSession session;
+  final bool attendanceTaken;
+  final VoidCallback onTakeAttendance;
+
+  const _ExternalTodayCard({
+    required this.session,
+    required this.attendanceTaken,
+    required this.onTakeAttendance,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: CX.greenDark.withValues(alpha: .42),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: CX.green.withValues(alpha: .25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.today_outlined, color: CX.green, size: 18),
+              const SizedBox(width: 8),
+              const Text('Hoy',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            session.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          if (session.objective.trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              session.objective.trim(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: CX.muted, fontSize: 12, height: 1.35),
+            ),
+          ],
+          const SizedBox(height: 12),
+          if (attendanceTaken)
+            const Row(
+              children: [
+                Icon(Icons.check_circle_outline, size: 15, color: CX.green),
+                SizedBox(width: 6),
+                Text('Asistencia tomada',
+                    style: TextStyle(
+                        color: CX.green,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800)),
+              ],
+            )
+          else
+            OutlinedButton.icon(
+              onPressed: onTakeAttendance,
+              icon: const Icon(Icons.fact_check_outlined, size: 17),
+              label: const Text('Tomar asistencia de hoy'),
+            ),
+        ],
       ),
     );
   }

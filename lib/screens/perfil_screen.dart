@@ -182,11 +182,13 @@ class _EditableMethodologyBox extends StatelessWidget {
                     title: 'Con pelota',
                     color: CX.green,
                     items: methodology.offensivePrinciples,
+                    onEdit: () => _editPrinciples(context, offensive: true),
                   );
                   final defense = _PrincipleColumn(
                     title: 'Sin pelota',
                     color: CX.blue,
                     items: methodology.defensivePrinciples,
+                    onEdit: () => _editPrinciples(context, offensive: false),
                   );
                   if (constraints.maxWidth < 620) {
                     return Column(
@@ -208,6 +210,45 @@ class _EditableMethodologyBox extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _editPrinciples(
+    BuildContext context, {
+    required bool offensive,
+  }) async {
+    final current = offensive
+        ? methodology.offensivePrinciples
+        : methodology.defensivePrinciples;
+    final value = await promptForText(
+      context,
+      title: offensive ? 'Principios con pelota' : 'Principios sin pelota',
+      initialValue: current.join('\n'),
+      hintText: 'Un principio por línea',
+      minLines: 4,
+      maxLines: 10,
+    );
+    if (value == null) return;
+    final list = value
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+    if (!context.mounted) return;
+    final scope = AppScope.of(context);
+    final next = offensive
+        ? scope.club.methodology.copyWith(offensivePrinciples: list)
+        : scope.club.methodology.copyWith(defensivePrinciples: list);
+    scope.updateClub(scope.club.copyWith(methodology: next));
+    try {
+      await ClubAccessService.saveTacticalData(
+        type: 'methodology',
+        title: 'Forma de jugar',
+        categoryId: scope.selectedCategoryId,
+        content: {'methodology': next.toJson()},
+      );
+    } catch (_) {
+      // Copia local guardada; la nube reintenta en otro acceso.
+    }
   }
 
   Future<void> _edit(BuildContext context) async {
@@ -248,52 +289,65 @@ class _PrincipleColumn extends StatelessWidget {
   final String title;
   final Color color;
   final List<String> items;
+  final VoidCallback? onEdit;
   const _PrincipleColumn({
     required this.title,
     required this.color,
     required this.items,
+    this.onEdit,
   });
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Row(
+  Widget build(BuildContext context) => InkWell(
+    borderRadius: BorderRadius.circular(8),
+    onTap: onEdit,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          Row(
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 7),
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+              ),
+              if (onEdit != null) ...[
+                const SizedBox(width: 6),
+                const Icon(Icons.edit_outlined, size: 13, color: CX.faint),
+              ],
+            ],
           ),
-          const SizedBox(width: 7),
-          Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-          ),
-        ],
-      ),
-      const SizedBox(height: 9),
-      if (items.isEmpty)
-        const Text(
-          'Sin principios cargados',
-          style: TextStyle(color: CX.faint, fontSize: 11),
-        )
-      else
-        ...items
-            .take(5)
-            .map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 7),
-                child: Text(
-                  '-  $item',
-                  style: const TextStyle(
-                    color: CX.muted,
-                    fontSize: 11,
-                    height: 1.35,
+          const SizedBox(height: 9),
+          if (items.isEmpty)
+            const Text(
+              'Sin principios cargados — tocá para definirlos',
+              style: TextStyle(color: CX.faint, fontSize: 11),
+            )
+          else
+            ...items
+                .take(5)
+                .map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 7),
+                    child: Text(
+                      '-  $item',
+                      style: const TextStyle(
+                        color: CX.muted,
+                        fontSize: 11,
+                        height: 1.35,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-    ],
+        ],
+      ),
+    ),
   );
 }
 

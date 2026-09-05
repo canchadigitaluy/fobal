@@ -56,11 +56,48 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
     );
     if (result == null || !mounted) return;
     final scope = AppScope.of(context);
-    final next = [
-      result,
-      ...club.savedExercises.where((item) => item.id != result.id),
-    ];
-    scope.updateClub(club.copyWith(savedExercises: next));
+    final libraryWithoutSelf =
+        club.savedExercises.where((item) => item.id != result.id).toList();
+    final dedup = findExerciseDuplicate(
+      library: libraryWithoutSelf,
+      name: result.name,
+      duration: result.duration,
+      description: result.description,
+    );
+    if (dedup == ExerciseDedupResult.exactMatch) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ya existe un ejercicio igual en la biblioteca.'),
+        ),
+      );
+      return;
+    }
+    if (dedup == ExerciseDedupResult.nameMatch) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Ejercicio parecido'),
+          content: Text(
+            'Ya tenés un ejercicio guardado con el nombre "${result.name}" '
+            'pero con otros datos. ¿Guardar este de todos modos?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Guardar de todos modos'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+    scope.updateClub(
+      club.copyWith(savedExercises: [result, ...libraryWithoutSelf]),
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(

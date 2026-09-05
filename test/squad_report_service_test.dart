@@ -57,6 +57,21 @@ void main() {
       expect(content, contains('1 jugados · 1G 0E 0P'));
     });
 
+    test('omits the match record for a LUD category — that record lives in '
+        'the league sync, a locally logged result is never authoritative', () {
+      final players = [_player(id: 'p1', attendanceRate: 0.9)];
+      final matchResults = [
+        const MatchResult(id: 'r1', categoryId: 'lud-cat-1-1', date: '2026-09-01', opponent: 'Rampla', goalsFor: 2, goalsAgainst: 1),
+      ];
+      final content = buildSquadReportContent(
+        club: _club(players: players, matchResults: matchResults),
+        players: players,
+        categoryId: 'lud-cat-1-1',
+        categoryName: 'Sub 15',
+      );
+      expect(content, isNot(contains('RESULTADOS')));
+    });
+
     test('an empty squad produces a report with no optional sections', () {
       final content = buildSquadReportContent(
         club: _club(),

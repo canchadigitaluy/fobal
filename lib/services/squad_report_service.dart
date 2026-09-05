@@ -28,7 +28,14 @@ String buildSquadReportContent({
       .expand((player) => player.developmentGoals)
       .where((goal) => goal.status == PlayerGoalStatus.logrado)
       .length;
-  final matchStats = MatchStats.forCategory(club.matchResults, categoryId);
+  // For LUD categories the official record lives in the league sync
+  // (standings/results shown elsewhere in Estadísticas) — any locally
+  // logged results are a personal supplement, never the authoritative
+  // record, so the report omits them here rather than risk looking like
+  // an official W/D/L next to the real league table.
+  final matchStats = isLudCategoryId(categoryId)
+      ? null
+      : MatchStats.forCategory(club.matchResults, categoryId);
   return formatSquadReportText(
     clubName: club.name,
     categoryName: categoryName,
@@ -41,9 +48,11 @@ String buildSquadReportContent({
     topGoalLines: formatPlayerGoalLines(
       goals.take(5).map((entry) => entry.goal).toList(),
     ),
-    matchesPlayed: matchStats.played == 0 ? null : matchStats.played,
-    wins: matchStats.wins,
-    draws: matchStats.draws,
-    losses: matchStats.losses,
+    matchesPlayed: matchStats == null || matchStats.played == 0
+        ? null
+        : matchStats.played,
+    wins: matchStats?.wins ?? 0,
+    draws: matchStats?.draws ?? 0,
+    losses: matchStats?.losses ?? 0,
   );
 }

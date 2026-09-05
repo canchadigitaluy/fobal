@@ -719,3 +719,30 @@ class EmptyStatePanel extends StatelessWidget {
     );
   }
 }
+
+/// A row of quick-pick chips next to a free-text field — nudges a value
+/// toward the canonical vocabulary (so it stays filterable/consistent)
+/// without blocking a legacy or one-off free-text entry.
+class QuickValueRow extends StatelessWidget {
+  final List<String> values;
+  final ValueChanged<String> onSelected;
+
+  const QuickValueRow({super.key, required this.values, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: values
+          .map(
+            (value) => ActionChip(
+              label: Text(value),
+              onPressed: () => onSelected(value),
+              visualDensity: VisualDensity.compact,
+            ),
+          )
+          .toList(),
+    );
+  }
+}

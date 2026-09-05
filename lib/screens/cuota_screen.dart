@@ -2853,7 +2853,7 @@ class _PlayerEditDialogState extends State<_PlayerEditDialog> {
                 decoration: const InputDecoration(labelText: 'Pie habil'),
               ),
               const SizedBox(height: 8),
-              _QuickValueRow(
+              QuickValueRow(
                 values: const ['Derecho', 'Izquierdo', 'Ambidiestro'],
                 onSelected: (value) => _foot.text = value,
               ),
@@ -2866,7 +2866,7 @@ class _PlayerEditDialogState extends State<_PlayerEditDialog> {
                 ),
               ),
               const SizedBox(height: 8),
-              _QuickValueRow(
+              QuickValueRow(
                 values: const [
                   'Disponible',
                   'Tocado',
@@ -3104,33 +3104,6 @@ class _PlayerProfileQuality extends StatelessWidget {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _QuickValueRow extends StatelessWidget {
-  final List<String> values;
-  final ValueChanged<String> onSelected;
-
-  const _QuickValueRow({required this.values, required this.onSelected});
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: values
-            .map(
-              (value) => ActionChip(
-                label: Text(value),
-                onPressed: () => onSelected(value),
-                visualDensity: VisualDensity.compact,
-              ),
-            )
-            .toList(),
       ),
     );
   }

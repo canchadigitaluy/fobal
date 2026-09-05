@@ -574,6 +574,11 @@ class _ExerciseEditDialogState extends State<ExerciseEditDialog> {
                   ),
                 ],
               ),
+              const SizedBox(height: 6),
+              QuickValueRow(
+                values: const ['Baja', 'Media', 'Alta'],
+                onSelected: (value) => setState(() => _intensity.text = value),
+              ),
               const SizedBox(height: 10),
               Row(
                 children: [

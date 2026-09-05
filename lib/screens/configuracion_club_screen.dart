@@ -4,6 +4,7 @@ import '../main.dart';
 import '../services/club_access_service.dart';
 import '../services/club_backup_service.dart';
 import '../services/supabase_auth_service.dart';
+import '../ui/ui_kit.dart';
 
 class ConfiguracionClubScreen extends StatefulWidget {
   const ConfiguracionClubScreen({super.key});
@@ -1100,7 +1101,7 @@ class _PlayerForm extends StatelessWidget {
             decoration: const InputDecoration(labelText: 'Estado'),
           ),
           const SizedBox(height: 8),
-          _QuickValueRow(
+          QuickValueRow(
             values: const [
               'Disponible',
               'Tocado',
@@ -1174,30 +1175,6 @@ class _PlayerSetupCard extends StatelessWidget {
       subtitle: subtitle,
       onDelete: onDelete,
       fromLud: player.id.startsWith('lud-player-'),
-    );
-  }
-}
-
-class _QuickValueRow extends StatelessWidget {
-  final List<String> values;
-  final ValueChanged<String> onSelected;
-
-  const _QuickValueRow({required this.values, required this.onSelected});
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: values
-          .map(
-            (value) => ActionChip(
-              label: Text(value),
-              onPressed: () => onSelected(value),
-              visualDensity: VisualDensity.compact,
-            ),
-          )
-          .toList(),
     );
   }
 }

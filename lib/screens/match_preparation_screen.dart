@@ -15,6 +15,7 @@ import '../state/section_handoff.dart';
 import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
 import 'match_result_dialog.dart';
+import 'player_profile_screen.dart';
 
 /// Opens the match-preparation panel. If [calendarEventId] matches an
 /// existing [MatchPreparation] for the active category, that one opens for
@@ -605,16 +606,20 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                           runSpacing: 6,
                           children: [
                             for (final player in warningPlayers)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: CX.panel,
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(color: player.availability.color.withValues(alpha: .4)),
-                                ),
-                                child: Text(
-                                  '${player.fullName.trim()} · ${player.availability.label}',
-                                  style: TextStyle(color: player.availability.color, fontSize: 11, fontWeight: FontWeight.w700),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(999),
+                                onTap: () => openPlayerProfile(context, player),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: CX.panel,
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(color: player.availability.color.withValues(alpha: .4)),
+                                  ),
+                                  child: Text(
+                                    '${player.fullName.trim()} · ${player.availability.label}',
+                                    style: TextStyle(color: player.availability.color, fontSize: 11, fontWeight: FontWeight.w700),
+                                  ),
                                 ),
                               ),
                           ],

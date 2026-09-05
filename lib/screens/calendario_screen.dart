@@ -393,6 +393,41 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                           },
                           sessions: AppScope.of(context).club.sessions,
                         ),
+                        Builder(
+                          builder: (context) {
+                            final logged = {
+                              for (final r in AppScope.of(context).fullClub.matchResults)
+                                if (r.calendarKey.isNotEmpty) r.calendarKey,
+                            };
+                            final now = DateTime.now();
+                            final floor = DateTime(now.year, now.month, now.day);
+                            final pending = <({DateTime day, _CalendarEvent event})>[];
+                            for (final entry in _events.entries) {
+                              final parts = entry.key.split('-');
+                              if (parts.length != 3) continue;
+                              final day = DateTime(
+                                int.tryParse(parts[0]) ?? 0,
+                                int.tryParse(parts[1]) ?? 1,
+                                int.tryParse(parts[2]) ?? 1,
+                              );
+                              if (day.isAfter(floor)) continue;
+                              for (final e in entry.value) {
+                                if (!isMatchEventType(e.type)) continue;
+                                if (logged.contains(e.id)) continue;
+                                pending.add((day: day, event: e));
+                              }
+                            }
+                            if (pending.isEmpty) return const SizedBox.shrink();
+                            pending.sort((a, b) => b.day.compareTo(a.day));
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 16),
+                              child: _PendingResultsPanel(
+                                pending: pending.take(5).toList(),
+                                onOpenDay: _openDay,
+                              ),
+                            );
+                          },
+                        ),
                       ],
                       if (_selectedDay != null) ...[
                         const SizedBox(height: 14),
@@ -452,6 +487,72 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
         'Noviembre',
         'Diciembre',
       ][month - 1];
+}
+
+class _PendingResultsPanel extends StatelessWidget {
+  final List<({DateTime day, _CalendarEvent event})> pending;
+  final ValueChanged<DateTime> onOpenDay;
+
+  const _PendingResultsPanel({required this.pending, required this.onOpenDay});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: CX.amber.withValues(alpha: .07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: CX.amber.withValues(alpha: .28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.scoreboard_outlined, color: CX.amber, size: 16),
+              SizedBox(width: 6),
+              Text('PARTIDOS SIN RESULTADO',
+                  style: TextStyle(
+                      color: CX.amber,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .4)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          for (final item in pending)
+            InkWell(
+              onTap: () => onOpenDay(item.day),
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.event.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 12.5),
+                      ),
+                    ),
+                    Text(
+                      '${item.day.day.toString().padLeft(2, '0')}/'
+                      '${item.day.month.toString().padLeft(2, '0')}',
+                      style: const TextStyle(color: CX.faint, fontSize: 11),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.chevron_right, size: 16, color: CX.muted),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _UpcomingEvents extends StatelessWidget {

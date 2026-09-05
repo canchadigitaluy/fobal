@@ -505,7 +505,9 @@ class _ReservasScreenState extends State<ReservasScreen> {
                       onPressed: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const SessionBuilderScreen(),
+                          builder: (context) => SessionBuilderScreen(
+                            calendarEventId: _handoffCalendarEventId,
+                          ),
                         ),
                       ),
                       icon: const Icon(Icons.view_agenda_outlined, size: 17),

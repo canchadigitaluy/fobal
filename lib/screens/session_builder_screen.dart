@@ -14,7 +14,13 @@ import 'exercise_library_screen.dart';
 /// them on the fly, reorder, see the total duration add up live, then save
 /// the same way a generated session already does.
 class SessionBuilderScreen extends StatefulWidget {
-  const SessionBuilderScreen({super.key});
+  /// Stable id of the calendar event this session prepares for, if any —
+  /// same linking pattern the AI planner already uses, so a match prep's
+  /// "Entrenamiento vinculado" shows up regardless of which planner built
+  /// the session.
+  final String calendarEventId;
+
+  const SessionBuilderScreen({super.key, this.calendarEventId = ''});
 
   @override
   State<SessionBuilderScreen> createState() => _SessionBuilderScreenState();
@@ -146,12 +152,22 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
       coachCues: const [],
       successIndicators: const [],
     );
+    final matchPreparations = widget.calendarEventId.isEmpty
+        ? club.matchPreparations
+        : [
+            for (final prep in club.matchPreparations)
+              if (prep.calendarEventId == widget.calendarEventId)
+                prep.copyWith(linkedSessionId: session.id)
+              else
+                prep,
+          ];
     scope.updateClub(
       club.copyWith(
         sessions: [
           session,
           ...club.sessions.where((item) => item.id != session.id),
         ],
+        matchPreparations: matchPreparations,
       ),
     );
     final writeResult = await OfflineMutationService.instance.saveTacticalDataOfflineFirst(

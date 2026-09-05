@@ -29,6 +29,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   final _scheduleController = TextEditingController();
   final Set<String> _presentIds = {};
   String? _loadedKey;
+  String _search = '';
 
   @override
   void dispose() {
@@ -332,28 +333,62 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Material(
-                  type: MaterialType.transparency,
-                  child: Container(
-                  decoration: CX.panelDecoration(),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      for (final player in players)
-                        _AttendanceRow(
-                          player: player,
-                          present: _presentIds.contains(player.id),
-                          onChanged: (v) => setState(() {
-                            if (v) {
-                              _presentIds.add(player.id);
-                            } else {
-                              _presentIds.remove(player.id);
-                            }
-                          }),
+                if (players.length > 8) ...[
+                  TextField(
+                    onChanged: (v) => setState(() => _search = v),
+                    decoration: const InputDecoration(
+                      hintText: 'Buscar jugador',
+                      prefixIcon: Icon(Icons.search, size: 18),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                Builder(
+                  builder: (context) {
+                    final query = _search.trim().toLowerCase();
+                    final visible = query.isEmpty
+                        ? players
+                        : players
+                            .where((p) =>
+                                p.fullName.toLowerCase().contains(query))
+                            .toList();
+                    return Material(
+                      type: MaterialType.transparency,
+                      child: Container(
+                        decoration: CX.panelDecoration(),
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          children: [
+                            if (query.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Mostrando ${visible.length} de ${players.length}',
+                                    style: const TextStyle(
+                                        color: CX.faint, fontSize: 11),
+                                  ),
+                                ),
+                              ),
+                            for (final player in visible)
+                              _AttendanceRow(
+                                player: player,
+                                present: _presentIds.contains(player.id),
+                                onChanged: (v) => setState(() {
+                                  if (v) {
+                                    _presentIds.add(player.id);
+                                  } else {
+                                    _presentIds.remove(player.id);
+                                  }
+                                }),
+                              ),
+                          ],
                         ),
-                    ],
-                  ),
-                  ),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 SizedBox(

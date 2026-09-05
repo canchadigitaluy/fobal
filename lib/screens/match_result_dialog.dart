@@ -139,6 +139,7 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isLud = isLudCategoryId(widget.categoryId);
     return AlertDialog(
       title: Text(widget.existing == null ? 'Cargar resultado' : 'Editar resultado'),
       content: SizedBox(
@@ -148,6 +149,22 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (isLud) ...[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: CX.amber.withValues(alpha: .08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: CX.amber.withValues(alpha: .25)),
+                  ),
+                  child: const Text(
+                    'Este es un registro personal — no reemplaza ni modifica '
+                    'la tabla oficial de la liga.',
+                    style: TextStyle(color: CX.amber, fontSize: 11.5, height: 1.35),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               InkWell(
                 borderRadius: BorderRadius.circular(8),
                 onTap: () async {

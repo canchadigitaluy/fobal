@@ -2,6 +2,8 @@
 /// result. No Flutter/web dependency, so this stays unit-testable.
 library;
 
+import 'dart:convert';
+
 import '../data/cantera_data.dart';
 
 /// "yyyy-MM-dd" day key — matches the calendar screen's storage map key.
@@ -42,6 +44,46 @@ List<TrainingSession> sessionsOnDay(List<TrainingSession> sessions, DateTime day
     final date = DateTime.tryParse(session.scheduledDate);
     return date != null && calendarDayKey(date) == key;
   }).toList();
+}
+
+/// Past match events (type Partido/Torneo) that still have no logged
+/// result. [calendarJson] is the raw localStorage value for a category's
+/// calendar — a `dayKey -> [eventJson]` map. Matched to results by the
+/// event's stable id == [MatchResult.calendarKey]. Never throws on bad
+/// data; future days are skipped.
+List<({String title, String dayKey})> pendingMatchResults(
+  String calendarJson,
+  List<MatchResult> results, {
+  DateTime? now,
+}) {
+  if (calendarJson.trim().isEmpty) return const [];
+  final logged = {
+    for (final r in results)
+      if (r.calendarKey.isNotEmpty) r.calendarKey,
+  };
+  final today = calendarDayKey(now ?? DateTime.now());
+  final out = <({String title, String dayKey})>[];
+  try {
+    final data = jsonDecode(calendarJson) as Map<String, dynamic>;
+    for (final entry in data.entries) {
+      if (entry.key.compareTo(today) > 0) continue;
+      for (final raw in (entry.value as List<dynamic>? ?? const [])) {
+        final map = normalizeEventJson(raw as Map<String, dynamic>, entry.key);
+        final type = map['type'] as String? ?? '';
+        if (type != 'Partido' && type != 'Torneo') continue;
+        final id = (map['id'] as String? ?? '').trim();
+        if (id.isEmpty || logged.contains(id)) continue;
+        out.add((
+          title: (map['title'] as String? ?? 'Partido').trim(),
+          dayKey: entry.key,
+        ));
+      }
+    }
+  } catch (_) {
+    return const [];
+  }
+  out.sort((a, b) => b.dayKey.compareTo(a.dayKey));
+  return out;
 }
 
 int _eventIdSeq = 0;

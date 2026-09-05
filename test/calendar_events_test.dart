@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:cantera_os/data/cantera_data.dart';
@@ -110,6 +112,52 @@ void main() {
         DateTime(2026, 3, 5),
       );
       expect(result, isEmpty);
+    });
+  });
+
+  group('pendingMatchResults', () {
+    final now = DateTime(2026, 9, 10);
+    String cal(Map<String, List<Map<String, dynamic>>> m) => jsonEncode(m);
+
+    test('flags a past match event with no matching result', () {
+      final json = cal({
+        '2026-09-05': [
+          {'id': 'evt-1', 'title': 'vs Rampla', 'type': 'Partido'},
+        ],
+      });
+      final pending = pendingMatchResults(json, const [], now: now);
+      expect(pending.length, 1);
+      expect(pending.first.title, 'vs Rampla');
+    });
+
+    test('a match with a result logged (calendarKey == event id) is not flagged', () {
+      final json = cal({
+        '2026-09-05': [
+          {'id': 'evt-1', 'title': 'vs Rampla', 'type': 'Partido'},
+        ],
+      });
+      const result = MatchResult(
+        id: 'r1', categoryId: 'c', date: '2026-09-05',
+        opponent: 'Rampla', calendarKey: 'evt-1',
+      );
+      expect(pendingMatchResults(json, [result], now: now), isEmpty);
+    });
+
+    test('future matches and non-match event types are ignored', () {
+      final json = cal({
+        '2026-09-20': [
+          {'id': 'evt-2', 'title': 'vs Peñarol', 'type': 'Partido'},
+        ],
+        '2026-09-05': [
+          {'id': 'evt-3', 'title': 'Entrenamiento', 'type': 'Entrenamiento'},
+        ],
+      });
+      expect(pendingMatchResults(json, const [], now: now), isEmpty);
+    });
+
+    test('empty or malformed json -> empty, never throws', () {
+      expect(pendingMatchResults('', const [], now: now), isEmpty);
+      expect(pendingMatchResults('not json', const [], now: now), isEmpty);
     });
   });
 

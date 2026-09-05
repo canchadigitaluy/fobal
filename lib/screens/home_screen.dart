@@ -9,6 +9,7 @@ import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/supabase_auth_service.dart';
 import '../services/club_access_service.dart';
+import '../state/calendar_events.dart';
 import '../state/section_handoff.dart';
 import '../ui/ui_kit.dart';
 import 'match_preparation_screen.dart';
@@ -3097,12 +3098,20 @@ class _ExternalHome extends StatelessWidget {
     return raw != null && raw.isNotEmpty;
   }
 
+  List<({String title, String dayKey})> _pendingResults() {
+    final raw =
+        html.window.localStorage['cantera_calendar_${club.id}_$categoryId'] ??
+            '';
+    return pendingMatchResults(raw, club.matchResults);
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = MatchStats.forCategory(club.matchResults, categoryId);
     final event = _nextCalendarEvent();
     final actions = ShellActions.of(context);
     final todaySession = _todaySession();
+    final pendingResults = _pendingResults();
 
     final hasSquad = club.players.isNotEmpty;
     final hasResults = stats.all.isNotEmpty;
@@ -3208,6 +3217,14 @@ class _ExternalHome extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (pendingResults.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  _PendingResultsCard(
+                    count: pendingResults.length,
+                    firstTitle: pendingResults.first.title,
+                    onOpen: () => actions.openSection(ShellSection.calendar),
+                  ),
+                ],
                 if (todaySession != null) ...[
                   const SizedBox(height: 14),
                   _ExternalTodayCard(
@@ -3225,6 +3242,48 @@ class _ExternalHome extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PendingResultsCard extends StatelessWidget {
+  final int count;
+  final String firstTitle;
+  final VoidCallback onOpen;
+
+  const _PendingResultsCard({
+    required this.count,
+    required this.firstTitle,
+    required this.onOpen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: CX.amber.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: CX.amber.withValues(alpha: .3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.scoreboard_outlined, color: CX.amber, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              count == 1
+                  ? 'Partido jugado sin resultado cargado: $firstTitle'
+                  : '$count partidos jugados sin resultado cargado',
+              style: const TextStyle(
+                  fontSize: 12.5, fontWeight: FontWeight.w700, height: 1.3),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(onPressed: onOpen, child: const Text('Cargar')),
+        ],
       ),
     );
   }

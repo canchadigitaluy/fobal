@@ -287,6 +287,11 @@ String formatPlayerProfileText({
   String availabilityNote = '',
   String expectedReturnDate = '',
   bool hasLeagueStats = false,
+  /// True for a No-LUD player with real matches/goals from "Cargar
+  /// resultado" (see hasManualMatchStats). Rendered in its own section,
+  /// distinct from [hasLeagueStats], so the export never labels a manually
+  /// logged number as an official league stat.
+  bool hasManualMatchStats = false,
   int matchesPlayed = 0,
   int minutesPlayed = 0,
   int goalsScored = 0,
@@ -319,6 +324,10 @@ String formatPlayerProfileText({
           '$assists asistencias',
       if (yellowCards > 0 || redCards > 0)
         '$yellowCards amarillas · $redCards rojas',
+    ] else if (hasManualMatchStats) ...[
+      '',
+      'PARTIDOS (CARGADOS A MANO)',
+      '$matchesPlayed PJ · $goalsScored goles',
     ],
     if (attendanceRate > 0) ...[
       '',

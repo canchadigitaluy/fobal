@@ -157,6 +157,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
     CategorySquad category,
     Player player,
     bool reliableLeague,
+    bool manualMatchStats,
   ) {
     final content = formatPlayerProfileText(
       fullName: player.fullName,
@@ -168,6 +169,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
       availabilityNote: player.statusDetail,
       expectedReturnDate: player.expectedReturnDate,
       hasLeagueStats: reliableLeague,
+      hasManualMatchStats: manualMatchStats,
       matchesPlayed: player.matchesPlayed,
       minutesPlayed: player.minutesPlayed,
       goalsScored: player.goals,
@@ -464,8 +466,13 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                     ActionSpec(
                       label: 'Compartir perfil',
                       icon: Icons.ios_share_outlined,
-                      onTap: (_) =>
-                          _shareProfile(club, category, resolvedPlayer, reliableLeague),
+                      onTap: (_) => _shareProfile(
+                        club,
+                        category,
+                        resolvedPlayer,
+                        reliableLeague,
+                        manualMatchStats,
+                      ),
                     ),
                   ],
                 ),

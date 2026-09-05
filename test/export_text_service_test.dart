@@ -171,6 +171,47 @@ void main() {
     });
   });
 
+  group('formatPlayerProfileText — sección de rendimiento según la fuente', () {
+    test('LUD: RENDIMIENTO EN LIGA with full stats, never the manual section', () {
+      final text = formatPlayerProfileText(
+        fullName: 'Juan Pérez',
+        availabilityLabel: 'Disponible',
+        hasLeagueStats: true,
+        hasManualMatchStats: true, // even if somehow true, LUD wins
+        matchesPlayed: 10,
+        minutesPlayed: 800,
+        goalsScored: 3,
+        assists: 2,
+      );
+      expect(text, contains('RENDIMIENTO EN LIGA'));
+      expect(text, contains('10 PJ · 800 min · 3 goles · 2 asistencias'));
+      expect(text, isNot(contains('PARTIDOS (CARGADOS A MANO)')));
+    });
+
+    test('No-LUD manual: PARTIDOS (CARGADOS A MANO) with only PJ/goles, '
+        'never minutes/assists/cards that are never actually tracked there', () {
+      final text = formatPlayerProfileText(
+        fullName: 'Juan Pérez',
+        availabilityLabel: 'Disponible',
+        hasManualMatchStats: true,
+        matchesPlayed: 5,
+        goalsScored: 2,
+      );
+      expect(text, contains('PARTIDOS (CARGADOS A MANO)'));
+      expect(text, contains('5 PJ · 2 goles'));
+      expect(text, isNot(contains('RENDIMIENTO EN LIGA')));
+    });
+
+    test('neither flag set: no performance section at all', () {
+      final text = formatPlayerProfileText(
+        fullName: 'Juan Pérez',
+        availabilityLabel: 'Disponible',
+      );
+      expect(text, isNot(contains('RENDIMIENTO EN LIGA')));
+      expect(text, isNot(contains('PARTIDOS (CARGADOS A MANO)')));
+    });
+  });
+
   group('formatSquadReportText — reporte consolidado del plantel', () {
     test('renders every filled section', () {
       final generatedAt = DateTime(2026, 9, 4);

@@ -128,7 +128,13 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
     final cats = scope.fullClub.categories;
     final categoryId = scope.selectedCategoryId ??
         (cats.isNotEmpty ? cats.first.id : 'plantel');
-    final player = await showAddPlayerDialog(context, categoryId: categoryId);
+    final player = await showAddPlayerDialog(
+      context,
+      categoryId: categoryId,
+      existingNames: normalizedPlayerNames(
+        scope.fullClub.players.where((p) => p.categoryId == categoryId),
+      ),
+    );
     if (player == null || !mounted) return;
     final nextPlayers = [...scope.fullClub.players, player];
     final categories = scope.fullClub.categories

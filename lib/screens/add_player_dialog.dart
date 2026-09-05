@@ -9,19 +9,33 @@ import '../data/cantera_data.dart';
 /// completeness no longer depends on which screen the DT happened to use.
 /// Availability/status stays out of this — that's player_availability_dialog's
 /// job, kept separate on purpose.
+/// Normalized "nombre apellido" of every player already in the category —
+/// used only to warn (never block) on an apparent duplicate.
+Set<String> normalizedPlayerNames(Iterable<Player> players) => {
+      for (final p in players)
+        '${p.firstName.trim().toLowerCase()} ${p.lastName.trim().toLowerCase()}'
+            .trim(),
+    };
+
 Future<Player?> showAddPlayerDialog(
   BuildContext context, {
   required String categoryId,
+  Set<String> existingNames = const {},
 }) {
   return showDialog<Player>(
     context: context,
-    builder: (context) => _AddPlayerDialog(categoryId: categoryId),
+    builder: (context) =>
+        _AddPlayerDialog(categoryId: categoryId, existingNames: existingNames),
   );
 }
 
 class _AddPlayerDialog extends StatefulWidget {
   final String categoryId;
-  const _AddPlayerDialog({required this.categoryId});
+  final Set<String> existingNames;
+  const _AddPlayerDialog({
+    required this.categoryId,
+    this.existingNames = const {},
+  });
 
   @override
   State<_AddPlayerDialog> createState() => _AddPlayerDialogState();
@@ -47,13 +61,38 @@ class _AddPlayerDialogState extends State<_AddPlayerDialog> {
     super.dispose();
   }
 
-  void _save() {
+  Future<void> _save() async {
     final firstName = _firstName.text.trim();
     final lastName = _lastName.text.trim();
     if (firstName.length < 2 || lastName.length < 2) {
       setState(() => _showError = true);
       return;
     }
+    final key = '${firstName.toLowerCase()} ${lastName.toLowerCase()}'.trim();
+    if (widget.existingNames.contains(key)) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Nombre repetido'),
+          content: Text(
+            'Ya hay un jugador llamado "$firstName $lastName" en esta '
+            'categoría. ¿Agregarlo igual?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Agregar igual'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
+    if (!mounted) return;
     Navigator.pop(
       context,
       Player(

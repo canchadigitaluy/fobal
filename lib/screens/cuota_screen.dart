@@ -200,7 +200,13 @@ class _CuotaScreenState extends State<CuotaScreen> {
   }
 
   Future<void> _addManualPlayer(CanteraClub club, CategorySquad category) async {
-    final player = await showAddPlayerDialog(context, categoryId: category.id);
+    final player = await showAddPlayerDialog(
+      context,
+      categoryId: category.id,
+      existingNames: normalizedPlayerNames(
+        club.players.where((p) => p.categoryId == category.id),
+      ),
+    );
     if (player == null) return;
     final nextPlayers = [...club.players, player];
     final nextCategories = club.categories

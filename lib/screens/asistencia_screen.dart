@@ -211,7 +211,13 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   }
 
   Future<void> _addPlayer(CanteraClub club, CategorySquad category) async {
-    final player = await showAddPlayerDialog(context, categoryId: category.id);
+    final player = await showAddPlayerDialog(
+      context,
+      categoryId: category.id,
+      existingNames: normalizedPlayerNames(
+        club.players.where((p) => p.categoryId == category.id),
+      ),
+    );
     if (player == null) return;
     final nextPlayers = [...club.players, player];
     final nextCategories = club.categories

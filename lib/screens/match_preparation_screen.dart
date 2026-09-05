@@ -1,7 +1,12 @@
+// ignore_for_file: avoid_web_libraries_in_flutter
+
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../services/alignment_history_service.dart';
 import '../services/club_access_service.dart';
 import '../services/export_download_service.dart';
 import '../services/export_text_service.dart';
@@ -231,6 +236,14 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     final categoryPlayers = categoryIsLud
         ? const <Player>[]
         : club.players.where((p) => p.categoryId == category.id).toList();
+    final historyRaw = html.window.localStorage[
+        'cantera_alignment_history_${club.id}_${category.id}'] ??
+        '';
+    final suggestedLineupIds = findLineupForRival(
+          historyJson: historyRaw,
+          rivalName: _rival.text.trim(),
+        ) ??
+        const [];
     final result = await showMatchResultDialog(
       context,
       categoryId: category.id,
@@ -239,6 +252,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
       initialOpponent: _rival.text.trim(),
       calendarKey: widget.calendarEventId,
       players: categoryPlayers,
+      suggestedLineupIds: suggestedLineupIds,
     );
     if (result == null || !mounted) return;
     final nextResults = [

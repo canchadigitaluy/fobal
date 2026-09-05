@@ -16,6 +16,10 @@ Future<MatchResult?> showMatchResultDialog(
   /// picker — only meaningful (and only shown) for manual/No-LUD categories,
   /// which have no league sync to source matchesPlayed/goals from.
   List<Player> players = const [],
+  /// Best-effort lineup suggestion (from Alineación's saved history for this
+  /// rival) to pre-check when creating a brand-new result. Ignored when
+  /// editing an existing one — that already has its own real lineup.
+  List<String> suggestedLineupIds = const [],
 }) {
   return showDialog<MatchResult>(
     context: context,
@@ -26,6 +30,7 @@ Future<MatchResult?> showMatchResultDialog(
       initialOpponent: initialOpponent,
       calendarKey: calendarKey,
       players: players,
+      suggestedLineupIds: suggestedLineupIds,
     ),
   );
 }
@@ -37,12 +42,14 @@ class _MatchResultDialog extends StatefulWidget {
   final String? initialOpponent;
   final String? calendarKey;
   final List<Player> players;
+  final List<String> suggestedLineupIds;
 
   const _MatchResultDialog({
     required this.categoryId,
     this.existing,
     this.initialDate,
     this.initialOpponent,
+    this.suggestedLineupIds = const [],
     this.calendarKey,
     this.players = const [],
   });
@@ -62,6 +69,7 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
   bool _showOpponentError = false;
   final Set<String> _lineup = {};
   final Map<String, int> _scorers = {};
+  bool _lineupSuggested = false;
 
   @override
   void initState() {
@@ -83,6 +91,10 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
       for (final id in e.scorerIds) {
         _scorers[id] = (_scorers[id] ?? 0) + 1;
       }
+    } else if (widget.suggestedLineupIds.isNotEmpty) {
+      final validIds = widget.players.map((p) => p.id).toSet();
+      _lineup.addAll(widget.suggestedLineupIds.where(validIds.contains));
+      _lineupSuggested = _lineup.isNotEmpty;
     }
   }
 
@@ -237,6 +249,13 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
                   'Alimenta partidos jugados y goles en el perfil de cada jugador.',
                   style: const TextStyle(color: CX.faint, fontSize: 10.5),
                 ),
+                if (_lineupSuggested) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Precargado desde la última alineación citada contra este rival — revisá y ajustá.',
+                    style: const TextStyle(color: CX.blue, fontSize: 10.5, fontWeight: FontWeight.w700),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 220),

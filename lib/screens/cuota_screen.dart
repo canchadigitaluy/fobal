@@ -6,6 +6,7 @@ import '../services/club_access_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/exercise_animation_preview.dart';
 import '../ui/ui_kit.dart';
+import 'add_player_dialog.dart';
 import 'match_preparation_screen.dart';
 import 'player_profile_screen.dart';
 
@@ -199,10 +200,7 @@ class _CuotaScreenState extends State<CuotaScreen> {
   }
 
   Future<void> _addManualPlayer(CanteraClub club, CategorySquad category) async {
-    final player = await showDialog<Player>(
-      context: context,
-      builder: (context) => _ManualPlayerQuickDialog(categoryId: category.id),
-    );
+    final player = await showAddPlayerDialog(context, categoryId: category.id);
     if (player == null) return;
     final nextPlayers = [...club.players, player];
     final nextCategories = club.categories
@@ -2721,104 +2719,6 @@ class _PlayerEditDialog extends StatefulWidget {
 
   @override
   State<_PlayerEditDialog> createState() => _PlayerEditDialogState();
-}
-
-class _ManualPlayerQuickDialog extends StatefulWidget {
-  final String categoryId;
-
-  const _ManualPlayerQuickDialog({required this.categoryId});
-
-  @override
-  State<_ManualPlayerQuickDialog> createState() =>
-      _ManualPlayerQuickDialogState();
-}
-
-class _ManualPlayerQuickDialogState extends State<_ManualPlayerQuickDialog> {
-  final _name = TextEditingController();
-  final _position = TextEditingController();
-  final _secondary = TextEditingController();
-  final _foot = TextEditingController();
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _position.dispose();
-    _secondary.dispose();
-    _foot.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final fullName = _name.text.trim();
-    if (fullName.length < 3) return;
-    final parts = fullName.split(RegExp(r'\s+'));
-    Navigator.pop(
-      context,
-      Player(
-        id: 'manual-player-${DateTime.now().microsecondsSinceEpoch}',
-        categoryId: widget.categoryId,
-        firstName: parts.first,
-        lastName: parts.skip(1).join(' '),
-        age: 0,
-        position: _position.text.trim(),
-        secondaryPositions: _secondary.text.trim(),
-        dominantFoot: _foot.text.trim(),
-        status: 'Activo',
-        attendanceRate: 0,
-        trend: '',
-        note: '',
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Agregar jugador'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _name,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Nombre completo'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _position,
-              decoration: const InputDecoration(
-                labelText: 'Posición principal',
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _secondary,
-              decoration: const InputDecoration(
-                labelText: 'Posiciones secundarias',
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _foot,
-              decoration: const InputDecoration(labelText: 'Pie habil'),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton.icon(
-          onPressed: _save,
-          icon: const Icon(Icons.save_outlined),
-          label: const Text('Guardar'),
-        ),
-      ],
-    );
-  }
 }
 
 class _PlayerEditDialogState extends State<_PlayerEditDialog> {

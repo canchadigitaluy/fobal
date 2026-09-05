@@ -521,6 +521,26 @@ class _AttendanceRow extends StatelessWidget {
               AvailabilityChip(availability, compact: true),
               const SizedBox(width: 8),
             ],
+            if (player.attendanceRate > 0) ...[
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: (player.attendanceRate < .7 ? CX.amber : CX.green)
+                      .withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${(player.attendanceRate * 100).round()}%',
+                  style: TextStyle(
+                    color: player.attendanceRate < .7 ? CX.amber : CX.green,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             if (!present)
               const Padding(
                 padding: EdgeInsets.only(right: 6),

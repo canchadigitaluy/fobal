@@ -182,7 +182,14 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     return null;
   }
 
-  void _save(CanteraClub club, CategorySquad category) {
+  void _save(CanteraClub club, CategorySquad category) =>
+      _persistPrep(club, category);
+
+  void _persistPrep(
+    CanteraClub club,
+    CategorySquad category, {
+    bool silent = false,
+  }) {
     final id = _id.isEmpty ? 'matchprep-${DateTime.now().millisecondsSinceEpoch}' : _id;
     _id = id;
     final now = DateTime.now().toUtc().toIso8601String();
@@ -218,9 +225,11 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
         ],
       ),
     );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Plan de partido guardado${_rival.text.trim().isEmpty ? '' : ' vs ${_rival.text.trim()}'}.')),
-    );
+    if (!silent) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Plan de partido guardado${_rival.text.trim().isEmpty ? '' : ' vs ${_rival.text.trim()}'}.')),
+      );
+    }
   }
 
   /// Same log-result flow the calendar offers, but reachable from the prep
@@ -294,7 +303,15 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
-  void _goToPlanificar() {
+  void _goToPlanificar(CanteraClub club, CategorySquad category) {
+    // If this prep came from a calendar event but was never saved, persist
+    // it now (silently) so the session the planner generates has a real
+    // MatchPreparation to write linkedSessionId back onto.
+    if (widget.calendarEventId.isNotEmpty &&
+        !club.matchPreparations
+            .any((p) => p.calendarEventId == widget.calendarEventId)) {
+      _persistPrep(club, category, silent: true);
+    }
     final planSummary = [
       if (_planObjective.text.trim().isNotEmpty) _planObjective.text.trim(),
       if (_offensiveKeys.text.trim().isNotEmpty) 'Claves ofensivas: ${_offensiveKeys.text.trim()}',
@@ -681,7 +698,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                   const SizedBox(height: 10),
                 ],
                 OutlinedButton.icon(
-                  onPressed: _goToPlanificar,
+                  onPressed: () => _goToPlanificar(club, category),
                   icon: const Icon(Icons.auto_awesome, size: 17),
                   label: Text(
                     _linkedSessionId.isEmpty

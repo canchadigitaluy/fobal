@@ -281,9 +281,10 @@ class _CuotaScreenState extends State<CuotaScreen> {
         .toList();
     final reports = category == null
         ? <TrainingReport>[]
-        : club.trainingReports
+        : (club.trainingReports
               .where((item) => item.categoryId == category.id)
-              .toList();
+              .toList()
+          ..sort((a, b) => b.date.compareTo(a.date)));
     final uncategorizedPlayers = club.players
         .where(
           (player) =>
@@ -476,8 +477,20 @@ class _CuotaScreenState extends State<CuotaScreen> {
                       description:
                           'Despues de entrenar, registra lo que paso para alimentar la continuidad deportiva.',
                     )
-                  else
-                    _ReportCard(report: reports.first),
+                  else ...[
+                    for (final report in reports.take(3)) ...[
+                      _ReportCard(report: report),
+                      const SizedBox(height: 10),
+                    ],
+                    if (reports.length > 3)
+                      Text(
+                        '+ ${reports.length - 3} registros anteriores',
+                        style: const TextStyle(
+                            color: CX.faint,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700),
+                      ),
+                  ],
                 ],
               ]),
             ),

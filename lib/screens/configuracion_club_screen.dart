@@ -29,7 +29,7 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
   final _playerAgeController = TextEditingController();
   final _playerPositionController = TextEditingController();
   final _playerFootController = TextEditingController();
-  final _playerStatusController = TextEditingController(text: 'Activo');
+  final _playerStatusController = TextEditingController(text: 'Disponible');
   final _playerStatusDetailController = TextEditingController();
   final _playerSuspensionController = TextEditingController();
   final _playerNoteController = TextEditingController();
@@ -210,7 +210,7 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
       secondaryPositions: '',
       dominantFoot: _playerFootController.text.trim(),
       status: _playerStatusController.text.trim().isEmpty
-          ? 'Activo'
+          ? 'Disponible'
           : _playerStatusController.text.trim(),
       statusDetail: _playerStatusDetailController.text.trim(),
       suspensionDates:
@@ -239,7 +239,7 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
     _playerAgeController.clear();
     _playerPositionController.clear();
     _playerFootController.clear();
-    _playerStatusController.text = 'Activo';
+    _playerStatusController.text = 'Disponible';
     _playerStatusDetailController.clear();
     _playerSuspensionController.clear();
     _playerNoteController.clear();
@@ -1102,12 +1102,11 @@ class _PlayerForm extends StatelessWidget {
           const SizedBox(height: 8),
           _QuickValueRow(
             values: const [
-              'Activo',
+              'Disponible',
+              'Tocado',
               'Lesionado',
-              'Suspendido',
-              'Viaje',
-              'Examen',
-              'Duda',
+              'Sancionado',
+              'Ausente avisado',
             ],
             onSelected: (value) => statusController.text = value,
           ),

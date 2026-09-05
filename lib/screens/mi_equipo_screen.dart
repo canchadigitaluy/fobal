@@ -12,6 +12,7 @@ import '../services/export_text_service.dart';
 import '../services/player_profile_service.dart';
 import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
+import 'add_player_dialog.dart';
 import 'player_availability_dialog.dart';
 import 'player_profile_screen.dart';
 
@@ -140,26 +141,24 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
   }
 
   Future<void> _addPlayer() async {
-    final player = await showDialog<Player>(
-      context: context,
-      builder: (context) => const _AddPlayerDialog(),
-    );
-    if (player == null || !mounted) return;
     final scope = AppScope.of(context);
     final cats = scope.fullClub.categories;
     final categoryId = scope.selectedCategoryId ??
         (cats.isNotEmpty ? cats.first.id : 'plantel');
-    final updated = player.copyWith(categoryId: categoryId);
+    final player = await showAddPlayerDialog(context, categoryId: categoryId);
+    if (player == null || !mounted) return;
+    final nextPlayers = [...scope.fullClub.players, player];
     final categories = scope.fullClub.categories
         .map((category) => category.id == categoryId
-            ? category.copyWith(playerCount: category.playerCount + 1)
+            ? category.copyWith(
+                playerCount: nextPlayers
+                    .where((candidate) => candidate.categoryId == categoryId)
+                    .length,
+              )
             : category)
         .toList();
     scope.updateClub(
-      scope.fullClub.copyWith(
-        categories: categories,
-        players: [...scope.fullClub.players, updated],
-      ),
+      scope.fullClub.copyWith(categories: categories, players: nextPlayers),
     );
   }
 
@@ -693,76 +692,3 @@ class _PlayerCard extends StatelessWidget {
   }
 }
 
-class _AddPlayerDialog extends StatefulWidget {
-  const _AddPlayerDialog();
-
-  @override
-  State<_AddPlayerDialog> createState() => _AddPlayerDialogState();
-}
-
-class _AddPlayerDialogState extends State<_AddPlayerDialog> {
-  final _name = TextEditingController();
-  final _lastName = TextEditingController();
-  final _position = TextEditingController();
-  final _secondary = TextEditingController();
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _lastName.dispose();
-    _position.dispose();
-    _secondary.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Agregar jugador'),
-      content: SizedBox(
-        width: 420,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: _name, decoration: const InputDecoration(labelText: 'Nombre')),
-            const SizedBox(height: 10),
-            TextField(controller: _lastName, decoration: const InputDecoration(labelText: 'Apellido')),
-            const SizedBox(height: 10),
-            TextField(controller: _position, decoration: const InputDecoration(labelText: 'Posición principal')),
-            const SizedBox(height: 10),
-            TextField(controller: _secondary, decoration: const InputDecoration(labelText: 'Posiciones secundarias')),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-        FilledButton.icon(
-          onPressed: () {
-            final name = _name.text.trim();
-            final last = _lastName.text.trim();
-            if (name.length < 2 || last.length < 2) return;
-            Navigator.pop(
-              context,
-              Player(
-                id: 'manual-${DateTime.now().millisecondsSinceEpoch}',
-                categoryId: '',
-                firstName: name,
-                lastName: last,
-                age: 0,
-                position: _position.text.trim(),
-                secondaryPositions: _secondary.text.trim(),
-                dominantFoot: '',
-                status: 'Activo',
-                attendanceRate: 0,
-                trend: '',
-                note: '',
-              ),
-            );
-          },
-          icon: const Icon(Icons.add),
-          label: const Text('Añadir jugador'),
-        ),
-      ],
-    );
-  }
-}

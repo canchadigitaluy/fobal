@@ -15,6 +15,7 @@ import '../services/offline_mutation_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
+import 'add_player_dialog.dart';
 import 'player_profile_screen.dart';
 
 class AsistenciaScreen extends StatefulWidget {
@@ -209,10 +210,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   }
 
   Future<void> _addPlayer(CanteraClub club, CategorySquad category) async {
-    final player = await showDialog<Player>(
-      context: context,
-      builder: (context) => _ManualPlayerDialog(categoryId: category.id),
-    );
+    final player = await showAddPlayerDialog(context, categoryId: category.id);
     if (player == null) return;
     final nextPlayers = [...club.players, player];
     final nextCategories = club.categories
@@ -637,88 +635,3 @@ class _AttendanceHistory extends StatelessWidget {
   }
 }
 
-class _ManualPlayerDialog extends StatefulWidget {
-  final String categoryId;
-
-  const _ManualPlayerDialog({required this.categoryId});
-
-  @override
-  State<_ManualPlayerDialog> createState() => _ManualPlayerDialogState();
-}
-
-class _ManualPlayerDialogState extends State<_ManualPlayerDialog> {
-  final _name = TextEditingController();
-  final _position = TextEditingController();
-  final _secondary = TextEditingController();
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _position.dispose();
-    _secondary.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final fullName = _name.text.trim();
-    if (fullName.length < 3) return;
-    final parts = fullName.split(RegExp(r'\s+'));
-    Navigator.pop(
-      context,
-      Player(
-        id: 'manual-player-${DateTime.now().microsecondsSinceEpoch}',
-        categoryId: widget.categoryId,
-        firstName: parts.first,
-        lastName: parts.skip(1).join(' '),
-        age: 0,
-        position: _position.text.trim(),
-        secondaryPositions: _secondary.text.trim(),
-        dominantFoot: '',
-        status: 'Activo',
-        attendanceRate: 0,
-        trend: '',
-        note: '',
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Agregar jugador'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _name,
-            autofocus: true,
-            decoration: const InputDecoration(labelText: 'Nombre completo'),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _position,
-            decoration: const InputDecoration(labelText: 'Posición principal'),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _secondary,
-            decoration: const InputDecoration(
-              labelText: 'Posiciones secundarias',
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton.icon(
-          onPressed: _save,
-          icon: const Icon(Icons.save_outlined),
-          label: const Text('Guardar'),
-        ),
-      ],
-    );
-  }
-}

@@ -3232,6 +3232,8 @@ class _ExternalHome extends StatelessWidget {
                     attendanceTaken: _attendanceTakenToday(),
                     onTakeAttendance: () =>
                         actions.openSection(ShellSection.attendance),
+                    onOpenSession: () =>
+                        actions.openSection(ShellSection.planner),
                   ),
                 ],
                 if (!bootstrapping) ...[
@@ -3293,16 +3295,21 @@ class _ExternalTodayCard extends StatelessWidget {
   final TrainingSession session;
   final bool attendanceTaken;
   final VoidCallback onTakeAttendance;
+  final VoidCallback onOpenSession;
 
   const _ExternalTodayCard({
     required this.session,
     required this.attendanceTaken,
     required this.onTakeAttendance,
+    required this.onOpenSession,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return InkWell(
+      onTap: onOpenSession,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -3319,6 +3326,8 @@ class _ExternalTodayCard extends StatelessWidget {
               const SizedBox(width: 8),
               const Text('Hoy',
                   style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+              const Spacer(),
+              const Icon(Icons.chevron_right, color: CX.muted, size: 18),
             ],
           ),
           const SizedBox(height: 8),
@@ -3357,6 +3366,7 @@ class _ExternalTodayCard extends StatelessWidget {
               label: const Text('Tomar asistencia de hoy'),
             ),
         ],
+      ),
       ),
     );
   }

@@ -5,6 +5,7 @@ import '../services/club_access_service.dart';
 import '../services/club_backup_service.dart';
 import '../services/supabase_auth_service.dart';
 import '../ui/ui_kit.dart';
+import 'add_player_dialog.dart';
 
 class ConfiguracionClubScreen extends StatefulWidget {
   const ConfiguracionClubScreen({super.key});
@@ -194,13 +195,41 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
     _categoryScheduleController.clear();
   }
 
-  void _addPlayer() {
+  Future<void> _addPlayer() async {
     final categoryId = _selectedPlayerCategoryId;
     final firstName = _playerFirstNameController.text.trim();
     final lastName = _playerLastNameController.text.trim();
     if (categoryId == null || firstName.isEmpty) return;
 
     final scope = AppScope.of(context);
+    final nameKey =
+        '${firstName.toLowerCase()} ${lastName.toLowerCase()}'.trim();
+    final existing = normalizedPlayerNames(
+      scope.club.players.where((p) => p.categoryId == categoryId),
+    );
+    if (existing.contains(nameKey)) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Nombre repetido'),
+          content: Text(
+            'Ya hay un jugador llamado "$firstName $lastName" en esta '
+            'categoría. ¿Agregarlo igual?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Agregar igual'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
     final player = Player(
       id: 'player-${DateTime.now().millisecondsSinceEpoch}',
       categoryId: categoryId,

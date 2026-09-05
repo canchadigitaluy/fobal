@@ -71,6 +71,7 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
   final Set<String> _lineup = {};
   final Map<String, int> _scorers = {};
   bool _lineupSuggested = false;
+  String _playerSearch = '';
 
   @override
   void initState() {
@@ -258,12 +259,27 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
                   ),
                 ],
                 const SizedBox(height: 8),
+                if (widget.players.length > 8) ...[
+                  TextField(
+                    onChanged: (value) => setState(() => _playerSearch = value),
+                    decoration: const InputDecoration(
+                      hintText: 'Buscar jugador',
+                      prefixIcon: Icon(Icons.search, size: 18),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 220),
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
-                        for (final player in widget.players)
+                        for (final player in widget.players.where(
+                          (p) => p.fullName
+                              .toLowerCase()
+                              .contains(_playerSearch.trim().toLowerCase()),
+                        ))
                           _PlayerStatRow(
                             player: player,
                             played: _lineup.contains(player.id),

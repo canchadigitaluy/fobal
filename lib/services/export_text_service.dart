@@ -299,6 +299,8 @@ String formatPlayerProfileText({
   int yellowCards = 0,
   int redCards = 0,
   double attendanceRate = 0,
+  int citationsTotal = 0,
+  int citationsTitular = 0,
   List<String> goalLines = const [],
   String staffNote = '',
 }) {
@@ -333,6 +335,11 @@ String formatPlayerProfileText({
       '',
       'ASISTENCIA',
       '${(attendanceRate * 100).round()}% promedio',
+    ],
+    if (citationsTotal > 0) ...[
+      '',
+      'CITACIONES',
+      '$citationsTotal citaciones · $citationsTitular como titular',
     ],
     if (goalLines.isNotEmpty) ...[
       '',

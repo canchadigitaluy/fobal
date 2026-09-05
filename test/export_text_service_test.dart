@@ -202,6 +202,23 @@ void main() {
       expect(text, isNot(contains('RENDIMIENTO EN LIGA')));
     });
 
+    test('includes CITACIONES only when there is at least one', () {
+      final withCitations = formatPlayerProfileText(
+        fullName: 'Juan Pérez',
+        availabilityLabel: 'Disponible',
+        citationsTotal: 4,
+        citationsTitular: 3,
+      );
+      expect(withCitations, contains('CITACIONES'));
+      expect(withCitations, contains('4 citaciones · 3 como titular'));
+
+      final withoutCitations = formatPlayerProfileText(
+        fullName: 'Juan Pérez',
+        availabilityLabel: 'Disponible',
+      );
+      expect(withoutCitations, isNot(contains('CITACIONES')));
+    });
+
     test('neither flag set: no performance section at all', () {
       final text = formatPlayerProfileText(
         fullName: 'Juan Pérez',

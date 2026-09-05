@@ -159,6 +159,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
     bool reliableLeague,
     bool manualMatchStats,
   ) {
+    final citations = _citationCounts(club, category, player.id);
     final content = formatPlayerProfileText(
       fullName: player.fullName,
       categoryName: category.name,
@@ -177,6 +178,8 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
       yellowCards: player.yellowCards,
       redCards: player.redCards,
       attendanceRate: player.attendanceRate,
+      citationsTotal: citations.total,
+      citationsTitular: citations.titular,
       goalLines: formatPlayerGoalLines(player.developmentGoals),
       staffNote: player.note,
     );

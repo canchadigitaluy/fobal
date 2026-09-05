@@ -4,8 +4,12 @@ import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/attendance_stats_service.dart';
 import '../services/club_access_service.dart';
+import '../services/export_download_service.dart';
+import '../services/export_text_service.dart';
 import '../services/player_match_stats_service.dart';
+import '../services/squad_report_service.dart';
 import '../state/section_handoff.dart';
+import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
 import 'match_result_dialog.dart';
 import 'player_profile_screen.dart';
@@ -150,6 +154,38 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
     setState(() {});
   }
 
+  void _generateSquadReport({
+    required CanteraClub club,
+    required List<Player> players,
+    required String categoryId,
+    required String categoryName,
+  }) {
+    final content = buildSquadReportContent(
+      club: club,
+      players: players,
+      categoryId: categoryId,
+      categoryName: categoryName,
+    );
+    final fileName = buildExportFileName(
+      club: club.name,
+      category: categoryName,
+      type: 'reporte-plantel',
+      extension: 'txt',
+    );
+    showExportPreviewDialog(
+      context,
+      title: 'Reporte del plantel',
+      content: content,
+      fileName: fileName,
+      onDownload: (name, text) {
+        ExportDownloadService.downloadText(name, text);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Reporte descargado: $name')),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final club = AppScope.of(context).club;
@@ -203,15 +239,22 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
           final isLud = LudCategoryRef.teamIdOf(selectedCategoryId) != null;
 
           if (!isLud) {
+            final categoryPlayers = club.players
+                .where((player) => player.categoryId == selectedCategoryId)
+                .toList();
             return _NoLudStatsBody(
               clubName: club.name,
               category: category,
               categoryId: selectedCategoryId,
               allResults: scope.fullClub.matchResults,
-              players: club.players
-                  .where((player) => player.categoryId == selectedCategoryId)
-                  .toList(),
+              players: categoryPlayers,
               onChanged: (next) => _saveResults(next, selectedCategoryId),
+              onGenerateReport: () => _generateSquadReport(
+                club: scope.fullClub,
+                players: categoryPlayers,
+                categoryId: selectedCategoryId,
+                categoryName: category,
+              ),
             );
           }
 
@@ -223,6 +266,22 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
                 category: category,
                 data: data,
                 isLud: isLud,
+              ),
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: () => _generateSquadReport(
+                    club: scope.fullClub,
+                    players: scope.fullClub.players
+                        .where((p) => p.categoryId == selectedCategoryId)
+                        .toList(),
+                    categoryId: selectedCategoryId,
+                    categoryName: category,
+                  ),
+                  icon: const Icon(Icons.summarize_outlined, size: 17),
+                  label: const Text('Generar reporte del plantel'),
+                ),
               ),
               const SizedBox(height: 20),
               const PremiumSectionHeader(
@@ -1308,6 +1367,7 @@ class _NoLudStatsBody extends StatelessWidget {
   final List<MatchResult> allResults;
   final List<Player> players;
   final ValueChanged<List<MatchResult>> onChanged;
+  final VoidCallback onGenerateReport;
 
   const _NoLudStatsBody({
     required this.clubName,
@@ -1316,6 +1376,7 @@ class _NoLudStatsBody extends StatelessWidget {
     required this.allResults,
     required this.players,
     required this.onChanged,
+    required this.onGenerateReport,
   });
 
   Future<void> _add(BuildContext context) async {
@@ -1398,6 +1459,17 @@ class _NoLudStatsBody extends StatelessWidget {
               ),
           ],
         ),
+        if (players.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: onGenerateReport,
+              icon: const Icon(Icons.summarize_outlined, size: 17),
+              label: const Text('Generar reporte del plantel'),
+            ),
+          ),
+        ],
         const SizedBox(height: 6),
         if (summary.all.isEmpty)
           _NoLudEmpty(onAdd: () => _add(context))

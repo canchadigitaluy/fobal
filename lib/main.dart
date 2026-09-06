@@ -197,10 +197,10 @@ class CX {
 
   static BoxDecoration panelDecoration({Color? borderColor}) => BoxDecoration(
     color: panel,
-    borderRadius: BorderRadius.circular(8),
+    borderRadius: BorderRadius.circular(12),
     border: Border.all(color: borderColor ?? line),
     boxShadow: const [
-      BoxShadow(color: Color(0x120D1A14), blurRadius: 16, offset: Offset(0, 8)),
+      BoxShadow(color: Color(0x0E0D1A14), blurRadius: 22, offset: Offset(0, 6)),
     ],
   );
 }
@@ -594,15 +594,15 @@ class _CanteraAppState extends State<CanteraApp> {
               vertical: 15,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: CX.line),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: CX.line),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: CX.green, width: 1.4),
             ),
             labelStyle: const TextStyle(color: CX.muted),
@@ -615,7 +615,7 @@ class _CanteraAppState extends State<CanteraApp> {
               minimumSize: const Size(double.infinity, 50),
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               textStyle: const TextStyle(
                 fontSize: 14,
@@ -629,7 +629,7 @@ class _CanteraAppState extends State<CanteraApp> {
               foregroundColor: CX.white,
               side: const BorderSide(color: CX.lineStrong),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               minimumSize: const Size(0, 46),
               animationDuration: CX.motionFast,
@@ -640,14 +640,14 @@ class _CanteraAppState extends State<CanteraApp> {
             backgroundColor: CX.white,
             contentTextStyle: const TextStyle(color: Colors.white),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
           ),
           dialogTheme: DialogThemeData(
             backgroundColor: CX.panel,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(14),
             ),
           ),
           navigationBarTheme: const NavigationBarThemeData(
@@ -2196,7 +2196,7 @@ class _CategoryScopeSelector extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: CX.panel,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: CX.green.withValues(alpha: .24)),
       ),
       child: Column(

@@ -794,6 +794,46 @@ class _CanteraAppState extends State<CanteraApp> {
               minimumSize: const Size(0, 40),
             ),
           ),
+          // Form toggles: green when on, sober neutral track/outline when off.
+          checkboxTheme: CheckboxThemeData(
+            fillColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.selected)
+                  ? CX.green
+                  : Colors.transparent,
+            ),
+            checkColor: const WidgetStatePropertyAll(Color(0xFF07100B)),
+            side: const BorderSide(color: CX.lineStrong, width: 1.5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(5),
+            ),
+            visualDensity: VisualDensity.compact,
+          ),
+          radioTheme: RadioThemeData(
+            fillColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.selected)
+                  ? CX.green
+                  : CX.lineStrong,
+            ),
+            visualDensity: VisualDensity.compact,
+          ),
+          switchTheme: SwitchThemeData(
+            thumbColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.selected)
+                  ? Colors.white
+                  : CX.faint,
+            ),
+            trackColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.selected)
+                  ? CX.green
+                  : CX.panel2,
+            ),
+            trackOutlineColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.selected)
+                  ? Colors.transparent
+                  : CX.lineStrong,
+            ),
+            trackOutlineWidth: const WidgetStatePropertyAll(1.5),
+          ),
         ),
         initialRoute: '/login',
         routes: {

@@ -946,6 +946,20 @@ class _CanteraAppState extends State<CanteraApp> {
             linearTrackColor: CX.panel2,
             circularTrackColor: CX.panel2,
           ),
+          // Thin, rounded, hover-reveal scrollbar — the default web
+          // scrollbar reads heavy and unbranded.
+          scrollbarTheme: ScrollbarThemeData(
+            thumbVisibility: const WidgetStatePropertyAll(false),
+            thumbColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.hovered)
+                  ? CX.lineStrong
+                  : CX.line,
+            ),
+            thickness: const WidgetStatePropertyAll(6),
+            radius: const Radius.circular(999),
+            crossAxisMargin: 2,
+            mainAxisMargin: 4,
+          ),
         ),
         initialRoute: '/login',
         routes: {

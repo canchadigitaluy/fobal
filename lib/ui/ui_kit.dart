@@ -260,6 +260,35 @@ class StatusPill extends StatelessWidget {
   }
 }
 
+/// A small neutral metadata tag — a duration, count or date shown next to a
+/// title. Quieter than [StatusPill]: no semantic colour, just a hairline
+/// token on the light surface.
+class MetaTag extends StatelessWidget {
+  final String text;
+  const MetaTag(this.text, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: CX.panel2,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: CX.line),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: CX.muted,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: .2,
+        ),
+      ),
+    );
+  }
+}
+
 enum Confidence { alta, media, baja }
 
 class ConfidenceBadge extends StatelessWidget {

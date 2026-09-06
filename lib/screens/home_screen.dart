@@ -2572,21 +2572,7 @@ class _Tag extends StatelessWidget {
   final String text;
   const _Tag(this.text);
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-    decoration: BoxDecoration(
-      color: CX.panel2,
-      borderRadius: BorderRadius.circular(5),
-    ),
-    child: Text(
-      text,
-      style: const TextStyle(
-        color: CX.muted,
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
-      ),
-    ),
-  );
+  Widget build(BuildContext context) => MetaTag(text);
 }
 
 class _Metric {

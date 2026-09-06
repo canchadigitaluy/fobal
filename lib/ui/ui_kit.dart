@@ -544,13 +544,20 @@ class MetricGrid extends StatelessWidget {
             : c.maxWidth < 940
             ? 3
             : tiles.length.clamp(1, 6);
+        // Phones get taller cells so the icon badge, big numeral and the
+        // two-line context never clip; wide screens stay calm and roomy.
+        final ratio = c.maxWidth < 380
+            ? 0.92
+            : c.maxWidth < 620
+            ? 1.06
+            : 1.34;
         return GridView.count(
           crossAxisCount: cols,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
-          childAspectRatio: c.maxWidth < 620 ? 1.24 : 1.36,
+          childAspectRatio: ratio,
           children: tiles,
         );
       },

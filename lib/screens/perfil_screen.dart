@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
+import '../ui/ui_kit.dart';
 
 class PerfilScreen extends StatelessWidget {
   const PerfilScreen({super.key});
@@ -44,13 +45,17 @@ class PerfilScreen extends StatelessWidget {
                     CX.green,
                   ),
                 ),
-                const SizedBox(height: 25),
-                const _SectionTitle('Impronta futbolística', 'IDENTIDAD'),
-                const SizedBox(height: 10),
+                const SizedBox(height: 24),
+                const PremiumSectionHeader(
+                  eyebrow: 'Identidad',
+                  title: 'Impronta futbolística',
+                ),
                 _MethodologyBoard(methodology: club.methodology),
-                const SizedBox(height: 25),
-                const _SectionTitle('Seguimiento individual', 'JUGADORES'),
-                const SizedBox(height: 10),
+                const SizedBox(height: 24),
+                const PremiumSectionHeader(
+                  eyebrow: 'Jugadores',
+                  title: 'Seguimiento individual',
+                ),
                 if (club.players.isEmpty)
                   const _IntelligenceEmpty(
                     icon: Icons.person_search_outlined,
@@ -82,9 +87,10 @@ class _SignalTile extends StatelessWidget {
         Container(
           width: 36,
           height: 36,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: metric.color.withValues(alpha: .1),
-            borderRadius: BorderRadius.circular(7),
+            color: metric.color.withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(metric.icon, color: metric.color, size: 18),
         ),
@@ -99,6 +105,7 @@ class _SignalTile extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
+                  letterSpacing: -.3,
                 ),
               ),
               Text(
@@ -141,7 +148,7 @@ class _EditableMethodologyBox extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = methodology.playingStyle.trim();
     return InkWell(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(12),
       onTap: () => _edit(context),
       child: Container(
         padding: const EdgeInsets.all(18),
@@ -298,7 +305,7 @@ class _PrincipleColumn extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) => InkWell(
-    borderRadius: BorderRadius.circular(8),
+    borderRadius: BorderRadius.circular(12),
     onTap: onEdit,
     child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -429,7 +436,7 @@ class _PlayerRadar extends StatelessWidget {
                       : partiallyReady
                       ? CX.amber.withValues(alpha: .1)
                       : CX.red.withValues(alpha: .08),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: aiReady
                         ? CX.green.withValues(alpha: .22)
@@ -518,9 +525,10 @@ class _IntelligenceEmpty extends StatelessWidget {
         Container(
           width: 40,
           height: 40,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: CX.panel2,
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: CX.faint, size: 20),
         ),
@@ -550,31 +558,6 @@ class _IntelligenceEmpty extends StatelessWidget {
         ),
       ],
     ),
-  );
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final String eyebrow;
-  const _SectionTitle(this.title, this.eyebrow);
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        eyebrow,
-        style: const TextStyle(
-          color: CX.green,
-          fontSize: 9,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      const SizedBox(height: 3),
-      Text(
-        title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-      ),
-    ],
   );
 }
 

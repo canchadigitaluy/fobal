@@ -741,11 +741,7 @@ class _BasicDataForm extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CX.line),
-      ),
+      decoration: CX.panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -867,11 +863,7 @@ class _CategoryForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CX.line),
-      ),
+      decoration: CX.panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -950,10 +942,8 @@ class _CategorySetupCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CX.green.withValues(alpha: 0.28)),
+      decoration: CX.panelDecoration(
+        borderColor: CX.green.withValues(alpha: 0.28),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1065,11 +1055,7 @@ class _PlayerForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CX.line),
-      ),
+      decoration: CX.panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1229,11 +1215,7 @@ class _MethodologyForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CX.line),
-      ),
+      decoration: CX.panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1563,10 +1545,8 @@ class _RemovableCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CX.green.withValues(alpha: 0.28)),
+      decoration: CX.panelDecoration(
+        borderColor: CX.green.withValues(alpha: 0.28),
       ),
       child: Row(
         children: [
@@ -1674,12 +1654,11 @@ class _EmptyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: CX.line),
+      decoration: CX.panelDecoration(),
+      child: Text(
+        text,
+        style: const TextStyle(color: CX.muted, fontSize: 12.5, height: 1.4),
       ),
-      child: Text(text, style: TextStyle(color: CX.muted)),
     );
   }
 }
@@ -1701,11 +1680,7 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: CX.line),
-      ),
+      decoration: CX.panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1831,11 +1806,7 @@ class _ClubDataCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: CX.line),
-      ),
+      decoration: CX.panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

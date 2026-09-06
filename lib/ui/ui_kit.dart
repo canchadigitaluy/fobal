@@ -298,10 +298,19 @@ class PremiumSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12, top: 4),
+      padding: const EdgeInsets.only(bottom: 14, top: 2),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          Container(
+            width: 3,
+            height: 30,
+            margin: const EdgeInsets.only(right: 10),
+            decoration: BoxDecoration(
+              color: CX.green,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,16 +321,17 @@ class PremiumSectionHeader extends StatelessWidget {
                     color: CX.green,
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: .6,
+                    letterSpacing: .8,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 17,
+                    fontSize: 18,
                     fontWeight: FontWeight.w900,
                     height: 1.15,
+                    letterSpacing: -.2,
                   ),
                 ),
               ],

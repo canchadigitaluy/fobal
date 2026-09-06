@@ -6,6 +6,22 @@ library;
 
 import '../data/cantera_data.dart';
 
+/// Comparable key for a [TrainingReport.date] — which this parser writes as
+/// "DD/MM/YYYY" (not sortable as a plain string). Also tolerates a plain
+/// ISO "yyyy-MM-dd". Unparseable dates sort oldest.
+DateTime trainingReportDate(String date) {
+  final d = date.trim();
+  final dmy = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(d);
+  if (dmy != null) {
+    return DateTime(
+      int.parse(dmy.group(3)!),
+      int.parse(dmy.group(2)!),
+      int.parse(dmy.group(1)!),
+    );
+  }
+  return DateTime.tryParse(d) ?? DateTime.fromMillisecondsSinceEpoch(0);
+}
+
 class ParsedTrainingNote {
   final String attendance;
   final String objective;

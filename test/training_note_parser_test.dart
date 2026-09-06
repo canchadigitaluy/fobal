@@ -44,4 +44,21 @@ void main() {
       expect(report.totalPlayers, 12);
     });
   });
+
+  group('trainingReportDate', () {
+    test('parses DD/MM/YYYY so 05/09 sorts after 28/08 (chronological)', () {
+      final a = trainingReportDate('28/08/2026');
+      final b = trainingReportDate('05/09/2026');
+      expect(b.isAfter(a), isTrue);
+    });
+
+    test('also accepts ISO yyyy-MM-dd', () {
+      expect(trainingReportDate('2026-09-05'), DateTime(2026, 9, 5));
+    });
+
+    test('unparseable -> epoch, sorts oldest', () {
+      expect(trainingReportDate('en un rato'),
+          DateTime.fromMillisecondsSinceEpoch(0));
+    });
+  });
 }

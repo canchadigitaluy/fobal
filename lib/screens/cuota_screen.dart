@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
+import '../services/training_note_parser.dart';
 import '../state/section_handoff.dart';
 import '../ui/exercise_animation_preview.dart';
 import '../ui/ui_kit.dart';
@@ -284,7 +285,8 @@ class _CuotaScreenState extends State<CuotaScreen> {
         : (club.trainingReports
               .where((item) => item.categoryId == category.id)
               .toList()
-          ..sort((a, b) => b.date.compareTo(a.date)));
+          ..sort((a, b) =>
+              trainingReportDate(b.date).compareTo(trainingReportDate(a.date))));
     final uncategorizedPlayers = club.players
         .where(
           (player) =>

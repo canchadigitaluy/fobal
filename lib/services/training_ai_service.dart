@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../data/cantera_data.dart';
 import 'supabase_auth_service.dart';
+import 'training_note_parser.dart';
 import 'preview_access_service.dart';
 
 class TrainingAiRequest {
@@ -96,8 +97,11 @@ class TrainingAiRequest {
         'perfiles individuales completos',
       if (!manualClub && ludPlayers == 0) 'datos de liga del plantel',
     ];
-    final recentReports = club.trainingReports
-        .where((report) => report.categoryId == category.id)
+    final recentReports = (club.trainingReports
+            .where((report) => report.categoryId == category.id)
+            .toList()
+          ..sort((a, b) =>
+              trainingReportDate(b.date).compareTo(trainingReportDate(a.date))))
         .take(2)
         .map((report) => report.toJson())
         .toList();

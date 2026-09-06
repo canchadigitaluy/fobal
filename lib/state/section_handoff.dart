@@ -39,12 +39,23 @@ class MatchPrepHandoff {
 }
 
 /// A non-binding nudge for the lineup / call-up screen. Highlights players,
-/// never builds an XI.
+/// never builds an XI. May also carry the match's rival/date/time so the
+/// lineup form prefills them instead of the DT retyping what the match prep
+/// already has.
 class LineupHint {
   final String reason;
   final List<String> players;
+  final String rival;
+  final String date;
+  final String time;
 
-  const LineupHint({required this.reason, this.players = const []});
+  const LineupHint({
+    this.reason = '',
+    this.players = const [],
+    this.rival = '',
+    this.date = '',
+    this.time = '',
+  });
 }
 
 /// Plain shortcuts the dashboard can jump to. The shell resolves each to the

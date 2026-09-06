@@ -119,6 +119,17 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
       if (hint != null) {
         _hintConsumed = true;
         _hint = hint;
+        // Prefill from the match prep, but never clobber a draft the DT
+        // already started.
+        if (_rivalController.text.trim().isEmpty && hint.rival.isNotEmpty) {
+          _rivalController.text = hint.rival;
+        }
+        if (_dateController.text.trim().isEmpty && hint.date.isNotEmpty) {
+          _dateController.text = hint.date;
+        }
+        if (_timeController.text.trim().isEmpty && hint.time.isNotEmpty) {
+          _timeController.text = hint.time;
+        }
       }
     }
   }

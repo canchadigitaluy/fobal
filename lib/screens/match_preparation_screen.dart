@@ -299,7 +299,11 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
   }
 
   void _goToLineup() {
-    ShellActions.of(context).openLineup();
+    ShellActions.of(context).openLineup(LineupHint(
+      rival: _rival.text.trim(),
+      date: _date.text.trim(),
+      time: _time.text.trim(),
+    ));
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 

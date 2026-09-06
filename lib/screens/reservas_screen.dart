@@ -13,6 +13,7 @@ import '../services/export_text_service.dart';
 import '../services/exercise_library_service.dart';
 import '../services/offline_mutation_service.dart';
 import '../services/training_ai_service.dart';
+import '../services/training_note_parser.dart';
 import '../ui/exercise_animation_preview.dart';
 import '../ui/export_preview_dialog.dart';
 import 'exercise_library_screen.dart';
@@ -3896,7 +3897,7 @@ class _TranscriptCard extends StatelessWidget {
           AnimatedBuilder(
             animation: controller,
             builder: (context, _) {
-              final note = _ParsedTrainingNote.fromText(controller.text);
+              final note = ParsedTrainingNote.fromText(controller.text);
               return Column(
                 children: [
                   _StructuredResult(note: note),
@@ -3933,7 +3934,7 @@ class _TranscriptCard extends StatelessWidget {
 }
 
 class _StructuredResult extends StatelessWidget {
-  final _ParsedTrainingNote note;
+  final ParsedTrainingNote note;
 
   const _StructuredResult({required this.note});
 
@@ -3985,150 +3986,6 @@ class _StructuredResult extends StatelessWidget {
   }
 }
 
-class _ParsedTrainingNote {
-  final String attendance;
-  final String objective;
-  final String positive;
-  final String toImprove;
-  final String highlighted;
-  final String injuries;
-  final String nextFocus;
-
-  const _ParsedTrainingNote({
-    required this.attendance,
-    required this.objective,
-    required this.positive,
-    required this.toImprove,
-    required this.highlighted,
-    required this.injuries,
-    required this.nextFocus,
-  });
-
-  bool get isEmpty =>
-      attendance.isEmpty &&
-      objective.isEmpty &&
-      positive.isEmpty &&
-      toImprove.isEmpty &&
-      highlighted.isEmpty &&
-      injuries.isEmpty &&
-      nextFocus.isEmpty;
-
-  bool get canSave => attendance.isNotEmpty || objective.isNotEmpty;
-
-  TrainingReport toReport({
-    required String categoryId,
-    required int totalPlayers,
-  }) {
-    final attendanceCount = _firstNumber(attendance);
-    return TrainingReport(
-      categoryId: categoryId,
-      date: _todayLabel(),
-      attendanceCount: attendanceCount,
-      totalPlayers: totalPlayers > 0 ? totalPlayers : attendanceCount,
-      objectiveWorked: objective,
-      whatWentWell: positive,
-      whatWentWrong: toImprove,
-      highlightedPlayers: _splitNames(highlighted),
-      injuries: _splitNames(injuries),
-      nextRecommendation: nextFocus,
-    );
-  }
-
-  static int _firstNumber(String value) {
-    final match = RegExp(r'\d+').firstMatch(value);
-    return int.tryParse(match?.group(0) ?? '') ?? 0;
-  }
-
-  static List<String> _splitNames(String value) {
-    return value
-        .split(RegExp(r',| y '))
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
-  }
-
-  static String _todayLabel() {
-    final now = DateTime.now();
-    String two(int value) => value.toString().padLeft(2, '0');
-    return '${two(now.day)}/${two(now.month)}/${now.year}';
-  }
-
-  factory _ParsedTrainingNote.fromText(String raw) {
-    final text = raw.trim();
-    if (text.isEmpty) {
-      return const _ParsedTrainingNote(
-        attendance: '',
-        objective: '',
-        positive: '',
-        toImprove: '',
-        highlighted: '',
-        injuries: '',
-        nextFocus: '',
-      );
-    }
-
-    String find(List<RegExp> patterns) {
-      for (final pattern in patterns) {
-        final match = pattern.firstMatch(text);
-        if (match != null) {
-          return (match.group(1) ?? '').trim().replaceAll(RegExp(r'\s+'), ' ');
-        }
-      }
-      return '';
-    }
-
-    final attendance = find([
-      RegExp(
-        r'(?:asistieron|asistencia|presentes?)\s*:?\s*([^.;\n]+)',
-        caseSensitive: false,
-      ),
-      RegExp(
-        r'(\d+\s*(?:de|/)\s*\d+)\s*(?:presentes|asistieron|jugadores)?',
-        caseSensitive: false,
-      ),
-    ]);
-
-    return _ParsedTrainingNote(
-      attendance: attendance,
-      objective: find([
-        RegExp(
-          r'(?:objetivo|trabajamos|se trabajo)\s*:?\s*([^.;\n]+)',
-          caseSensitive: false,
-        ),
-      ]),
-      positive: find([
-        RegExp(
-          r'(?:positivo|bien|fortaleza)\s*:?\s*([^.;\n]+)',
-          caseSensitive: false,
-        ),
-      ]),
-      toImprove: find([
-        RegExp(
-          r'(?:a mejorar|mejorar|debilidad|problema)\s*:?\s*([^.;\n]+)',
-          caseSensitive: false,
-        ),
-      ]),
-      highlighted: find([
-        RegExp(
-          r'(?:destacados?|destaco|destacaron)\s*:?\s*([^.;\n]+)',
-          caseSensitive: false,
-        ),
-      ]),
-      injuries: find([
-        RegExp(
-          r'(?:lesion|lesionado|molestia)\s*:?\s*([^.;\n]+)',
-          caseSensitive: false,
-        ),
-      ]),
-      nextFocus: find([
-        RegExp(
-          r'(?:proximo foco|siguiente foco|proxima sesion)\s*:?\s*([^.;\n]+)',
-          caseSensitive: false,
-        ),
-      ]),
-    );
-  }
-}
 
 class _SectionTitle extends StatelessWidget {
   final String text;

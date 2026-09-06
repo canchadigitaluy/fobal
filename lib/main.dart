@@ -643,12 +643,15 @@ class _CanteraAppState extends State<CanteraApp> {
             backgroundColor: CX.canvas,
             surfaceTintColor: Colors.transparent,
             elevation: 0,
+            scrolledUnderElevation: 0,
             centerTitle: false,
-            iconTheme: IconThemeData(color: CX.white),
+            iconTheme: IconThemeData(color: CX.white, size: 22),
+            shape: Border(bottom: BorderSide(color: CX.line)),
             titleTextStyle: TextStyle(
               color: CX.white,
               fontSize: 18,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.3,
             ),
           ),
           inputDecorationTheme: InputDecorationTheme(

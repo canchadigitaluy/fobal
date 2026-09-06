@@ -2564,26 +2564,8 @@ class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.eyebrow, required this.title});
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          eyebrow,
-          style: const TextStyle(
-            color: CX.green,
-            fontSize: 9,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          title,
-          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) =>
+      PremiumSectionHeader(eyebrow: eyebrow, title: title);
 }
 
 class _Tag extends StatelessWidget {

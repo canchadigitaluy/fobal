@@ -292,14 +292,15 @@ class AvailabilityChip extends StatelessWidget {
 }
 
 /// Eyebrow + title, with an optional trailing action. Groups a light-surface
-/// section without another card.
+/// section without another card. [eyebrow] is optional — omit it for a plain
+/// titled section that still carries the accent marker.
 class PremiumSectionHeader extends StatelessWidget {
-  final String eyebrow;
+  final String? eyebrow;
   final String title;
   final Widget? trailing;
   const PremiumSectionHeader({
     super.key,
-    required this.eyebrow,
+    this.eyebrow,
     required this.title,
     this.trailing,
   });
@@ -324,16 +325,18 @@ class PremiumSectionHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  eyebrow.toUpperCase(),
-                  style: const TextStyle(
-                    color: CX.green,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .8,
+                if (eyebrow != null && eyebrow!.trim().isNotEmpty) ...[
+                  Text(
+                    eyebrow!.toUpperCase(),
+                    style: const TextStyle(
+                      color: CX.green,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .8,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 3),
+                  const SizedBox(height: 3),
+                ],
                 Text(
                   title,
                   style: const TextStyle(

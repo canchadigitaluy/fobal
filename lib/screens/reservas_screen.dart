@@ -13,6 +13,7 @@ import '../services/export_text_service.dart';
 import '../services/exercise_library_service.dart';
 import '../services/offline_mutation_service.dart';
 import '../services/training_ai_service.dart';
+import '../ui/ui_kit.dart';
 import '../services/training_note_parser.dart';
 import '../ui/exercise_animation_preview.dart';
 import '../ui/export_preview_dialog.dart';
@@ -3993,32 +3994,7 @@ class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          width: 3,
-          height: 18,
-          decoration: BoxDecoration(
-            color: CX.green,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 9),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              letterSpacing: .1,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => PremiumSectionHeader(title: text);
 }
 
 class _HandoffBanner extends StatelessWidget {

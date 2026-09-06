@@ -66,6 +66,29 @@ void main() {
       expect(text, contains('Traer petos.'));
     });
 
+    test('includes Hora and Lugar lines only when provided', () {
+      final withTime = formatCitationText(
+        title: 'x',
+        rival: 'Rampla',
+        date: '2026-09-14',
+        time: '16:00',
+        venue: 'Cancha 3',
+        titulares: const [],
+        suplentes: const [],
+      );
+      expect(withTime, contains('Hora: 16:00'));
+      expect(withTime, contains('Lugar: Cancha 3'));
+
+      final withoutTime = formatCitationText(
+        title: 'x',
+        rival: 'Rampla',
+        titulares: const [],
+        suplentes: const [],
+      );
+      expect(withoutTime, isNot(contains('Hora:')));
+      expect(withoutTime, isNot(contains('Lugar:')));
+    });
+
     test('degrades gracefully with incomplete data', () {
       final text = formatCitationText(
         title: '',

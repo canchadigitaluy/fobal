@@ -29,6 +29,7 @@ class AlineacionScreen extends StatefulWidget {
 class _AlineacionScreenState extends State<AlineacionScreen> {
   final _rivalController = TextEditingController();
   final _dateController = TextEditingController();
+  final _timeController = TextEditingController();
   final _titleController = TextEditingController();
   final _captureKey = GlobalKey();
   final List<String?> _xi = List<String?>.filled(11, null);
@@ -102,6 +103,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     _titleController.addListener(_refreshPitchHeader);
     _rivalController.addListener(_refreshPitchHeader);
     _dateController.addListener(_refreshPitchHeader);
+    _timeController.addListener(_refreshPitchHeader);
   }
 
   LineupHint? _hint;
@@ -148,8 +150,10 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     _titleController.removeListener(_refreshPitchHeader);
     _rivalController.removeListener(_refreshPitchHeader);
     _dateController.removeListener(_refreshPitchHeader);
+    _timeController.removeListener(_refreshPitchHeader);
     _rivalController.dispose();
     _dateController.dispose();
+    _timeController.dispose();
     _titleController.dispose();
     super.dispose();
   }
@@ -169,6 +173,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
       _titleController.text = data['title'] as String? ?? '';
       _rivalController.text = data['rival'] as String? ?? '';
       _dateController.text = data['date'] as String? ?? '';
+      _timeController.text = data['time'] as String? ?? '';
       _formation = data['formation'] as String? ?? _formation;
       final xi = List<String?>.from(data['xi'] as List<dynamic>? ?? []);
       final subs = List<String?>.from(data['subs'] as List<dynamic>? ?? []);
@@ -220,6 +225,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
       'categoryName': category.name,
       'rival': _rivalController.text.trim(),
       'date': _dateController.text.trim(),
+      'time': _timeController.text.trim(),
       'formation': _formation,
       'xi': _xi,
       'subs': _subs,
@@ -325,6 +331,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
       categoryName: category.name,
       rival: _rivalController.text.trim(),
       date: _dateController.text.trim(),
+      time: _timeController.text.trim(),
       titulares: titulares,
       suplentes: suplentes,
       availabilityNotes: availabilityNotes,
@@ -353,6 +360,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     _titleController.text = saved.title;
     _rivalController.text = saved.rival;
     _dateController.text = saved.date;
+    _timeController.text = saved.time;
     setState(() {
       _formation = saved.formation;
       for (var i = 0; i < _xi.length; i++) {
@@ -372,6 +380,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     _titleController.clear();
     _rivalController.clear();
     _dateController.clear();
+    _timeController.clear();
     setState(() {
       _formation = '4-4-2';
       for (var i = 0; i < _xi.length; i++) {
@@ -493,6 +502,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                 titleController: _titleController,
                 rivalController: _rivalController,
                 dateController: _dateController,
+                timeController: _timeController,
                 formation: _formation,
                 formations: _formations.keys.toList(),
                 onCategory: (value) => setState(() => _categoryId = value),
@@ -713,6 +723,7 @@ class _AlignmentHeader extends StatelessWidget {
   final TextEditingController titleController;
   final TextEditingController rivalController;
   final TextEditingController dateController;
+  final TextEditingController timeController;
   final String formation;
   final List<String> formations;
   final ValueChanged<String?> onCategory;
@@ -724,6 +735,7 @@ class _AlignmentHeader extends StatelessWidget {
     required this.titleController,
     required this.rivalController,
     required this.dateController,
+    required this.timeController,
     required this.formation,
     required this.formations,
     required this.onCategory,
@@ -775,6 +787,17 @@ class _AlignmentHeader extends StatelessWidget {
                 child: TextField(
                   controller: dateController,
                   decoration: const InputDecoration(labelText: 'Fecha'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 90,
+                child: TextField(
+                  controller: timeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Hora',
+                    hintText: '16:00',
+                  ),
                 ),
               ),
             ],
@@ -1591,6 +1614,7 @@ class _SavedAlignment {
   final String title;
   final String rival;
   final String date;
+  final String time;
   final String formation;
   final List<String?> xi;
   final List<String?> subs;
@@ -1601,6 +1625,7 @@ class _SavedAlignment {
     required this.title,
     required this.rival,
     required this.date,
+    required this.time,
     required this.formation,
     required this.xi,
     required this.subs,
@@ -1614,6 +1639,7 @@ class _SavedAlignment {
       title: json['title'] as String? ?? 'Alineación',
       rival: json['rival'] as String? ?? '',
       date: json['date'] as String? ?? '',
+      time: json['time'] as String? ?? '',
       formation: json['formation'] as String? ?? '4-4-2',
       xi: List<String?>.from(json['xi'] as List<dynamic>? ?? []),
       subs: List<String?>.from(json['subs'] as List<dynamic>? ?? []),
@@ -1635,6 +1661,7 @@ class _SavedAlignment {
     'title': title,
     'rival': rival,
     'date': date,
+    'time': time,
     'formation': formation,
     'xi': xi,
     'subs': subs,

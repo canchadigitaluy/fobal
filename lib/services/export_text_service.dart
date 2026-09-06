@@ -55,6 +55,8 @@ String formatCitationText({
   String categoryName = '',
   String rival = '',
   String date = '',
+  String time = '',
+  String venue = '',
   required List<String> titulares,
   required List<String> suplentes,
   String notes = '',
@@ -68,6 +70,8 @@ String formatCitationText({
     if (categoryName.trim().isNotEmpty) categoryName.trim(),
     if (rival.trim().isNotEmpty) 'Rival: ${rival.trim()}',
     if (date.trim().isNotEmpty) 'Fecha: ${date.trim()}',
+    if (time.trim().isNotEmpty) 'Hora: ${time.trim()}',
+    if (venue.trim().isNotEmpty) 'Lugar: ${venue.trim()}',
     '',
     'TITULARES',
     if (titulares.isEmpty)

@@ -620,6 +620,13 @@ class _CanteraAppState extends State<CanteraApp> {
           brightness: Brightness.light,
           scaffoldBackgroundColor: CX.canvas,
           canvasColor: CX.panel,
+          // Quiet, brand-tinted tap/hover/focus feedback everywhere an Ink
+          // surface reacts — the default grey ripple reads generic on web.
+          splashFactory: InkRipple.splashFactory,
+          splashColor: CX.green.withValues(alpha: .07),
+          highlightColor: CX.green.withValues(alpha: .04),
+          hoverColor: CX.green.withValues(alpha: .04),
+          focusColor: CX.green.withValues(alpha: .10),
           colorScheme: const ColorScheme.light(
             primary: CX.green,
             secondary: CX.blue,

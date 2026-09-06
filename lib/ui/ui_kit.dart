@@ -672,41 +672,61 @@ class EmptyStatePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
       decoration: BoxDecoration(
         color: CX.panel,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: CX.line),
       ),
       child: Column(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               color: CX.greenDark,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: CX.green.withValues(alpha: .22)),
             ),
             child: Icon(icon, color: CX.green, size: 26),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .1,
+              height: 1.25,
+            ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: CX.muted, fontSize: 12.5, height: 1.45),
+          const SizedBox(height: 7),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: CX.muted,
+                fontSize: 12.5,
+                height: 1.5,
+              ),
+            ),
           ),
           if (primaryLabel != null && onPrimary != null) ...[
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: onPrimary, child: Text(primaryLabel!)),
+            const SizedBox(height: 18),
+            ElevatedButton(
+              onPressed: onPrimary,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(0, 42),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+              ),
+              child: Text(primaryLabel!),
+            ),
           ],
           if (secondary.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Wrap(
               spacing: 8,
               runSpacing: 8,

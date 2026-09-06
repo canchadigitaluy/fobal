@@ -718,12 +718,31 @@ class _CanteraAppState extends State<CanteraApp> {
               borderRadius: BorderRadius.circular(14),
             ),
           ),
-          navigationBarTheme: const NavigationBarThemeData(
-            backgroundColor: CX.bg,
-            indicatorColor: CX.greenDark,
+          navigationBarTheme: NavigationBarThemeData(
+            backgroundColor: CX.canvas,
+            surfaceTintColor: Colors.transparent,
+            indicatorColor: CX.green.withValues(alpha: .16),
+            indicatorShape: const StadiumBorder(),
             height: 68,
-            labelTextStyle: WidgetStatePropertyAll(
-              TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+            iconTheme: WidgetStateProperty.resolveWith(
+              (states) => IconThemeData(
+                size: 22,
+                color: states.contains(WidgetState.selected)
+                    ? CX.green
+                    : CX.faint,
+              ),
+            ),
+            labelTextStyle: WidgetStateProperty.resolveWith(
+              (states) => TextStyle(
+                fontSize: 10.5,
+                letterSpacing: .1,
+                fontWeight: states.contains(WidgetState.selected)
+                    ? FontWeight.w800
+                    : FontWeight.w600,
+                color: states.contains(WidgetState.selected)
+                    ? CX.green
+                    : CX.muted,
+              ),
             ),
           ),
           // Bare Card / Chip / TextButton pick up fobal's flat language:

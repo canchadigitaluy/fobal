@@ -250,7 +250,7 @@ class CX {
   static const faint = Color(0x850D1A14);
   static const green = Color(0xFF159463);
   static const greenDark = Color(0xFFDDF6EA);
-  static const blue = Color(0xFF2563EB);
+  static const blue = Color(0xFF2E67A8);
   static const amber = Color(0xFFE0A11A);
   static const red = Color(0xFFDC3D3D);
   static const motionFast = Duration(milliseconds: 160);

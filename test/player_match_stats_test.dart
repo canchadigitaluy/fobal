@@ -32,6 +32,18 @@ void main() {
       expect(stats['p1']!.goals, 0);
     });
 
+    test('topScorers ranks by goal count, drops ids without a name', () {
+      final ranked = topScorers(
+        scorers: [
+          ['p1', 'p1', 'p2'],
+          ['p1', 'p3-unknown'],
+        ],
+        names: {'p1': 'Juan', 'p2': 'Pedro'},
+      );
+      expect(ranked.map((e) => e.name).toList(), ['Juan', 'Pedro']);
+      expect(ranked.first.goals, 3);
+    });
+
     test('recomputing from scratch never double-counts an edited match', () {
       // Simulates: match originally had p1 scoring twice, then edited down
       // to once. The caller always passes the FULL current history, so an

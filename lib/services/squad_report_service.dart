@@ -7,6 +7,7 @@ library;
 import '../data/cantera_data.dart';
 import 'attendance_stats_service.dart';
 import 'export_text_service.dart';
+import 'player_match_stats_service.dart';
 import 'player_profile_service.dart';
 
 String buildSquadReportContent({
@@ -36,6 +37,18 @@ String buildSquadReportContent({
   final matchStats = isLudCategoryId(categoryId)
       ? null
       : MatchStats.forCategory(club.matchResults, categoryId);
+  final scorerLines = matchStats == null
+      ? const <String>[]
+      : [
+          for (final s in topScorers(
+            scorers: [
+              for (final r in club.matchResults)
+                if (r.categoryId == categoryId) r.scorerIds,
+            ],
+            names: {for (final p in players) p.id: p.fullName.trim()},
+          ))
+            '${s.name}: ${s.goals}',
+        ];
   return formatSquadReportText(
     clubName: club.name,
     categoryName: categoryName,
@@ -54,5 +67,6 @@ String buildSquadReportContent({
     wins: matchStats?.wins ?? 0,
     draws: matchStats?.draws ?? 0,
     losses: matchStats?.losses ?? 0,
+    topScorerLines: scorerLines,
   );
 }

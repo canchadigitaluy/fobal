@@ -380,6 +380,7 @@ String formatSquadReportText({
   int wins = 0,
   int draws = 0,
   int losses = 0,
+  List<String> topScorerLines = const [],
   String staffNote = '',
 }) {
   final when = generatedAt ?? DateTime.now();
@@ -412,6 +413,10 @@ String formatSquadReportText({
       '',
       'RESULTADOS',
       '$matchesPlayed jugados · ${wins}G ${draws}E ${losses}P',
+      if (topScorerLines.isNotEmpty) ...[
+        'Goleadores:',
+        for (final line in topScorerLines) '- $line',
+      ],
     ],
     if (staffNote.trim().isNotEmpty) ...[
       '',

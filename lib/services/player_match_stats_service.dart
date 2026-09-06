@@ -39,3 +39,26 @@ Map<String, PlayerMatchStats> computePlayerMatchStats({
       id: PlayerMatchStats(matchesPlayed: matches[id] ?? 0, goals: goals[id] ?? 0),
   };
 }
+
+/// Ordered goal count per named scorer, highest first, capped at [limit].
+/// [scorers] is one list of player-ids per match; [names] resolves ids the
+/// caller wants shown (ids without a name are dropped — never invented).
+List<({String name, int goals})> topScorers({
+  required List<List<String>> scorers,
+  required Map<String, String> names,
+  int limit = 3,
+}) {
+  final counts = <String, int>{};
+  for (final list in scorers) {
+    for (final id in list) {
+      final name = names[id];
+      if (name == null || name.trim().isEmpty) continue;
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+  }
+  final ordered = counts.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  return [
+    for (final e in ordered.take(limit)) (name: e.key, goals: e.value),
+  ];
+}

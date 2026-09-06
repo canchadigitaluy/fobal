@@ -48,18 +48,27 @@ class InsightCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _ink,
-        borderRadius: BorderRadius.circular(10),
-        border: edge == null
-            ? null
-            : Border.all(color: edge!.withValues(alpha: .32)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: edge == null ? _hair : edge!.withValues(alpha: .32),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: _mint, size: 18),
-              const SizedBox(width: 8),
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _mint.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(icon, color: _mint, size: 17),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   title,
@@ -549,7 +558,7 @@ class FormPill extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: color.withValues(alpha: onDark ? .9 : .85),
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(9),
           ),
           child: Text(
             outcome,

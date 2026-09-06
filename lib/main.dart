@@ -180,11 +180,11 @@ class CX {
   static const panel = Color(0xFFFFFFFF);
   static const panel2 = Color(0xFFF1F5F3);
   static const panel3 = Color(0xFFE7EFEB);
-  static const line = Color(0x1F0D1A14);
-  static const lineStrong = Color(0x380D1A14);
+  static const line = Color(0x260D1A14);
+  static const lineStrong = Color(0x420D1A14);
   static const white = Color(0xFF102019);
   static const muted = Color(0xA60D1A14);
-  static const faint = Color(0x660D1A14);
+  static const faint = Color(0x850D1A14);
   static const green = Color(0xFF159463);
   static const greenDark = Color(0xFFDDF6EA);
   static const blue = Color(0xFF2563EB);

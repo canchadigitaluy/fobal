@@ -217,6 +217,40 @@ class InsightRow extends StatelessWidget {
   }
 }
 
+/// The one tinted status pill used across the app — a hue-tinted fill with a
+/// faint same-hue hairline so it reads as a solid token, not floating text.
+/// Both [ConfidenceBadge] and [AvailabilityChip] render through this.
+class StatusPill extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool compact;
+  const StatusPill(this.label, this.color, {super.key, this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 9,
+        vertical: compact ? 2 : 3,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: .30)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: compact ? 9 : 10,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .2,
+        ),
+      ),
+    );
+  }
+}
+
 enum Confidence { alta, media, baja }
 
 class ConfidenceBadge extends StatelessWidget {
@@ -230,21 +264,7 @@ class ConfidenceBadge extends StatelessWidget {
       Confidence.media => ('Confianza media', CX.amber),
       Confidence.baja => ('Confianza baja', const Color(0xFFFF9B9B)),
     };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .16),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 9,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
+    return StatusPill(label, color, compact: true);
   }
 }
 
@@ -258,25 +278,7 @@ class AvailabilityChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = availability.color;
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 6 : 8,
-        vertical: compact ? 2 : 3,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .14),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        availability.label,
-        style: TextStyle(
-          color: color,
-          fontSize: compact ? 9 : 10,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
+    return StatusPill(availability.label, availability.color, compact: compact);
   }
 }
 

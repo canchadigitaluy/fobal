@@ -723,6 +723,44 @@ class _CanteraAppState extends State<CanteraApp> {
               TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
             ),
           ),
+          // Bare Card / Chip / TextButton pick up fobal's flat language:
+          // no M3 tinted elevation, hairline edge, pill chips, green links.
+          cardTheme: CardThemeData(
+            elevation: 0,
+            color: CX.panel,
+            surfaceTintColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: CX.line),
+            ),
+          ),
+          chipTheme: ChipThemeData(
+            backgroundColor: CX.panel2,
+            surfaceTintColor: Colors.transparent,
+            side: const BorderSide(color: CX.line),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(999),
+            ),
+            labelStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: CX.white,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(
+              foregroundColor: CX.green,
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              minimumSize: const Size(0, 40),
+            ),
+          ),
         ),
         initialRoute: '/login',
         routes: {

@@ -422,23 +422,37 @@ class MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(13),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: CX.panel,
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: CX.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, color: accent, size: 18),
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, color: accent, size: 17),
+          ),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -.4,
+            ),
           ),
+          const SizedBox(height: 1),
           Text(
             label,
             maxLines: 1,
@@ -447,6 +461,7 @@ class MetricTile extends StatelessWidget {
               color: CX.white,
               fontSize: 10.5,
               fontWeight: FontWeight.w700,
+              letterSpacing: .1,
             ),
           ),
           if (meter != null) ...[const SizedBox(height: 4), meter!],
@@ -454,7 +469,7 @@ class MetricTile extends StatelessWidget {
             this.context,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: CX.faint, fontSize: 9.5, height: 1.2),
+            style: const TextStyle(color: CX.faint, fontSize: 9.5, height: 1.25),
           ),
         ],
       ),
@@ -480,9 +495,9 @@ class MetricGrid extends StatelessWidget {
           crossAxisCount: cols,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 9,
-          mainAxisSpacing: 9,
-          childAspectRatio: c.maxWidth < 620 ? 1.3 : 1.42,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: c.maxWidth < 620 ? 1.24 : 1.36,
           children: tiles,
         );
       },

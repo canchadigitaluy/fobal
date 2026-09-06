@@ -902,6 +902,43 @@ class _CanteraAppState extends State<CanteraApp> {
               borderRadius: BorderRadius.circular(16),
             ),
           ),
+          listTileTheme: ListTileThemeData(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+            minVerticalPadding: 10,
+            iconColor: CX.muted,
+            textColor: CX.white,
+            titleTextStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: CX.white,
+            ),
+            subtitleTextStyle: const TextStyle(
+              fontSize: 12,
+              color: CX.muted,
+              height: 1.3,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          tooltipTheme: TooltipThemeData(
+            decoration: BoxDecoration(
+              color: CX.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            textStyle: const TextStyle(
+              color: Color(0xFFEEF3F0),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            waitDuration: const Duration(milliseconds: 400),
+          ),
+          progressIndicatorTheme: const ProgressIndicatorThemeData(
+            color: CX.green,
+            linearTrackColor: CX.panel2,
+            circularTrackColor: CX.panel2,
+          ),
         ),
         initialRoute: '/login',
         routes: {

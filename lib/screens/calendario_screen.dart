@@ -441,6 +441,11 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                 .matchResults)
                               if (r.calendarKey.isNotEmpty) r.calendarKey,
                           },
+                          scoreByKey: {
+                            for (final r in AppScope.of(context).fullClub.matchResults)
+                              if (r.calendarKey.isNotEmpty)
+                                r.calendarKey: '${r.goalsFor}-${r.goalsAgainst}',
+                          },
                           preparedEventIds: {
                             for (final p in AppScope.of(context).fullClub.matchPreparations)
                               if (p.calendarEventId.isNotEmpty) p.calendarEventId,
@@ -834,6 +839,7 @@ class _DayEditorPanel extends StatefulWidget {
   final DateTime day;
   final List<_CalendarEvent> events;
   final Set<String> loggedKeys;
+  final Map<String, String> scoreByKey;
   final Set<String> preparedEventIds;
   final List<TrainingSession> daySessions;
   final String? initialEditEventId;
@@ -849,6 +855,7 @@ class _DayEditorPanel extends StatefulWidget {
     required this.day,
     required this.events,
     required this.loggedKeys,
+    this.scoreByKey = const {},
     this.preparedEventIds = const {},
     this.daySessions = const [],
     this.initialEditEventId,
@@ -1052,6 +1059,7 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
                   day: widget.day,
                   event: event,
                   logged: widget.loggedKeys.contains(event.id),
+                  resultScore: widget.scoreByKey[event.id],
                   hasPreparation: widget.preparedEventIds.contains(event.id),
                   onEdit: () => _startEdit(index, event),
                   onDelete: () => _confirmDelete(index, event),
@@ -1156,6 +1164,7 @@ class _EventTile extends StatelessWidget {
   final DateTime day;
   final _CalendarEvent event;
   final bool logged;
+  final String? resultScore;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onLogResult;
@@ -1167,6 +1176,7 @@ class _EventTile extends StatelessWidget {
     required this.day,
     required this.event,
     required this.logged,
+    this.resultScore,
     required this.onEdit,
     required this.onDelete,
     required this.onLogResult,
@@ -1278,8 +1288,10 @@ class _EventTile extends StatelessWidget {
                 ),
                 if (past)
                   logged
-                      ? const Chip(
-                          label: Text('Resultado cargado'),
+                      ? Chip(
+                          label: Text(resultScore == null
+                              ? 'Resultado cargado'
+                              : 'Resultado $resultScore'),
                           visualDensity: VisualDensity.compact,
                         )
                       : OutlinedButton.icon(

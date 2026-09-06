@@ -174,6 +174,69 @@ class ShellActions extends InheritedWidget {
   bool updateShouldNotify(ShellActions oldWidget) => false;
 }
 
+/// One typographic calibration for the whole app: tighter tracking on
+/// display/title sizes, roomier line-height on body copy, firmer label
+/// weights. Sizes are left untouched (only tracking / height / weight) so no
+/// bare `Text` shifts its footprint — an explicit `style:` still overrides.
+TextTheme _tuneText(TextTheme t) => t.copyWith(
+  displayLarge: t.displayLarge?.copyWith(
+    letterSpacing: -.5,
+    height: 1.12,
+    fontWeight: FontWeight.w800,
+  ),
+  displayMedium: t.displayMedium?.copyWith(
+    letterSpacing: -.5,
+    height: 1.12,
+    fontWeight: FontWeight.w800,
+  ),
+  displaySmall: t.displaySmall?.copyWith(
+    letterSpacing: -.4,
+    height: 1.14,
+    fontWeight: FontWeight.w800,
+  ),
+  headlineLarge: t.headlineLarge?.copyWith(
+    letterSpacing: -.4,
+    height: 1.15,
+    fontWeight: FontWeight.w800,
+  ),
+  headlineMedium: t.headlineMedium?.copyWith(
+    letterSpacing: -.3,
+    height: 1.16,
+    fontWeight: FontWeight.w800,
+  ),
+  headlineSmall: t.headlineSmall?.copyWith(
+    letterSpacing: -.2,
+    height: 1.2,
+    fontWeight: FontWeight.w700,
+  ),
+  titleLarge: t.titleLarge?.copyWith(
+    letterSpacing: -.15,
+    height: 1.2,
+    fontWeight: FontWeight.w700,
+  ),
+  titleMedium: t.titleMedium?.copyWith(
+    letterSpacing: -.1,
+    height: 1.25,
+    fontWeight: FontWeight.w600,
+  ),
+  titleSmall: t.titleSmall?.copyWith(height: 1.3, fontWeight: FontWeight.w600),
+  bodyLarge: t.bodyLarge?.copyWith(height: 1.45),
+  bodyMedium: t.bodyMedium?.copyWith(height: 1.45),
+  bodySmall: t.bodySmall?.copyWith(height: 1.4),
+  labelLarge: t.labelLarge?.copyWith(
+    letterSpacing: .1,
+    fontWeight: FontWeight.w700,
+  ),
+  labelMedium: t.labelMedium?.copyWith(
+    letterSpacing: .2,
+    fontWeight: FontWeight.w600,
+  ),
+  labelSmall: t.labelSmall?.copyWith(
+    letterSpacing: .3,
+    fontWeight: FontWeight.w600,
+  ),
+);
+
 class CX {
   static const bg = Color(0xFFF3F6F4);
   static const canvas = Color(0xFFFAFCFB);
@@ -518,7 +581,9 @@ class _CanteraAppState extends State<CanteraApp> {
 
   @override
   Widget build(BuildContext context) {
-    final baseText = GoogleFonts.interTextTheme(ThemeData.light().textTheme);
+    final baseText = _tuneText(
+      GoogleFonts.interTextTheme(ThemeData.light().textTheme),
+    );
     final visibleClub = _visibleClub();
     if (_recoveredFromBackup) {
       _recoveredFromBackup = false;

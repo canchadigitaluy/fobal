@@ -619,6 +619,7 @@ class _CanteraAppState extends State<CanteraApp> {
           useMaterial3: true,
           brightness: Brightness.light,
           scaffoldBackgroundColor: CX.canvas,
+          canvasColor: CX.panel,
           colorScheme: const ColorScheme.light(
             primary: CX.green,
             secondary: CX.blue,
@@ -833,6 +834,73 @@ class _CanteraAppState extends State<CanteraApp> {
                   : CX.lineStrong,
             ),
             trackOutlineWidth: const WidgetStatePropertyAll(1.5),
+          ),
+          // Transient popover surfaces all adopt the panel language:
+          // white fill, hairline edge, radius 12, no M3 tint.
+          menuTheme: MenuThemeData(
+            style: MenuStyle(
+              backgroundColor: const WidgetStatePropertyAll(CX.panel),
+              surfaceTintColor: const WidgetStatePropertyAll(
+                Colors.transparent,
+              ),
+              elevation: const WidgetStatePropertyAll(8),
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(vertical: 6),
+              ),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: CX.line),
+                ),
+              ),
+            ),
+          ),
+          dropdownMenuTheme: DropdownMenuThemeData(
+            menuStyle: MenuStyle(
+              backgroundColor: const WidgetStatePropertyAll(CX.panel),
+              surfaceTintColor: const WidgetStatePropertyAll(
+                Colors.transparent,
+              ),
+              elevation: const WidgetStatePropertyAll(8),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: CX.line),
+                ),
+              ),
+            ),
+          ),
+          popupMenuTheme: PopupMenuThemeData(
+            color: CX.panel,
+            surfaceTintColor: Colors.transparent,
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: CX.line),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 13,
+              color: CX.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          bottomSheetTheme: const BottomSheetThemeData(
+            backgroundColor: CX.panel,
+            surfaceTintColor: Colors.transparent,
+            elevation: 12,
+            showDragHandle: true,
+            dragHandleColor: CX.lineStrong,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+            ),
+          ),
+          datePickerTheme: DatePickerThemeData(
+            backgroundColor: CX.panel,
+            surfaceTintColor: Colors.transparent,
+            elevation: 12,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
         ),
         initialRoute: '/login',

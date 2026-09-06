@@ -706,9 +706,20 @@ class _CanteraAppState extends State<CanteraApp> {
           snackBarTheme: SnackBarThemeData(
             behavior: SnackBarBehavior.floating,
             backgroundColor: CX.white,
-            contentTextStyle: const TextStyle(color: Colors.white),
+            elevation: 8,
+            contentTextStyle: const TextStyle(
+              color: Color(0xFFEEF3F0),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+            actionTextColor: const Color(0xFF6EF2C7),
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 20,
+            ),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
           dialogTheme: DialogThemeData(

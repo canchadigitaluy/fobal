@@ -1528,6 +1528,7 @@ class _NoLudStatsBody extends StatelessWidget {
           ),
           _NoLudResultsList(
             results: summary.all,
+            playerNames: {for (final p in players) p.id: p.fullName.trim()},
             onEdit: (r) => _edit(context, r),
             onDelete: (r) => _delete(context, r),
           ),
@@ -1795,14 +1796,30 @@ class _NoLudForm extends StatelessWidget {
 
 class _NoLudResultsList extends StatelessWidget {
   final List<MatchResult> results;
+  final Map<String, String> playerNames;
   final ValueChanged<MatchResult> onEdit;
   final ValueChanged<MatchResult> onDelete;
 
   const _NoLudResultsList({
     required this.results,
+    this.playerNames = const {},
     required this.onEdit,
     required this.onDelete,
   });
+
+  String _scorers(MatchResult r) {
+    if (r.scorerIds.isEmpty) return '';
+    final counts = <String, int>{};
+    for (final id in r.scorerIds) {
+      final name = playerNames[id];
+      if (name == null || name.isEmpty) continue;
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+    if (counts.isEmpty) return '';
+    return counts.entries
+        .map((e) => e.value > 1 ? '${e.key} (${e.value})' : e.key)
+        .join(', ');
+  }
 
   String _fmt(String iso) {
     final d = DateTime.tryParse(iso);
@@ -1855,6 +1872,13 @@ class _NoLudResultsList extends StatelessWidget {
                         '${r.isCompetitive ? '' : ' · ${r.kindLabel}'}',
                         style: const TextStyle(color: CX.faint, fontSize: 10),
                       ),
+                      if (_scorers(r).isNotEmpty)
+                        Text(
+                          'Goles: ${_scorers(r)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: CX.muted, fontSize: 10.5),
+                        ),
                     ],
                   ),
                 ),

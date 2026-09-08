@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
+import '../services/attendance_stats_service.dart';
 import '../services/export_download_service.dart';
 import '../services/export_text_service.dart';
 import '../services/player_profile_service.dart';
@@ -20,7 +21,9 @@ import 'player_availability_dialog.dart';
 void openPlayerProfile(BuildContext context, Player player) {
   Navigator.push(
     context,
-    MaterialPageRoute(builder: (context) => PlayerProfileScreen(playerId: player.id)),
+    MaterialPageRoute(
+      builder: (context) => PlayerProfileScreen(playerId: player.id),
+    ),
   );
 }
 
@@ -50,7 +53,11 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
     if (updated == null || !mounted) return;
     _updatePlayer(club, updated);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Disponibilidad actualizada: ${updated.availability.label}')),
+      SnackBar(
+        content: Text(
+          'Disponibilidad actualizada: ${updated.availability.label}',
+        ),
+      ),
     );
   }
 
@@ -83,9 +90,9 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
     controller.dispose();
     if (result == null || !mounted) return;
     _updatePlayer(club, player.copyWith(note: result));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Notas guardadas.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Notas guardadas.')));
   }
 
   Future<void> _addOrEditGoal(
@@ -104,11 +111,19 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
     ];
     _updatePlayer(club, player.copyWith(developmentGoals: next));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(existing == null ? 'Objetivo creado.' : 'Objetivo actualizado.')),
+      SnackBar(
+        content: Text(
+          existing == null ? 'Objetivo creado.' : 'Objetivo actualizado.',
+        ),
+      ),
     );
   }
 
-  Future<void> _deleteGoal(CanteraClub club, Player player, PlayerGoal goal) async {
+  Future<void> _deleteGoal(
+    CanteraClub club,
+    Player player,
+    PlayerGoal goal,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -130,12 +145,14 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
     _updatePlayer(
       club,
       player.copyWith(
-        developmentGoals: player.developmentGoals.where((item) => item.id != goal.id).toList(),
+        developmentGoals: player.developmentGoals
+            .where((item) => item.id != goal.id)
+            .toList(),
       ),
     );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Borrado: ${goal.title}')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Borrado: ${goal.title}')));
   }
 
   void _prepareSessionFocus(Player player) {
@@ -196,9 +213,9 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
       fileName: fileName,
       onDownload: (name, text) {
         ExportDownloadService.downloadText(name, text);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Perfil descargado: $name')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Perfil descargado: $name')));
       },
     );
   }
@@ -211,8 +228,9 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
     CategorySquad category,
     String playerId,
   ) {
-    final raw = html.window.localStorage[
-        'cantera_alignment_history_${club.id}_${category.id}'];
+    final raw = html
+        .window
+        .localStorage['cantera_alignment_history_${club.id}_${category.id}'];
     if (raw == null || raw.isEmpty) return (total: 0, titular: 0);
     try {
       final list = jsonDecode(raw) as List<dynamic>;
@@ -221,7 +239,9 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
       for (final item in list) {
         final map = item as Map<String, dynamic>;
         final xi = List<String?>.from(map['xi'] as List<dynamic>? ?? const []);
-        final subs = List<String?>.from(map['subs'] as List<dynamic>? ?? const []);
+        final subs = List<String?>.from(
+          map['subs'] as List<dynamic>? ?? const [],
+        );
         if (xi.contains(playerId)) {
           total++;
           titular++;
@@ -269,7 +289,8 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
         break;
       }
     }
-    final category = matchedCategory ??
+    final category =
+        matchedCategory ??
         (club.categories.isEmpty
             ? const CategorySquad(
                 id: '',
@@ -285,16 +306,43 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
               )
             : club.categories.first);
     final categoryIsLud = LudCategoryRef.teamIdOf(category.id) != null;
-    final reliableLeague =
-        hasReliableLeagueStats(categoryIsLud: categoryIsLud, player: resolvedPlayer);
-    final manualMatchStats =
-        hasManualMatchStats(categoryIsLud: categoryIsLud, player: resolvedPlayer);
+    final reliableLeague = hasReliableLeagueStats(
+      categoryIsLud: categoryIsLud,
+      player: resolvedPlayer,
+    );
+    final manualMatchStats = hasManualMatchStats(
+      categoryIsLud: categoryIsLud,
+      player: resolvedPlayer,
+    );
     final citations = _citationCounts(club, category, resolvedPlayer.id);
+    final attendanceRecords =
+        club.attendanceRecords
+            .where(
+              (record) =>
+                  record.categoryId == category.id &&
+                  record.rosterIds.contains(resolvedPlayer.id),
+            )
+            .toList()
+          ..sort(
+            (a, b) => attendanceRecordDate(
+              b.date,
+            ).compareTo(attendanceRecordDate(a.date)),
+          );
+    final playerAttendance = attendanceRecords.isEmpty
+        ? null
+        : attendanceRecords
+                  .where(
+                    (record) => record.presentIds.contains(resolvedPlayer.id),
+                  )
+                  .length /
+              attendanceRecords.length;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          resolvedPlayer.fullName.trim().isEmpty ? 'Jugador' : resolvedPlayer.fullName,
+          resolvedPlayer.fullName.trim().isEmpty
+              ? 'Jugador'
+              : resolvedPlayer.fullName,
         ),
       ),
       body: SafeArea(
@@ -307,10 +355,14 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                 _ProfileHeader(
                   player: resolvedPlayer,
                   categoryName: category.name,
-                  onEditAvailability: () => _editAvailability(club, resolvedPlayer),
+                  onEditAvailability: () =>
+                      _editAvailability(club, resolvedPlayer),
                 ),
                 const SizedBox(height: 20),
-                const PremiumSectionHeader(eyebrow: 'Rendimiento', title: 'Cómo viene jugando'),
+                const PremiumSectionHeader(
+                  eyebrow: 'Rendimiento',
+                  title: 'Cómo viene jugando',
+                ),
                 if (reliableLeague)
                   MetricGrid(
                     tiles: [
@@ -337,7 +389,8 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                       ),
                       MetricTile(
                         icon: Icons.style_outlined,
-                        value: '${resolvedPlayer.yellowCards}/${resolvedPlayer.redCards}',
+                        value:
+                            '${resolvedPlayer.yellowCards}/${resolvedPlayer.redCards}',
                         label: 'Amarillas/Rojas',
                         context: resolvedPlayer.suspensionDates > 0
                             ? '${resolvedPlayer.suspensionDates} fechas de sanción'
@@ -376,16 +429,21 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                         : 'Al cargar un resultado en Estadísticas o Calendario, marcá quién jugó y quién anotó.',
                   ),
                 const SizedBox(height: 20),
-                const PremiumSectionHeader(eyebrow: 'Participación', title: 'Asistencia y citaciones'),
+                const PremiumSectionHeader(
+                  eyebrow: 'Participación',
+                  title: 'Asistencia y citaciones',
+                ),
                 MetricGrid(
                   tiles: [
                     MetricTile(
                       icon: Icons.fact_check_outlined,
-                      value: resolvedPlayer.attendanceRate > 0
-                          ? '${(resolvedPlayer.attendanceRate * 100).round()}%'
-                          : 'Sin dato',
+                      value: playerAttendance == null
+                          ? '—'
+                          : '${(playerAttendance * 100).round()}%',
                       label: 'Asistencia',
-                      context: 'promedio registrado',
+                      context: playerAttendance == null
+                          ? 'Sin registros'
+                          : '${attendanceRecords.length} prácticas',
                       accent: CX.green,
                     ),
                     MetricTile(
@@ -399,11 +457,39 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                     ),
                   ],
                 ),
+                if (attendanceRecords.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final record in attendanceRecords.take(8))
+                        Tooltip(
+                          message:
+                              '${record.date}: ${record.presentIds.contains(resolvedPlayer.id) ? 'presente' : 'ausente'}',
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color:
+                                  record.presentIds.contains(resolvedPlayer.id)
+                                  ? CX.green
+                                  : CX.red,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 20),
                 Row(
                   children: [
                     const Expanded(
-                      child: PremiumSectionHeader(eyebrow: 'Plan individual', title: 'Objetivos'),
+                      child: PremiumSectionHeader(
+                        eyebrow: 'Plan individual',
+                        title: 'Objetivos',
+                      ),
                     ),
                     OutlinedButton.icon(
                       onPressed: () => _addOrEditGoal(club, resolvedPlayer),
@@ -416,20 +502,25 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                   const EmptyStatePanel(
                     icon: Icons.flag_outlined,
                     title: 'Todavía no hay objetivos cargados',
-                    message: 'Definí una meta concreta (técnica, táctica, física, mental o de conducta) y hacele seguimiento acá.',
+                    message:
+                        'Definí una meta concreta (técnica, táctica, física, mental o de conducta) y hacele seguimiento acá.',
                   )
                 else
                   for (final goal in resolvedPlayer.developmentGoals)
                     _GoalTile(
                       goal: goal,
-                      onEdit: () => _addOrEditGoal(club, resolvedPlayer, existing: goal),
+                      onEdit: () =>
+                          _addOrEditGoal(club, resolvedPlayer, existing: goal),
                       onDelete: () => _deleteGoal(club, resolvedPlayer, goal),
                     ),
                 const SizedBox(height: 20),
                 Row(
                   children: [
                     const Expanded(
-                      child: PremiumSectionHeader(eyebrow: 'Seguimiento', title: 'Notas del cuerpo técnico'),
+                      child: PremiumSectionHeader(
+                        eyebrow: 'Seguimiento',
+                        title: 'Notas del cuerpo técnico',
+                      ),
                     ),
                     IconButton(
                       tooltip: 'Editar notas',
@@ -447,7 +538,9 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                         ? 'Sin notas todavía.'
                         : resolvedPlayer.note.trim(),
                     style: TextStyle(
-                      color: resolvedPlayer.note.trim().isEmpty ? CX.faint : CX.white,
+                      color: resolvedPlayer.note.trim().isEmpty
+                          ? CX.faint
+                          : CX.white,
                       height: 1.4,
                     ),
                   ),
@@ -518,7 +611,11 @@ class _ProfileHeader extends StatelessWidget {
               backgroundColor: CX.greenDark,
               child: Text(
                 initials.isEmpty ? '?' : initials,
-                style: const TextStyle(color: CX.green, fontWeight: FontWeight.w900, fontSize: 20),
+                style: const TextStyle(
+                  color: CX.green,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 20,
+                ),
               ),
             ),
           ),
@@ -528,22 +625,34 @@ class _ProfileHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  player.fullName.trim().isEmpty ? 'Jugador sin nombre' : player.fullName,
-                  style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+                  player.fullName.trim().isEmpty
+                      ? 'Jugador sin nombre'
+                      : player.fullName,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   categoryName,
-                  style: const TextStyle(color: CX.muted, fontSize: 12, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    color: CX.muted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    if (player.position.trim().isNotEmpty) _tag(player.position),
-                    for (final pos in player.secondaryPositionList.take(3)) _tag(pos),
-                    if (player.dominantFoot.trim().isNotEmpty) _tag('Pie ${player.dominantFoot.toLowerCase()}'),
+                    if (player.position.trim().isNotEmpty)
+                      _tag(player.position),
+                    for (final pos in player.secondaryPositionList.take(3))
+                      _tag(pos),
+                    if (player.dominantFoot.trim().isNotEmpty)
+                      _tag('Pie ${player.dominantFoot.toLowerCase()}'),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -555,7 +664,11 @@ class _ProfileHeader extends StatelessWidget {
                     children: [
                       AvailabilityChip(player.availability),
                       const SizedBox(width: 6),
-                      const Icon(Icons.edit_outlined, size: 13, color: CX.faint),
+                      const Icon(
+                        Icons.edit_outlined,
+                        size: 13,
+                        color: CX.faint,
+                      ),
                     ],
                   ),
                 ),
@@ -563,7 +676,11 @@ class _ProfileHeader extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     player.statusDetail,
-                    style: const TextStyle(color: CX.faint, fontSize: 11.5, height: 1.3),
+                    style: const TextStyle(
+                      color: CX.faint,
+                      fontSize: 11.5,
+                      height: 1.3,
+                    ),
                   ),
                 ],
                 if (player.expectedReturnDate.trim().isNotEmpty) ...[
@@ -583,8 +700,18 @@ class _ProfileHeader extends StatelessWidget {
 
   Widget _tag(String text) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-    decoration: BoxDecoration(color: CX.panel2, borderRadius: BorderRadius.circular(999)),
-    child: Text(text, style: const TextStyle(color: CX.muted, fontSize: 10.5, fontWeight: FontWeight.w700)),
+    decoration: BoxDecoration(
+      color: CX.panel2,
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Text(
+      text,
+      style: const TextStyle(
+        color: CX.muted,
+        fontSize: 10.5,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
   );
 }
 
@@ -593,7 +720,11 @@ class _GoalTile extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _GoalTile({required this.goal, required this.onEdit, required this.onDelete});
+  const _GoalTile({
+    required this.goal,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   Color get _statusColor => switch (goal.status) {
     PlayerGoalStatus.logrado => CX.green,
@@ -619,36 +750,63 @@ class _GoalTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(goal.title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(
+                  goal.title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: _statusColor.withValues(alpha: .14),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
                         goal.status.label,
-                        style: TextStyle(color: _statusColor, fontSize: 10, fontWeight: FontWeight.w900),
+                        style: TextStyle(
+                          color: _statusColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(color: CX.panel, borderRadius: BorderRadius.circular(999)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: CX.panel,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
                       child: Text(
                         '${goal.area.label} · Prioridad ${goal.priority.label.toLowerCase()}',
-                        style: const TextStyle(color: CX.muted, fontSize: 10, fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                          color: CX.muted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
                 ),
                 if (goal.detail.trim().isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Text(goal.detail, style: const TextStyle(color: CX.muted, fontSize: 12, height: 1.35)),
+                  Text(
+                    goal.detail,
+                    style: const TextStyle(
+                      color: CX.muted,
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
                 ],
                 if (goal.reviewDate.trim().isNotEmpty) ...[
                   const SizedBox(height: 4),
@@ -656,8 +814,14 @@ class _GoalTile extends StatelessWidget {
                     builder: (context) {
                       final review = goalReviewStatus(goal.reviewDate);
                       final (Color color, String prefix) = switch (review) {
-                        GoalReviewStatus.overdue => (CX.red, 'Revisión vencida'),
-                        GoalReviewStatus.upcoming => (CX.amber, 'Revisar pronto'),
+                        GoalReviewStatus.overdue => (
+                          CX.red,
+                          'Revisión vencida',
+                        ),
+                        GoalReviewStatus.upcoming => (
+                          CX.amber,
+                          'Revisar pronto',
+                        ),
                         GoalReviewStatus.none => (CX.faint, 'Revisión'),
                       };
                       return Text(
@@ -743,7 +907,9 @@ class _PlayerGoalDialogState extends State<_PlayerGoalDialog> {
         priority: _priority,
         status: _status,
         reviewDate: _reviewDate.text.trim(),
-        createdAt: widget.existing?.createdAt ?? DateTime.now().toUtc().toIso8601String(),
+        createdAt:
+            widget.existing?.createdAt ??
+            DateTime.now().toUtc().toIso8601String(),
       ),
     );
   }
@@ -751,7 +917,9 @@ class _PlayerGoalDialogState extends State<_PlayerGoalDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.existing == null ? 'Nuevo objetivo' : 'Editar objetivo'),
+      title: Text(
+        widget.existing == null ? 'Nuevo objetivo' : 'Editar objetivo',
+      ),
       content: SizedBox(
         width: 440,
         child: SingleChildScrollView(
@@ -768,7 +936,9 @@ class _PlayerGoalDialogState extends State<_PlayerGoalDialog> {
                 controller: _detail,
                 minLines: 2,
                 maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Detalle (opcional)'),
+                decoration: const InputDecoration(
+                  labelText: 'Detalle (opcional)',
+                ),
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<PlayerGoalArea>(
@@ -789,9 +959,13 @@ class _PlayerGoalDialogState extends State<_PlayerGoalDialog> {
                       decoration: const InputDecoration(labelText: 'Prioridad'),
                       items: [
                         for (final priority in PlayerGoalPriority.values)
-                          DropdownMenuItem(value: priority, child: Text(priority.label)),
+                          DropdownMenuItem(
+                            value: priority,
+                            child: Text(priority.label),
+                          ),
                       ],
-                      onChanged: (value) => setState(() => _priority = value ?? _priority),
+                      onChanged: (value) =>
+                          setState(() => _priority = value ?? _priority),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -801,9 +975,13 @@ class _PlayerGoalDialogState extends State<_PlayerGoalDialog> {
                       decoration: const InputDecoration(labelText: 'Estado'),
                       items: [
                         for (final status in PlayerGoalStatus.values)
-                          DropdownMenuItem(value: status, child: Text(status.label)),
+                          DropdownMenuItem(
+                            value: status,
+                            child: Text(status.label),
+                          ),
                       ],
-                      onChanged: (value) => setState(() => _status = value ?? _status),
+                      onChanged: (value) =>
+                          setState(() => _status = value ?? _status),
                     ),
                   ),
                 ],
@@ -817,16 +995,24 @@ class _PlayerGoalDialogState extends State<_PlayerGoalDialog> {
                       onTap: () async {
                         final base =
                             DateTime.tryParse(_reviewDate.text.trim()) ??
-                                DateTime.now().add(const Duration(days: 14));
+                            DateTime.now().add(const Duration(days: 14));
                         final picked = await showDatePicker(
                           context: context,
                           initialDate: base,
-                          firstDate: DateTime.now().subtract(const Duration(days: 30)),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          firstDate: DateTime.now().subtract(
+                            const Duration(days: 30),
+                          ),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 365),
+                          ),
                         );
                         if (picked != null) {
-                          setState(() => _reviewDate.text =
-                              picked.toIso8601String().split('T').first);
+                          setState(
+                            () => _reviewDate.text = picked
+                                .toIso8601String()
+                                .split('T')
+                                .first,
+                          );
                         }
                       },
                       child: InputDecorator(
@@ -855,7 +1041,10 @@ class _PlayerGoalDialogState extends State<_PlayerGoalDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
         FilledButton(onPressed: _submit, child: const Text('Guardar')),
       ],
     );

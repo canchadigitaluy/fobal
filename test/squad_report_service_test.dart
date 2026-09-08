@@ -3,8 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cantera_os/data/cantera_data.dart';
 import 'package:cantera_os/services/squad_report_service.dart';
 
-CanteraClub _club({List<Player> players = const [], List<MatchResult> matchResults = const []}) {
-  return canteraDemoClub.copyWith(players: players, matchResults: matchResults);
+CanteraClub _club({
+  List<Player> players = const [],
+  List<MatchResult> matchResults = const [],
+  List<AttendanceRecord> attendanceRecords = const [],
+}) {
+  return canteraDemoClub.copyWith(
+    players: players,
+    matchResults: matchResults,
+    attendanceRecords: attendanceRecords,
+  );
 }
 
 Player _player({
@@ -40,10 +48,35 @@ void main() {
         _player(id: 'p2', status: 'Lesionado', attendanceRate: 0.5),
       ];
       final matchResults = [
-        const MatchResult(id: 'r1', categoryId: 'cat-1', date: '2026-09-01', opponent: 'Rampla', goalsFor: 2, goalsAgainst: 1),
+        const MatchResult(
+          id: 'r1',
+          categoryId: 'cat-1',
+          date: '2026-09-01',
+          opponent: 'Rampla',
+          goalsFor: 2,
+          goalsAgainst: 1,
+        ),
+      ];
+      final attendanceRecords = [
+        const AttendanceRecord(
+          categoryId: 'cat-1',
+          date: '2026-08-25',
+          presentIds: ['p1', 'p2'],
+          rosterIds: ['p1', 'p2'],
+        ),
+        const AttendanceRecord(
+          categoryId: 'cat-1',
+          date: '2026-09-01',
+          presentIds: ['p1'],
+          rosterIds: ['p1', 'p2'],
+        ),
       ];
       final content = buildSquadReportContent(
-        club: _club(players: players, matchResults: matchResults),
+        club: _club(
+          players: players,
+          matchResults: matchResults,
+          attendanceRecords: attendanceRecords,
+        ),
         players: players,
         categoryId: 'cat-1',
         categoryName: 'Sub 15',
@@ -61,7 +94,14 @@ void main() {
         'the league sync, a locally logged result is never authoritative', () {
       final players = [_player(id: 'p1', attendanceRate: 0.9)];
       final matchResults = [
-        const MatchResult(id: 'r1', categoryId: 'lud-cat-1-1', date: '2026-09-01', opponent: 'Rampla', goalsFor: 2, goalsAgainst: 1),
+        const MatchResult(
+          id: 'r1',
+          categoryId: 'lud-cat-1-1',
+          date: '2026-09-01',
+          opponent: 'Rampla',
+          goalsFor: 2,
+          goalsAgainst: 1,
+        ),
       ];
       final content = buildSquadReportContent(
         club: _club(players: players, matchResults: matchResults),

@@ -4,8 +4,14 @@ enum UserRole { coordinator, coach, viewer }
 
 String cleanVisiblePlayerNote(String value) {
   return value
-      .replaceAll(RegExp(r'Importado desde LUD Stats', caseSensitive: false), 'Importado desde la liga')
-      .replaceAll(RegExp(r'LUD\s*player_id\s*:?\s*\d+', caseSensitive: false), '')
+      .replaceAll(
+        RegExp(r'Importado desde LUD Stats', caseSensitive: false),
+        'Importado desde la liga',
+      )
+      .replaceAll(
+        RegExp(r'LUD\s*player_id\s*:?\s*\d+', caseSensitive: false),
+        '',
+      )
       .replaceAll(RegExp(r'player_id\s*:?\s*\d+', caseSensitive: false), '')
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
@@ -61,8 +67,9 @@ String? resolveStoredCategoryId({
   required String? storedCategoryId,
 }) {
   if (storedCategoryId == null) return null;
-  final belongsToClub =
-      club.categories.any((item) => item.id == storedCategoryId);
+  final belongsToClub = club.categories.any(
+    (item) => item.id == storedCategoryId,
+  );
   if (!belongsToClub) return null;
   if (club.isManualClub && isLudCategoryId(storedCategoryId)) return null;
   return storedCategoryId;
@@ -86,6 +93,7 @@ class CanteraClub {
   final List<Player> players;
   final List<TrainingSession> sessions;
   final List<TrainingReport> trainingReports;
+  final List<AttendanceRecord> attendanceRecords;
 
   /// Match results a coach logs by hand (No-LUD). LUD clubs get their results
   /// from the league and normally leave this empty; a friendly the league does
@@ -118,6 +126,7 @@ class CanteraClub {
     required this.players,
     required this.sessions,
     required this.trainingReports,
+    this.attendanceRecords = const [],
     this.matchResults = const [],
     this.savedExercises = const [],
     this.matchPreparations = const [],
@@ -144,6 +153,7 @@ class CanteraClub {
     List<Player>? players,
     List<TrainingSession>? sessions,
     List<TrainingReport>? trainingReports,
+    List<AttendanceRecord>? attendanceRecords,
     List<MatchResult>? matchResults,
     List<Exercise>? savedExercises,
     List<MatchPreparation>? matchPreparations,
@@ -169,6 +179,7 @@ class CanteraClub {
       players: players ?? this.players,
       sessions: sessions ?? this.sessions,
       trainingReports: trainingReports ?? this.trainingReports,
+      attendanceRecords: attendanceRecords ?? this.attendanceRecords,
       matchResults: matchResults ?? this.matchResults,
       savedExercises: savedExercises ?? this.savedExercises,
       matchPreparations: matchPreparations ?? this.matchPreparations,
@@ -197,6 +208,7 @@ class CanteraClub {
       'players': players.map((p) => p.toJson()).toList(),
       'sessions': sessions.map((s) => s.toJson()).toList(),
       'trainingReports': trainingReports.map((r) => r.toJson()).toList(),
+      'attendanceRecords': attendanceRecords.map((r) => r.toJson()).toList(),
       'matchResults': matchResults.map((r) => r.toJson()).toList(),
       'savedExercises': savedExercises.map((e) => e.toJson()).toList(),
       'matchPreparations': matchPreparations.map((m) => m.toJson()).toList(),
@@ -232,6 +244,13 @@ class CanteraClub {
           .toList(),
       trainingReports: (json['trainingReports'] as List<dynamic>? ?? [])
           .map((item) => TrainingReport.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      attendanceRecords: (json['attendanceRecords'] as List<dynamic>? ?? [])
+          .whereType<Map>()
+          .map(
+            (item) =>
+                AttendanceRecord.fromJson(Map<String, dynamic>.from(item)),
+          )
           .toList(),
       matchResults: (json['matchResults'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
@@ -643,7 +662,8 @@ class PlayerGoal {
 
   factory PlayerGoal.fromJson(Map<String, dynamic> json) {
     return PlayerGoal(
-      id: json['id'] as String? ??
+      id:
+          json['id'] as String? ??
           'goal-${DateTime.now().microsecondsSinceEpoch}',
       title: json['title'] as String? ?? '',
       area: PlayerGoalArea.values.firstWhere(
@@ -684,7 +704,9 @@ PlayerAvailability normalizePlayerAvailability(String rawStatus) {
   if (s.contains('sancion') || s.contains('suspend')) {
     return PlayerAvailability.sancionado;
   }
-  if (s.contains('duda') || s.contains('tocado')) return PlayerAvailability.tocado;
+  if (s.contains('duda') || s.contains('tocado')) {
+    return PlayerAvailability.tocado;
+  }
   if (s.contains('ausente') || s.contains('viaje') || s.contains('examen')) {
     return PlayerAvailability.ausente;
   }
@@ -1180,11 +1202,15 @@ class Exercise {
     final rawScene = json['animation_scene'] ?? json['animationScene'];
     AnimationScene? scene;
     if (rawScene is Map) {
-      final parsed = AnimationScene.fromJson(Map<String, dynamic>.from(rawScene));
+      final parsed = AnimationScene.fromJson(
+        Map<String, dynamic>.from(rawScene),
+      );
       scene = parsed.hasContent ? parsed : null;
     }
     return Exercise(
-      id: json['id'] as String? ?? 'exercise-${DateTime.now().microsecondsSinceEpoch}',
+      id:
+          json['id'] as String? ??
+          'exercise-${DateTime.now().microsecondsSinceEpoch}',
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
       objective: json['objective'] as String? ?? '',
@@ -1192,8 +1218,12 @@ class Exercise {
       players: json['players'] as int? ?? 0,
       duration: json['duration'] as int? ?? 0,
       intensity: json['intensity'] as String? ?? '',
-      coachingPoints: List<String>.from(json['coachingPoints'] as List<dynamic>? ?? []),
-      constraints: List<String>.from(json['constraints'] as List<dynamic>? ?? []),
+      coachingPoints: List<String>.from(
+        json['coachingPoints'] as List<dynamic>? ?? [],
+      ),
+      constraints: List<String>.from(
+        json['constraints'] as List<dynamic>? ?? [],
+      ),
       successMetric: json['successMetric'] as String? ?? '',
       categoryId: json['categoryId'] as String? ?? '',
       source: json['source'] as String? ?? 'manual',
@@ -1265,7 +1295,9 @@ class ScenePoint {
   const ScenePoint(this.x, this.y);
 
   factory ScenePoint.fromJson(dynamic json) {
-    if (json is Map) return ScenePoint(_clamp01(json['x']), _clamp01(json['y']));
+    if (json is Map) {
+      return ScenePoint(_clamp01(json['x']), _clamp01(json['y']));
+    }
     if (json is List && json.length >= 2) {
       return ScenePoint(_clamp01(json[0]), _clamp01(json[1]));
     }
@@ -1335,7 +1367,8 @@ class SceneMovement {
   final ScenePoint to;
   final double startS;
   final double endS;
-  final String type; // pase | conduccion | desmarque | presion | cobertura | apoyo
+  final String
+  type; // pase | conduccion | desmarque | presion | cobertura | apoyo
 
   const SceneMovement({
     required this.playerId,
@@ -1347,7 +1380,9 @@ class SceneMovement {
   });
 
   factory SceneMovement.fromJson(Map<String, dynamic> json) {
-    final start = _sceneSeconds(json['start_s'] ?? json['start'] ?? json['timing']);
+    final start = _sceneSeconds(
+      json['start_s'] ?? json['start'] ?? json['timing'],
+    );
     final end = _sceneSeconds(json['end_s'] ?? json['end']);
     return SceneMovement(
       playerId: '${json['player'] ?? json['player_id'] ?? json['id'] ?? ''}'
@@ -1494,11 +1529,10 @@ class AnimationScene {
             .whereType<Map>()
             .map((e) => f(Map<String, dynamic>.from(e)))
             .toList();
-    final ball = (json['ball_path'] is List
-            ? json['ball_path'] as List
-            : const [])
-        .map(ScenePoint.fromJson)
-        .toList();
+    final ball =
+        (json['ball_path'] is List ? json['ball_path'] as List : const [])
+            .map(ScenePoint.fromJson)
+            .toList();
     return AnimationScene(
       pitchArea: normalizePitchArea(
         '${json['pitch_area'] ?? json['pitchArea'] ?? 'full'}',
@@ -1583,29 +1617,34 @@ class AnimationScene {
     List<ScenePoint> ball;
     const dur = 9.0;
 
-    ScenePoint p(double x, double y) => ScenePoint(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+    ScenePoint p(double x, double y) =>
+        ScenePoint(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
 
     if (isPress) {
       // Rival keeps the ball low-centre, own players collapse onto it.
       final rivalBase = p(0.5, 0.32);
-      players.add(SceneActor(
-        id: 'r1',
-        label: 'R',
-        team: 'rival',
-        start: rivalBase,
-        end: p(0.42, 0.24),
-        role: 'con balón',
-      ));
+      players.add(
+        SceneActor(
+          id: 'r1',
+          label: 'R',
+          team: 'rival',
+          start: rivalBase,
+          end: p(0.42, 0.24),
+          role: 'con balón',
+        ),
+      );
       for (var i = 1; i < perSide; i++) {
         final rx = 0.25 + (i / perSide) * 0.5;
-        players.add(SceneActor(
-          id: 'r${i + 1}',
-          label: 'r',
-          team: 'rival',
-          start: p(rx, 0.18),
-          end: p(rx, 0.14),
-          role: 'apoyo rival',
-        ));
+        players.add(
+          SceneActor(
+            id: 'r${i + 1}',
+            label: 'r',
+            team: 'rival',
+            start: p(rx, 0.18),
+            end: p(rx, 0.14),
+            role: 'apoyo rival',
+          ),
+        );
       }
       for (var i = 0; i < perSide; i++) {
         final sx = 0.2 + (i / perSide) * 0.6;
@@ -1614,184 +1653,226 @@ class AnimationScene {
           rivalBase.x + (sx - rivalBase.x) * 0.35,
           rivalBase.y + 0.1,
         );
-        players.add(SceneActor(
-          id: 'o${i + 1}',
-          label: '${i + 1}',
-          team: 'own',
-          start: start,
-          end: end,
-          role: i == 0 ? 'presiona al balón' : 'cierra línea de pase',
-        ));
-        movements.add(SceneMovement(
-          playerId: 'o${i + 1}',
-          from: start,
-          to: end,
-          startS: 0,
-          endS: 4 + i.toDouble(),
-          type: i == 0 ? 'presion' : 'cobertura',
-        ));
+        players.add(
+          SceneActor(
+            id: 'o${i + 1}',
+            label: '${i + 1}',
+            team: 'own',
+            start: start,
+            end: end,
+            role: i == 0 ? 'presiona al balón' : 'cierra línea de pase',
+          ),
+        );
+        movements.add(
+          SceneMovement(
+            playerId: 'o${i + 1}',
+            from: start,
+            to: end,
+            startS: 0,
+            endS: 4 + i.toDouble(),
+            type: i == 0 ? 'presion' : 'cobertura',
+          ),
+        );
       }
       ball = [p(0.5, 0.32), p(0.6, 0.28), p(0.55, 0.2), p(0.4, 0.16)];
-      zones.add(const SceneZone(
-        type: 'target',
-        label: 'zona de recuperación',
-        x: 0.28,
-        y: 0.1,
-        width: 0.44,
-        height: 0.34,
-      ));
+      zones.add(
+        const SceneZone(
+          type: 'target',
+          label: 'zona de recuperación',
+          x: 0.28,
+          y: 0.1,
+          width: 0.44,
+          height: 0.34,
+        ),
+      );
     } else if (isBuildOut) {
       // Wide back line + keeper play out; ball travels goal -> flank -> forward.
-      players.add(SceneActor(
-        id: 'gk',
-        label: 'PO',
-        team: 'own',
-        start: p(0.5, 0.06),
-        end: p(0.5, 0.1),
-        role: 'inicia',
-      ));
+      players.add(
+        SceneActor(
+          id: 'gk',
+          label: 'PO',
+          team: 'own',
+          start: p(0.5, 0.06),
+          end: p(0.5, 0.1),
+          role: 'inicia',
+        ),
+      );
       final laneXs = [0.12, 0.38, 0.62, 0.88];
       for (var i = 0; i < perSide; i++) {
         final lane = laneXs[i % laneXs.length];
         final start = p(lane, 0.2 + (i.isEven ? 0 : 0.08));
         final end = p(lane, 0.44 + i * 0.05);
-        players.add(SceneActor(
-          id: 'o${i + 1}',
-          label: '${i + 1}',
-          team: 'own',
-          start: start,
-          end: end,
-          role: i == 0 ? 'recibe y orienta' : 'ofrece amplitud',
-        ));
-        movements.add(SceneMovement(
-          playerId: 'o${i + 1}',
-          from: start,
-          to: end,
-          startS: 1 + i.toDouble(),
-          endS: 5 + i.toDouble(),
-          type: i == 0 ? 'conduccion' : 'apoyo',
-        ));
+        players.add(
+          SceneActor(
+            id: 'o${i + 1}',
+            label: '${i + 1}',
+            team: 'own',
+            start: start,
+            end: end,
+            role: i == 0 ? 'recibe y orienta' : 'ofrece amplitud',
+          ),
+        );
+        movements.add(
+          SceneMovement(
+            playerId: 'o${i + 1}',
+            from: start,
+            to: end,
+            startS: 1 + i.toDouble(),
+            endS: 5 + i.toDouble(),
+            type: i == 0 ? 'conduccion' : 'apoyo',
+          ),
+        );
       }
       for (var i = 0; i < (perSide - 1).clamp(1, 4); i++) {
         final rx = 0.32 + (i / 3) * 0.36;
-        players.add(SceneActor(
-          id: 'r${i + 1}',
-          label: 'r',
-          team: 'rival',
-          start: p(rx, 0.5),
-          end: p(rx, 0.42),
-          role: 'presiona salida',
-        ));
+        players.add(
+          SceneActor(
+            id: 'r${i + 1}',
+            label: 'r',
+            team: 'rival',
+            start: p(rx, 0.5),
+            end: p(rx, 0.42),
+            role: 'presiona salida',
+          ),
+        );
       }
-      ball = [p(0.5, 0.08), p(0.14, 0.24), p(0.4, 0.4), p(0.82, 0.5), p(0.7, 0.68)];
-      zones.add(const SceneZone(
-        type: 'lane',
-        label: 'carril izquierdo',
-        x: 0.0,
-        y: 0.0,
-        width: 0.28,
-        height: 1.0,
-      ));
-      zones.add(const SceneZone(
-        type: 'lane',
-        label: 'carril derecho',
-        x: 0.72,
-        y: 0.0,
-        width: 0.28,
-        height: 1.0,
-      ));
-      zones.add(const SceneZone(
-        type: 'target',
-        label: 'zona de progresión',
-        x: 0.2,
-        y: 0.6,
-        width: 0.6,
-        height: 0.3,
-      ));
+      ball = [
+        p(0.5, 0.08),
+        p(0.14, 0.24),
+        p(0.4, 0.4),
+        p(0.82, 0.5),
+        p(0.7, 0.68),
+      ];
+      zones.add(
+        const SceneZone(
+          type: 'lane',
+          label: 'carril izquierdo',
+          x: 0.0,
+          y: 0.0,
+          width: 0.28,
+          height: 1.0,
+        ),
+      );
+      zones.add(
+        const SceneZone(
+          type: 'lane',
+          label: 'carril derecho',
+          x: 0.72,
+          y: 0.0,
+          width: 0.28,
+          height: 1.0,
+        ),
+      );
+      zones.add(
+        const SceneZone(
+          type: 'target',
+          label: 'zona de progresión',
+          x: 0.2,
+          y: 0.6,
+          width: 0.6,
+          height: 0.3,
+        ),
+      );
     } else if (isFinish) {
       for (var i = 0; i < perSide; i++) {
         final sx = 0.2 + (i / perSide) * 0.6;
         final start = p(sx, 0.55 - i * 0.03);
         final end = p(0.35 + (i / perSide) * 0.3, 0.86);
-        players.add(SceneActor(
-          id: 'o${i + 1}',
-          label: '${i + 1}',
-          team: 'own',
-          start: start,
-          end: end,
-          role: i == 0 ? 'asiste' : 'ataca el área',
-        ));
-        movements.add(SceneMovement(
-          playerId: 'o${i + 1}',
-          from: start,
-          to: end,
-          startS: i.toDouble(),
-          endS: 4 + i.toDouble(),
-          type: i == 0 ? 'pase' : 'desmarque',
-        ));
+        players.add(
+          SceneActor(
+            id: 'o${i + 1}',
+            label: '${i + 1}',
+            team: 'own',
+            start: start,
+            end: end,
+            role: i == 0 ? 'asiste' : 'ataca el área',
+          ),
+        );
+        movements.add(
+          SceneMovement(
+            playerId: 'o${i + 1}',
+            from: start,
+            to: end,
+            startS: i.toDouble(),
+            endS: 4 + i.toDouble(),
+            type: i == 0 ? 'pase' : 'desmarque',
+          ),
+        );
       }
       for (var i = 0; i < (perSide - 1).clamp(1, 4); i++) {
-        players.add(SceneActor(
-          id: 'r${i + 1}',
-          label: 'r',
-          team: 'rival',
-          start: p(0.35 + i * 0.12, 0.82),
-          end: p(0.35 + i * 0.12, 0.82),
-          role: 'defiende área',
-        ));
+        players.add(
+          SceneActor(
+            id: 'r${i + 1}',
+            label: 'r',
+            team: 'rival',
+            start: p(0.35 + i * 0.12, 0.82),
+            end: p(0.35 + i * 0.12, 0.82),
+            role: 'defiende área',
+          ),
+        );
       }
       ball = [p(0.2, 0.55), p(0.5, 0.7), p(0.62, 0.88)];
-      zones.add(const SceneZone(
-        type: 'target',
-        label: 'área rival',
-        x: 0.28,
-        y: 0.78,
-        width: 0.44,
-        height: 0.22,
-      ));
+      zones.add(
+        const SceneZone(
+          type: 'target',
+          label: 'área rival',
+          x: 0.28,
+          y: 0.78,
+          width: 0.44,
+          height: 0.22,
+        ),
+      );
     } else {
       // Generic small-sided progression: two rows, diagonal ball progression.
       for (var i = 0; i < perSide; i++) {
         final sx = 0.18 + (i / perSide) * 0.64;
         final start = p(sx, 0.3);
         final end = p(sx + 0.05, 0.7);
-        players.add(SceneActor(
-          id: 'o${i + 1}',
-          label: '${i + 1}',
-          team: 'own',
-          start: start,
-          end: end,
-          role: 'progresa',
-        ));
-        movements.add(SceneMovement(
-          playerId: 'o${i + 1}',
-          from: start,
-          to: end,
-          startS: i.toDouble(),
-          endS: 5 + i.toDouble(),
-          type: 'apoyo',
-        ));
+        players.add(
+          SceneActor(
+            id: 'o${i + 1}',
+            label: '${i + 1}',
+            team: 'own',
+            start: start,
+            end: end,
+            role: 'progresa',
+          ),
+        );
+        movements.add(
+          SceneMovement(
+            playerId: 'o${i + 1}',
+            from: start,
+            to: end,
+            startS: i.toDouble(),
+            endS: 5 + i.toDouble(),
+            type: 'apoyo',
+          ),
+        );
       }
       for (var i = 0; i < (perSide - 1).clamp(1, 4); i++) {
         final rx = 0.3 + (i / 3) * 0.4;
-        players.add(SceneActor(
-          id: 'r${i + 1}',
-          label: 'r',
-          team: 'rival',
-          start: p(rx, 0.55),
-          end: p(rx, 0.5),
-          role: 'defiende',
-        ));
+        players.add(
+          SceneActor(
+            id: 'r${i + 1}',
+            label: 'r',
+            team: 'rival',
+            start: p(rx, 0.55),
+            end: p(rx, 0.5),
+            role: 'defiende',
+          ),
+        );
       }
       ball = [p(0.2, 0.3), p(0.45, 0.45), p(0.7, 0.62), p(0.55, 0.8)];
-      zones.add(const SceneZone(
-        type: 'target',
-        label: 'zona objetivo',
-        x: 0.25,
-        y: 0.62,
-        width: 0.5,
-        height: 0.3,
-      ));
+      zones.add(
+        const SceneZone(
+          type: 'target',
+          label: 'zona objetivo',
+          x: 0.25,
+          y: 0.62,
+          width: 0.5,
+          height: 0.3,
+        ),
+      );
     }
 
     return AnimationScene(
@@ -1862,7 +1943,8 @@ class MatchResult {
   bool get isCompetitive => kind == 'oficial' || kind == 'torneo';
 
   /// 3 / 1 / 0 from the club's point of view.
-  int get points => goalsFor > goalsAgainst ? 3 : (goalsFor == goalsAgainst ? 1 : 0);
+  int get points =>
+      goalsFor > goalsAgainst ? 3 : (goalsFor == goalsAgainst ? 1 : 0);
 
   /// 'G' | 'E' | 'P'
   String get outcome =>
@@ -1929,7 +2011,8 @@ class MatchResult {
     final venue = json['venue'] as String? ?? 'home';
     final kind = json['kind'] as String? ?? 'oficial';
     return MatchResult(
-      id: json['id'] as String? ??
+      id:
+          json['id'] as String? ??
           'result-${DateTime.now().microsecondsSinceEpoch}',
       categoryId: json['categoryId'] as String? ?? '',
       date: json['date'] as String? ?? '',
@@ -1940,8 +2023,12 @@ class MatchResult {
       kind: MatchResult.kinds.contains(kind) ? kind : 'oficial',
       note: json['note'] as String? ?? '',
       calendarKey: json['calendarKey'] as String? ?? '',
-      lineupIds: List<String>.from(json['lineupIds'] as List<dynamic>? ?? const []),
-      scorerIds: List<String>.from(json['scorerIds'] as List<dynamic>? ?? const []),
+      lineupIds: List<String>.from(
+        json['lineupIds'] as List<dynamic>? ?? const [],
+      ),
+      scorerIds: List<String>.from(
+        json['scorerIds'] as List<dynamic>? ?? const [],
+      ),
     );
   }
 }
@@ -2061,7 +2148,8 @@ class MatchPreparation {
 
   factory MatchPreparation.fromJson(Map<String, dynamic> json) {
     return MatchPreparation(
-      id: json['id'] as String? ??
+      id:
+          json['id'] as String? ??
           'matchprep-${DateTime.now().microsecondsSinceEpoch}',
       categoryId: json['categoryId'] as String? ?? '',
       calendarEventId: json['calendarEventId'] as String? ?? '',
@@ -2096,10 +2184,7 @@ class MatchStats {
 
   const MatchStats._({required this.all, required this.competitive});
 
-  factory MatchStats.forCategory(
-    List<MatchResult> results,
-    String categoryId,
-  ) {
+  factory MatchStats.forCategory(List<MatchResult> results, String categoryId) {
     final mine = results.where((r) => r.categoryId == categoryId).toList()
       ..sort((a, b) => b.date.compareTo(a.date));
     return MatchStats._(
@@ -2194,6 +2279,46 @@ class TrainingReport {
       ),
       injuries: List<String>.from(json['injuries'] as List<dynamic>? ?? []),
       nextRecommendation: json['nextRecommendation'] as String? ?? '',
+    );
+  }
+}
+
+class AttendanceRecord {
+  final String categoryId;
+  final String date;
+  final List<String> presentIds;
+  final List<String> rosterIds;
+  final String note;
+
+  const AttendanceRecord({
+    required this.categoryId,
+    required this.date,
+    required this.presentIds,
+    required this.rosterIds,
+    this.note = '',
+  });
+
+  Map<String, dynamic> toJson() => {
+    'categoryId': categoryId,
+    'date': date,
+    'presentIds': presentIds,
+    'rosterIds': rosterIds,
+    'note': note,
+  };
+
+  factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
+    return AttendanceRecord(
+      categoryId: json['categoryId'] as String? ?? '',
+      date: json['date'] as String? ?? '',
+      presentIds: List<String>.from(
+        json['presentIds'] as List<dynamic>? ?? const [],
+      ),
+      rosterIds: List<String>.from(
+        json['rosterIds'] as List<dynamic>? ??
+            json['presentIds'] as List<dynamic>? ??
+            const [],
+      ),
+      note: json['note'] as String? ?? '',
     );
   }
 }

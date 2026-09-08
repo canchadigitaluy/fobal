@@ -21,9 +21,11 @@ String buildSquadReportContent({
       if (player.hasAvailabilityWarning)
         '${player.fullName.trim()}: ${player.availability.label}',
   ];
-  final attendanceAverage = averageAttendanceRate(
-    players.map((p) => p.attendanceRate).toList(),
-  );
+  final attendanceAverage = summarizeAttendance(
+    club.attendanceRecords
+        .where((record) => record.categoryId == categoryId)
+        .toList(),
+  ).average;
   final goals = squadGoalTracker(players);
   final completedGoals = players
       .expand((player) => player.developmentGoals)

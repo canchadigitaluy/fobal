@@ -30,6 +30,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   final Set<String> _presentIds = {};
   String? _loadedKey;
   String _search = '';
+  final Set<String> _migrationChecked = {};
 
   @override
   void dispose() {
@@ -50,6 +51,20 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     _presentIds
       ..clear()
       ..addAll(players.map((player) => player.id));
+    final day = DateTime.now().toIso8601String().substring(0, 10);
+    AttendanceRecord? stored;
+    for (final record in club.attendanceRecords) {
+      if (record.categoryId == category.id && record.date == day) {
+        stored = record;
+        break;
+      }
+    }
+    if (stored != null) {
+      _presentIds
+        ..clear()
+        ..addAll(stored.presentIds);
+      return;
+    }
     final raw = html.window.localStorage[key];
     if (raw == null || raw.isEmpty) return;
     try {
@@ -78,48 +93,53 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   }
 
   void _saveAttendance(CanteraClub club, CategorySquad category) {
-    final payload = {
-      'date': DateTime.now().toIso8601String(),
-      'presentIds': _presentIds.toList(),
-      'absentIds': club.players
-          .where((player) => player.categoryId == category.id)
-          .map((player) => player.id)
-          .where((id) => !_presentIds.contains(id))
-          .toList(),
-    };
-    html.window.localStorage[_key(club, category)] = jsonEncode(payload);
-    unawaited(OfflineMutationService.instance.saveTacticalDataOfflineFirst(
-      type: 'attendance',
-      title: 'Asistencia ${category.name}',
-      content: payload,
+    final day = DateTime.now().toIso8601String().substring(0, 10);
+    final rosterIds = club.players
+        .where((player) => player.categoryId == category.id)
+        .map((player) => player.id)
+        .toList();
+    final record = AttendanceRecord(
       categoryId: category.id,
-    ));
-    _recomputeAttendanceRates(club, category);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Asistencia guardada.')),
+      date: day,
+      presentIds: _presentIds.where(rosterIds.contains).toList(),
+      rosterIds: rosterIds,
     );
+    final records = [
+      for (final existing in club.attendanceRecords)
+        if (!(existing.categoryId == category.id && existing.date == day))
+          existing,
+      record,
+    ];
+    final payload = {
+      'date': day,
+      'presentIds': record.presentIds,
+      'absentIds': rosterIds.where((id) => !_presentIds.contains(id)).toList(),
+    };
+    unawaited(
+      OfflineMutationService.instance.saveTacticalDataOfflineFirst(
+        type: 'attendance',
+        title: 'Asistencia ${category.name}',
+        content: payload,
+        categoryId: category.id,
+      ),
+    );
+    _persistAttendance(club, category, records);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Asistencia guardada.')));
   }
 
-  /// Attendance taken here is the only real source of truth for
-  /// manual/No-LUD categories, but it only ever landed in localStorage —
-  /// player.attendanceRate (shown in the profile, Plantel, Perfil) never
-  /// reflected it. LUD categories keep their rate from the league sync, so
-  /// this never touches those.
-  void _recomputeAttendanceRates(CanteraClub club, CategorySquad category) {
-    if (isLudCategoryId(category.id)) return;
-    final prefix = 'cantera_attendance_${club.id}_${category.id}_';
-    final sessions = <AttendanceSession>[];
-    for (final entry in html.window.localStorage.entries) {
-      if (!entry.key.startsWith(prefix)) continue;
-      try {
-        final data = jsonDecode(entry.value) as Map<String, dynamic>;
-        final present = List<String>.from(
-          data['presentIds'] as List<dynamic>? ?? const [],
-        );
-        if (present.isEmpty) continue;
-        sessions.add(AttendanceSession(presentIds: present.toSet()));
-      } catch (_) {}
-    }
+  void _persistAttendance(
+    CanteraClub club,
+    CategorySquad category,
+    List<AttendanceRecord> records,
+  ) {
+    final sessions = records
+        .where((record) => record.categoryId == category.id)
+        .map(
+          (record) => AttendanceSession(presentIds: record.presentIds.toSet()),
+        )
+        .toList();
     final categoryPlayerIds = club.players
         .where((player) => player.categoryId == category.id)
         .map((player) => player.id)
@@ -128,9 +148,9 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       sessions: sessions,
       playerIds: categoryPlayerIds,
     );
-    if (rates.isEmpty) return;
     AppScope.of(context).updateClub(
       club.copyWith(
+        attendanceRecords: records,
         players: [
           for (final player in club.players)
             if (rates.containsKey(player.id))
@@ -142,6 +162,53 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     );
   }
 
+  void _migrateLegacy(CanteraClub club, CategorySquad category) {
+    final migrationKey = '${club.id}|${category.id}';
+    if (!_migrationChecked.add(migrationKey)) return;
+    if (club.attendanceRecords.any((r) => r.categoryId == category.id)) return;
+    final prefix = 'cantera_attendance_${club.id}_${category.id}_';
+    final rosterIds = club.players
+        .where((player) => player.categoryId == category.id)
+        .map((player) => player.id)
+        .toList();
+    final imported = <AttendanceRecord>[];
+    for (final entry in html.window.localStorage.entries) {
+      if (!entry.key.startsWith(prefix)) continue;
+      try {
+        final data = jsonDecode(entry.value) as Map<String, dynamic>;
+        final present = List<String>.from(
+          data['presentIds'] as List<dynamic>? ?? const [],
+        );
+        final absent = List<String>.from(
+          data['absentIds'] as List<dynamic>? ?? const [],
+        );
+        final savedRoster = <String>{...present, ...absent}.toList();
+        final rawDate =
+            data['date'] as String? ?? entry.key.substring(prefix.length);
+        final parsedDate = DateTime.tryParse(rawDate);
+        imported.add(
+          AttendanceRecord(
+            categoryId: category.id,
+            date:
+                parsedDate?.toIso8601String().substring(0, 10) ??
+                entry.key.substring(prefix.length),
+            presentIds: present,
+            rosterIds: savedRoster.isEmpty ? rosterIds : savedRoster,
+          ),
+        );
+      } catch (_) {}
+    }
+    if (imported.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _persistAttendance(club, category, [
+          ...club.attendanceRecords,
+          ...imported,
+        ]);
+      }
+    });
+  }
+
   void _shareAttendance(
     CanteraClub club,
     CategorySquad category,
@@ -150,11 +217,13 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final present = <String>[];
     final absent = <String>[];
     for (final player in players) {
-      (_presentIds.contains(player.id) ? present : absent)
-          .add(player.fullName.trim());
+      (_presentIds.contains(player.id) ? present : absent).add(
+        player.fullName.trim(),
+      );
     }
     final today = DateTime.now();
-    final dateLabel = '${today.day.toString().padLeft(2, '0')}/'
+    final dateLabel =
+        '${today.day.toString().padLeft(2, '0')}/'
         '${today.month.toString().padLeft(2, '0')}/${today.year}';
     final content = formatAttendanceText(
       categoryName: category.name,
@@ -175,37 +244,55 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       fileName: fileName,
       onDownload: (name, text) {
         ExportDownloadService.downloadText(name, text);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Asistencia descargada: $name')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Asistencia descargada: $name')));
       },
+    );
+  }
+
+  void _showHistory(
+    CanteraClub club,
+    CategorySquad category,
+    List<Player> players,
+  ) {
+    final records =
+        club.attendanceRecords
+            .where((record) => record.categoryId == category.id)
+            .toList()
+          ..sort(
+            (a, b) => attendanceRecordDate(
+              b.date,
+            ).compareTo(attendanceRecordDate(a.date)),
+          );
+    showDialog<void>(
+      context: context,
+      builder: (_) => _AttendanceHistoryDialog(
+        categoryName: category.name,
+        records: records,
+        players: players,
+      ),
     );
   }
 
   /// Reads past saved attendance sessions from local storage for this club +
   /// category. Never fabricates: returns an empty list when nothing is stored.
   List<_PastSession> _history(CanteraClub club, CategorySquad category) {
-    final prefix = 'cantera_attendance_${club.id}_${category.id}_';
-    final todayKey = _key(club, category);
-    final sessions = <_PastSession>[];
-    for (final entry in html.window.localStorage.entries) {
-      if (!entry.key.startsWith(prefix) || entry.key == todayKey) continue;
-      try {
-        final data = jsonDecode(entry.value) as Map<String, dynamic>;
-        final present = List<String>.from(
-          data['presentIds'] as List<dynamic>? ?? const [],
-        );
-        final absent = List<String>.from(
-          data['absentIds'] as List<dynamic>? ?? const [],
-        );
-        final date =
-            DateTime.tryParse(data['date'] as String? ?? '') ??
-            DateTime.tryParse(entry.key.substring(prefix.length)) ??
-            DateTime(2000);
-        if (present.isEmpty && absent.isEmpty) continue;
-        sessions.add(_PastSession(date: date, present: present.toSet(), absent: absent.toSet()));
-      } catch (_) {}
-    }
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final sessions = club.attendanceRecords
+        .where(
+          (record) => record.categoryId == category.id && record.date != today,
+        )
+        .map(
+          (record) => _PastSession(
+            date: attendanceRecordDate(record.date),
+            present: record.presentIds.toSet(),
+            absent: record.rosterIds
+                .where((id) => !record.presentIds.contains(id))
+                .toSet(),
+          ),
+        )
+        .toList();
     sessions.sort((a, b) => b.date.compareTo(a.date));
     return sessions.take(12).toList();
   }
@@ -223,9 +310,11 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final nextCategories = club.categories
         .map(
           (item) => item.id == category.id
-              ? item.copyWith(playerCount: nextPlayers
-                    .where((candidate) => candidate.categoryId == category.id)
-                    .length)
+              ? item.copyWith(
+                  playerCount: nextPlayers
+                      .where((candidate) => candidate.categoryId == category.id)
+                      .length,
+                )
               : item,
         )
         .toList();
@@ -251,11 +340,13 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
               child: EmptyStatePanel(
                 icon: Icons.fact_check_outlined,
                 title: 'Todavía no hay un plantel para pasar lista',
-                message: 'Cargá el equipo en Mi equipo y volvé acá para '
+                message:
+                    'Cargá el equipo en Mi equipo y volvé acá para '
                     'registrar la asistencia de cada práctica.',
                 primaryLabel: 'Ir a Mi equipo',
-                onPrimary: () => ShellActions.maybeOf(context)
-                    ?.openSection(ShellSection.myTeam),
+                onPrimary: () => ShellActions.maybeOf(
+                  context,
+                )?.openSection(ShellSection.myTeam),
               ),
             ),
           ),
@@ -265,6 +356,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final players = club.players
         .where((player) => player.categoryId == category.id)
         .toList();
+    _migrateLegacy(club, category);
     _load(club, category, players);
     final present = players
         .where((player) => _presentIds.contains(player.id))
@@ -292,11 +384,13 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                   child: EmptyStatePanel(
                     icon: Icons.groups_2_outlined,
                     title: 'Esta categoría todavía no tiene jugadores',
-                    message: 'Sumá el plantel en Mi equipo y después pasás '
+                    message:
+                        'Sumá el plantel en Mi equipo y después pasás '
                         'lista en segundos cada práctica.',
                     primaryLabel: 'Ir a Mi equipo',
-                    onPrimary: () => ShellActions.maybeOf(context)
-                        ?.openSection(ShellSection.myTeam),
+                    onPrimary: () => ShellActions.maybeOf(
+                      context,
+                    )?.openSection(ShellSection.myTeam),
                   ),
                 ),
               ),
@@ -313,9 +407,11 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                     OutlinedButton.icon(
                       onPressed: present == players.length
                           ? null
-                          : () => setState(() => _presentIds
-                              ..clear()
-                              ..addAll(players.map((p) => p.id))),
+                          : () => setState(
+                              () => _presentIds
+                                ..clear()
+                                ..addAll(players.map((p) => p.id)),
+                            ),
                       icon: const Icon(Icons.done_all, size: 17),
                       label: const Text('Todos presentes'),
                     ),
@@ -332,9 +428,15 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                       label: const Text('Jugador'),
                     ),
                     OutlinedButton.icon(
-                      onPressed: () => _shareAttendance(club, category, players),
+                      onPressed: () =>
+                          _shareAttendance(club, category, players),
                       icon: const Icon(Icons.ios_share_outlined, size: 17),
                       label: const Text('Compartir'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => _showHistory(club, category, players),
+                      icon: const Icon(Icons.history, size: 17),
+                      label: const Text('Ver historial'),
                     ),
                   ],
                 ),
@@ -356,9 +458,10 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                     final visible = query.isEmpty
                         ? players
                         : players
-                            .where((p) =>
-                                p.fullName.toLowerCase().contains(query))
-                            .toList();
+                              .where(
+                                (p) => p.fullName.toLowerCase().contains(query),
+                              )
+                              .toList();
                     return Material(
                       type: MaterialType.transparency,
                       child: Container(
@@ -368,13 +471,20 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                           children: [
                             if (query.isNotEmpty)
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  8,
+                                  12,
+                                  0,
+                                ),
                                 child: Align(
                                   alignment: Alignment.centerLeft,
                                   child: Text(
                                     'Mostrando ${visible.length} de ${players.length}',
                                     style: const TextStyle(
-                                        color: CX.faint, fontSize: 11),
+                                      color: CX.faint,
+                                      fontSize: 11,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -470,13 +580,19 @@ class _AttendanceSummary extends StatelessWidget {
     final color = pct >= 80
         ? CX.green
         : pct >= 55
-            ? CX.amber
-            : CX.red;
+        ? CX.amber
+        : CX.red;
     return Row(
       children: [
         Expanded(child: _cell('$present', 'Presentes', CX.green)),
         const SizedBox(width: 8),
-        Expanded(child: _cell('$absent', 'Ausentes', absent == 0 ? CX.faint : CX.amber)),
+        Expanded(
+          child: _cell(
+            '$absent',
+            'Ausentes',
+            absent == 0 ? CX.faint : CX.amber,
+          ),
+        ),
         const SizedBox(width: 8),
         Expanded(child: _cell('$pct%', 'Asistencia', color)),
       ],
@@ -564,8 +680,7 @@ class _AttendanceRow extends StatelessWidget {
             ],
             if (player.attendanceRate > 0) ...[
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: (player.attendanceRate < .7 ? CX.amber : CX.green)
                       .withValues(alpha: .14),
@@ -696,3 +811,100 @@ class _AttendanceHistory extends StatelessWidget {
   }
 }
 
+class _AttendanceHistoryDialog extends StatelessWidget {
+  final String categoryName;
+  final List<AttendanceRecord> records;
+  final List<Player> players;
+
+  const _AttendanceHistoryDialog({
+    required this.categoryName,
+    required this.records,
+    required this.players,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = summarizeAttendance(records);
+    final names = {
+      for (final player in players) player.id: player.fullName.trim(),
+    };
+    return AlertDialog(
+      title: Text('Historial de asistencia · $categoryName'),
+      content: SizedBox(
+        width: 620,
+        child: records.isEmpty
+            ? const EmptyStatePanel(
+                icon: Icons.fact_check_outlined,
+                title: 'Todavía no hay registros',
+                message: 'El primer pase de lista va a aparecer acá.',
+              )
+            : ListView(
+                shrinkWrap: true,
+                children: [
+                  MetricGrid(
+                    tiles: [
+                      MetricTile(
+                        icon: Icons.event_available_outlined,
+                        value: '${summary.sessions}',
+                        label: 'Prácticas',
+                        context: 'con asistencia guardada',
+                        accent: CX.blue,
+                      ),
+                      MetricTile(
+                        icon: Icons.fact_check_outlined,
+                        value: '${(summary.average! * 100).round()}%',
+                        label: 'Promedio',
+                        context: summary.trend == null
+                            ? 'del período'
+                            : summary.trend! >= 0
+                            ? 'tendencia en mejora'
+                            : 'tendencia en descenso',
+                        accent: summary.average! >= .8 ? CX.green : CX.amber,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  for (final record in records)
+                    ExpansionTile(
+                      title: Text(_attendanceDateLabel(record.date)),
+                      subtitle: Text(
+                        '${record.presentIds.length}/${record.rosterIds.length} presentes · '
+                        '${attendanceRecordRate(record) == null ? 'Sin base' : '${(attendanceRecordRate(record)! * 100).round()}%'}',
+                      ),
+                      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      children: [
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Presentes: ${record.presentIds.map((id) => names[id] ?? 'Jugador no disponible').join(', ')}',
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Ausentes: ${record.rosterIds.where((id) => !record.presentIds.contains(id)).map((id) => names[id] ?? 'Jugador no disponible').join(', ')}',
+                            style: const TextStyle(color: CX.muted),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cerrar'),
+        ),
+      ],
+    );
+  }
+}
+
+String _attendanceDateLabel(String value) {
+  final date = attendanceRecordDate(value);
+  if (date.millisecondsSinceEpoch == 0) return 'Fecha desconocida';
+  return '${date.day.toString().padLeft(2, '0')}/'
+      '${date.month.toString().padLeft(2, '0')}/${date.year}';
+}

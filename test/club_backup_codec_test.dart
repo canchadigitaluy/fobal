@@ -136,6 +136,26 @@ void main() {
     expect(restored.matchResults[1].isCompetitive, isFalse); // amistoso
   });
 
+  test('AttendanceRecord round-trips through the club blob', () {
+    final club = canteraDemoClub.copyWith(
+      attendanceRecords: const [
+        AttendanceRecord(
+          categoryId: 'cat-1',
+          date: '2026-09-08',
+          presentIds: ['p1'],
+          rosterIds: ['p1', 'p2'],
+          note: 'Lluvia',
+        ),
+      ],
+    );
+    final restored = ClubBackupCodec.parseClubJson(
+      ClubBackupCodec.exportJson(club),
+    );
+    expect(restored!.attendanceRecords, hasLength(1));
+    expect(restored.attendanceRecords.single.rosterIds, ['p1', 'p2']);
+    expect(restored.attendanceRecords.single.note, 'Lluvia');
+  });
+
   test('MatchStats computes standings-style numbers from manual results', () {
     final results = [
       res('2026-08-30', 'A', 3, 1), // G
@@ -149,7 +169,10 @@ void main() {
     final other = res('2026-07-19', 'X', 9, 0).copyWith(categoryId: 'other');
 
     final s = MatchStats.forCategory([...results, other], 'cat-1');
-    expect(s.played, 5); // 6 logged, 1 friendly excluded, other-category ignored
+    expect(
+      s.played,
+      5,
+    ); // 6 logged, 1 friendly excluded, other-category ignored
     expect(s.wins, 2);
     expect(s.draws, 2);
     expect(s.losses, 1);
@@ -164,57 +187,66 @@ void main() {
     expect(s.last5, ['G', 'E', 'P', 'G', 'E']);
   });
 
-  test('MatchStats streak reads the leading run, grouping draws with losses', () {
-    final losing = MatchStats.forCategory([
-      res('2026-08-30', 'A', 0, 1), // P (newest)
-      res('2026-08-23', 'B', 1, 1), // E
-      res('2026-08-16', 'C', 0, 3), // P
-      res('2026-08-09', 'D', 2, 0), // G  -> run stops here
-    ], 'cat-1');
-    expect(losing.streak.count, 3);
-    expect(losing.streak.label, 'sin ganar');
+  test(
+    'MatchStats streak reads the leading run, grouping draws with losses',
+    () {
+      final losing = MatchStats.forCategory([
+        res('2026-08-30', 'A', 0, 1), // P (newest)
+        res('2026-08-23', 'B', 1, 1), // E
+        res('2026-08-16', 'C', 0, 3), // P
+        res('2026-08-09', 'D', 2, 0), // G  -> run stops here
+      ], 'cat-1');
+      expect(losing.streak.count, 3);
+      expect(losing.streak.label, 'sin ganar');
 
-    final winning = MatchStats.forCategory([
-      res('2026-08-30', 'A', 2, 0),
-      res('2026-08-23', 'B', 1, 0),
-      res('2026-08-16', 'C', 0, 1),
-    ], 'cat-1');
-    expect(winning.streak.count, 2);
-    expect(winning.streak.label, 'ganando');
-  });
+      final winning = MatchStats.forCategory([
+        res('2026-08-30', 'A', 2, 0),
+        res('2026-08-23', 'B', 1, 0),
+        res('2026-08-16', 'C', 0, 1),
+      ], 'cat-1');
+      expect(winning.streak.count, 2);
+      expect(winning.streak.label, 'ganando');
+    },
+  );
 
-  test('MatchStats with no competitive matches is an empty, honest summary', () {
-    final s = MatchStats.forCategory([
-      res('2026-08-30', 'A', 3, 0, kind: 'amistoso'),
-      res('2026-08-23', 'B', 1, 1, kind: 'practica'),
-    ], 'cat-1');
-    expect(s.played, 0);
-    expect(s.points, 0);
-    expect(s.pointsRate, 0);
-    expect(s.friendlies, 2);
-    expect(s.streak.count, 0);
-  });
+  test(
+    'MatchStats with no competitive matches is an empty, honest summary',
+    () {
+      final s = MatchStats.forCategory([
+        res('2026-08-30', 'A', 3, 0, kind: 'amistoso'),
+        res('2026-08-23', 'B', 1, 1, kind: 'practica'),
+      ], 'cat-1');
+      expect(s.played, 0);
+      expect(s.points, 0);
+      expect(s.pointsRate, 0);
+      expect(s.friendlies, 2);
+      expect(s.streak.count, 0);
+    },
+  );
 
-  test('a player without league stats reads zero and hasLeagueStats is false', () {
-    const player = Player(
-      id: 'manual-1',
-      categoryId: 'cat-1',
-      firstName: 'Ana',
-      lastName: 'Gómez',
-      age: 0,
-      position: '',
-      secondaryPositions: '',
-      dominantFoot: '',
-      status: 'Activo',
-      attendanceRate: 0,
-      trend: '',
-      note: '',
-    );
-    expect(player.hasLeagueStats, isFalse);
-    final restored = ClubBackupCodec.parseClubJson(
-      ClubBackupCodec.exportJson(club.copyWith(players: [player])),
-    );
-    expect(restored!.players.single.goals, 0);
-    expect(restored.players.single.hasLeagueStats, isFalse);
-  });
+  test(
+    'a player without league stats reads zero and hasLeagueStats is false',
+    () {
+      const player = Player(
+        id: 'manual-1',
+        categoryId: 'cat-1',
+        firstName: 'Ana',
+        lastName: 'Gómez',
+        age: 0,
+        position: '',
+        secondaryPositions: '',
+        dominantFoot: '',
+        status: 'Activo',
+        attendanceRate: 0,
+        trend: '',
+        note: '',
+      );
+      expect(player.hasLeagueStats, isFalse);
+      final restored = ClubBackupCodec.parseClubJson(
+        ClubBackupCodec.exportJson(club.copyWith(players: [player])),
+      );
+      expect(restored!.players.single.goals, 0);
+      expect(restored.players.single.hasLeagueStats, isFalse);
+    },
+  );
 }

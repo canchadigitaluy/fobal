@@ -7,6 +7,7 @@ import 'dart:html' as html;
 import '../data/cantera_data.dart';
 import 'club_backup_codec.dart';
 import 'supabase_auth_service.dart';
+import 'sync_conflict_service.dart';
 
 /// Cloud mirror of the full [CanteraClub] blob, one row per (user, club).
 ///
@@ -23,7 +24,8 @@ class ClubSyncService {
   static const _dirtyKeyPrefix = 'fobal_club_dirty_';
   static const _pushedAtKeyPrefix = 'fobal_club_pushed_at_';
   static const _pushedHashKeyPrefix = 'fobal_club_pushed_hash_';
-  static const _conflictKeyPrefix = 'fobal_club_conflict_';
+  static const _conflictKeyPrefix = 'fobal_club_conflicts_';
+  static const _syncErrorKeyPrefix = 'fobal_club_sync_error_';
   static const _deviceKey = 'fobal_device_id';
 
   static final _events = StreamController<ClubSyncEvent>.broadcast();
@@ -52,7 +54,9 @@ class ClubSyncService {
 
   /// Last cloud [version] this device has already adopted for [clubId].
   static int knownServerVersion(String clubId) =>
-      int.tryParse(html.window.localStorage['$_versionKeyPrefix$clubId'] ?? '') ??
+      int.tryParse(
+        html.window.localStorage['$_versionKeyPrefix$clubId'] ?? '',
+      ) ??
       0;
 
   static void rememberVersion(String clubId, int version) {
@@ -65,8 +69,9 @@ class ClubSyncService {
   }
 
   static void _rememberPushed(String clubId, String rawBlob) {
-    html.window.localStorage['$_pushedAtKeyPrefix$clubId'] =
-        DateTime.now().toUtc().toIso8601String();
+    html.window.localStorage['$_pushedAtKeyPrefix$clubId'] = DateTime.now()
+        .toUtc()
+        .toIso8601String();
     html.window.localStorage['$_pushedHashKeyPrefix$clubId'] =
         '${rawBlob.hashCode}';
   }
@@ -78,16 +83,70 @@ class ClubSyncService {
       html.window.localStorage['$_pushedHashKeyPrefix$clubId'] ==
       '${rawBlob.hashCode}';
 
+  static List<SyncConflictSnapshot> conflicts(String clubId) {
+    try {
+      final raw = html.window.localStorage['$_conflictKeyPrefix$clubId'];
+      if (raw == null) return [];
+      return (jsonDecode(raw) as List<dynamic>)
+          .whereType<Map>()
+          .map(
+            (item) =>
+                SyncConflictSnapshot.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .where((item) => item.id.isNotEmpty && item.rawClub.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   static void stashConflict(String clubId, String rawBlob) {
     try {
-      html.window.localStorage['$_conflictKeyPrefix$clubId'] = rawBlob;
+      final snapshot = SyncConflictSnapshot(
+        id: 'conflict-${DateTime.now().microsecondsSinceEpoch}',
+        clubId: clubId,
+        baseVersion: knownServerVersion(clubId),
+        createdAt: DateTime.now().toUtc().toIso8601String(),
+        rawClub: rawBlob,
+        bytes: utf8.encode(rawBlob).length,
+      );
+      final next = retainConflictSnapshots(conflicts(clubId), snapshot);
+      html.window.localStorage['$_conflictKeyPrefix$clubId'] = jsonEncode(
+        next.map((item) => item.toJson()).toList(),
+      );
     } catch (_) {}
+  }
+
+  static void discardConflict(String clubId, String snapshotId) {
+    final next = conflicts(
+      clubId,
+    ).where((item) => item.id != snapshotId).toList();
+    if (next.isEmpty) {
+      html.window.localStorage.remove('$_conflictKeyPrefix$clubId');
+    } else {
+      html.window.localStorage['$_conflictKeyPrefix$clubId'] = jsonEncode(
+        next.map((item) => item.toJson()).toList(),
+      );
+    }
+    _events.add(ClubSyncEvent(ClubSyncEventType.statusChanged, clubId));
+  }
+
+  static String? syncError(String clubId) =>
+      html.window.localStorage['$_syncErrorKeyPrefix$clubId'];
+
+  static void _setSyncError(String clubId, String message) {
+    html.window.localStorage['$_syncErrorKeyPrefix$clubId'] = message;
+  }
+
+  static void _clearSyncError(String clubId) {
+    html.window.localStorage.remove('$_syncErrorKeyPrefix$clubId');
   }
 
   static String deviceId() {
     var id = html.window.localStorage[_deviceKey];
     if (id == null || id.isEmpty) {
-      id = 'dev-${DateTime.now().microsecondsSinceEpoch}-'
+      id =
+          'dev-${DateTime.now().microsecondsSinceEpoch}-'
           '${(html.window.performance.now() * 1000).round()}';
       html.window.localStorage[_deviceKey] = id;
     }
@@ -145,6 +204,7 @@ class ClubSyncService {
     final result = await push(clubId, club, knownServerVersion(clubId));
     switch (result.outcome) {
       case ClubPushOutcome.ok:
+        _clearSyncError(clubId);
         _rememberPushed(clubId, raw);
         clearDirty(clubId);
         _events.add(ClubSyncEvent(ClubSyncEventType.synced, clubId));
@@ -153,8 +213,9 @@ class ClubSyncService {
         stashConflict(clubId, raw);
         final doc = await pull(clubId);
         if (doc != null && doc.club.id == clubId) {
-          html.window.localStorage['$_mainBlobPrefix$clubId'] =
-              jsonEncode(doc.club.toJson());
+          html.window.localStorage['$_mainBlobPrefix$clubId'] = jsonEncode(
+            doc.club.toJson(),
+          );
           rememberVersion(clubId, doc.version);
           _rememberPushed(clubId, jsonEncode(doc.club.toJson()));
         }
@@ -162,8 +223,11 @@ class ClubSyncService {
         _events.add(ClubSyncEvent(ClubSyncEventType.conflict, clubId));
         return ClubQueueOutcome.drop;
       case ClubPushOutcome.tooLarge:
-        // Retrying will not shrink it. Keep dirty so the chip still shows
-        // "guardando" and 2c can surface it properly.
+        _setSyncError(
+          clubId,
+          'El club superó el límite sincronizable. La copia local sigue guardada.',
+        );
+        _events.add(ClubSyncEvent(ClubSyncEventType.tooLarge, clubId));
         return ClubQueueOutcome.drop;
       case ClubPushOutcome.skipped:
         return ClubQueueOutcome.keep;
@@ -204,6 +268,27 @@ class ClubSyncService {
       return const ClubPushResult(ClubPushOutcome.error);
     }
   }
+
+  static Future<bool> restoreConflict(SyncConflictSnapshot snapshot) async {
+    final localClub = snapshot.parseClub();
+    if (localClub == null || localClub.id != snapshot.clubId) return false;
+    final current = await pull(snapshot.clubId);
+    if (current == null) return false;
+    final result = await push(snapshot.clubId, localClub, current.version);
+    if (!result.ok) {
+      if (result.outcome == ClubPushOutcome.conflict) {
+        stashConflict(snapshot.clubId, snapshot.rawClub);
+      }
+      return false;
+    }
+    html.window.localStorage['$_mainBlobPrefix${snapshot.clubId}'] =
+        snapshot.rawClub;
+    _rememberPushed(snapshot.clubId, snapshot.rawClub);
+    clearDirty(snapshot.clubId);
+    discardConflict(snapshot.clubId, snapshot.id);
+    _events.add(ClubSyncEvent(ClubSyncEventType.restored, snapshot.clubId));
+    return true;
+  }
 }
 
 class ClubDocument {
@@ -228,7 +313,7 @@ class ClubPushResult {
 /// an attempt.
 enum ClubQueueOutcome { drop, keep }
 
-enum ClubSyncEventType { synced, conflict }
+enum ClubSyncEventType { synced, conflict, restored, tooLarge, statusChanged }
 
 class ClubSyncEvent {
   final ClubSyncEventType type;

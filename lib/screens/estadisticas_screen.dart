@@ -56,8 +56,8 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
     final activeMembership = await ClubAccessService.activeMembership();
     final membership =
         activeMembership != null && activeMembership.clubId == club.id
-            ? activeMembership
-            : _previewMembership(club, category);
+        ? activeMembership
+        : _previewMembership(club, category);
     if (membership == null) {
       return _StatsData(players: _playerStats(players));
     }
@@ -80,10 +80,7 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
     );
   }
 
-  ClubMembership? _previewMembership(
-    CanteraClub club,
-    CategorySquad category,
-  ) {
+  ClubMembership? _previewMembership(CanteraClub club, CategorySquad category) {
     final teamId = LudCategoryRef.teamIdOf(category.id);
     if (teamId == null) return null;
     return ClubMembership(
@@ -127,8 +124,9 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
         .where((player) => player.categoryId == categoryId)
         .map((player) => player.id)
         .toList();
-    final categoryResults =
-        next.where((result) => result.categoryId == categoryId).toList();
+    final categoryResults = next
+        .where((result) => result.categoryId == categoryId)
+        .toList();
     final stats = computePlayerMatchStats(
       lineups: [for (final result in categoryResults) result.lineupIds],
       scorers: [for (final result in categoryResults) result.scorerIds],
@@ -179,9 +177,9 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
       fileName: fileName,
       onDownload: (name, text) {
         ExportDownloadService.downloadText(name, text);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Reporte descargado: $name')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Reporte descargado: $name')));
       },
     );
   }
@@ -232,7 +230,8 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           final data = snapshot.data ?? const _StatsData();
-          final selectedCategoryId = scope.selectedCategoryId ??
+          final selectedCategoryId =
+              scope.selectedCategoryId ??
               (scope.fullClub.categories.isEmpty
                   ? ''
                   : scope.fullClub.categories.first.id);
@@ -248,6 +247,9 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
               categoryId: selectedCategoryId,
               allResults: scope.fullClub.matchResults,
               players: categoryPlayers,
+              attendanceRecords: scope.fullClub.attendanceRecords
+                  .where((record) => record.categoryId == selectedCategoryId)
+                  .toList(),
               onChanged: (next) => _saveResults(next, selectedCategoryId),
               onGenerateReport: () => _generateSquadReport(
                 club: scope.fullClub,
@@ -288,7 +290,23 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
                 eyebrow: 'Panorama',
                 title: 'Números de la categoría',
               ),
-              _MetricGrid(data: data),
+              _MetricGrid(
+                data: data,
+                attendanceRecords: scope.fullClub.attendanceRecords
+                    .where((record) => record.categoryId == selectedCategoryId)
+                    .toList(),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => ShellActions.of(
+                    context,
+                  ).openSection(ShellSection.attendance),
+                  icon: const Icon(Icons.history, size: 17),
+                  label: const Text('Ver historial de asistencia'),
+                ),
+              ),
               const SizedBox(height: 20),
               const PremiumSectionHeader(
                 eyebrow: 'Rendimiento',
@@ -454,10 +472,13 @@ class _WeekReading extends StatelessWidget {
   });
 
   bool _sameClub(String value) {
-    String clean(String t) => t.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    String clean(String t) =>
+        t.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
     final l = clean(value);
     final r = clean(clubName);
-    return l.isNotEmpty && r.isNotEmpty && (l == r || l.contains(r) || r.contains(l));
+    return l.isNotEmpty &&
+        r.isNotEmpty &&
+        (l == r || l.contains(r) || r.contains(l));
   }
 
   bool _isHome(LudFixtureMatch m) {
@@ -756,7 +777,8 @@ class _Metric {
 
 class _MetricGrid extends StatelessWidget {
   final _StatsData data;
-  const _MetricGrid({required this.data});
+  final List<AttendanceRecord> attendanceRecords;
+  const _MetricGrid({required this.data, required this.attendanceRecords});
 
   @override
   Widget build(BuildContext context) {
@@ -768,7 +790,13 @@ class _MetricGrid extends StatelessWidget {
       items = const [
         _Metric('Posición', '—', Icons.emoji_events, CX.amber, 'Sin tabla'),
         _Metric('Puntos', '—', Icons.stars, CX.blue, 'Sin datos'),
-        _Metric('Puntos obtenidos', '—', Icons.trending_up, CX.green, 'Sin datos'),
+        _Metric(
+          'Puntos obtenidos',
+          '—',
+          Icons.trending_up,
+          CX.green,
+          'Sin datos',
+        ),
         _Metric('Goles a favor', '—', Icons.sports_soccer, CX.red, 'Sin datos'),
       ];
     } else {
@@ -799,8 +827,12 @@ class _MetricGrid extends StatelessWidget {
           CX.green,
           leagueRate == null
               ? 'de los disputados'
-              : _verdict(pointsRate, leagueRate, 0.05,
-                  '(media ${(leagueRate * 100).round()}%)'),
+              : _verdict(
+                  pointsRate,
+                  leagueRate,
+                  0.05,
+                  '(media ${(leagueRate * 100).round()}%)',
+                ),
         ),
         _Metric(
           'Goles / partido',
@@ -810,7 +842,7 @@ class _MetricGrid extends StatelessWidget {
           avg == null
               ? '${row.goalsFor} a favor'
               : '${_verdict(scoring, avg.goalsForPerGame, 0.15, '')}'
-                  '${avg.attackRank != null ? ' · ${avg.attackRank}° ataque' : ''}',
+                    '${avg.attackRank != null ? ' · ${avg.attackRank}° ataque' : ''}',
         ),
         _Metric(
           'Recibidos / partido',
@@ -820,26 +852,26 @@ class _MetricGrid extends StatelessWidget {
           avg == null
               ? '${row.goalsAgainst} en contra'
               : '${_verdict(conceding, avg.goalsAgainstPerGame, 0.15, '')}'
-                  '${avg.defenseRank != null ? ' · ${avg.defenseRank}° defensa' : ''}',
+                    '${avg.defenseRank != null ? ' · ${avg.defenseRank}° defensa' : ''}',
         ),
       ];
     }
 
-    final attendance = averageAttendanceRate(
-      data.players.map((p) => p.attendanceRate).toList(),
-    );
-    if (attendance != null) {
-      items = [
-        ...items,
-        _Metric(
-          'Asistencia',
-          '${(attendance * 100).round()}%',
-          Icons.fact_check_outlined,
-          attendance >= .8 ? CX.green : CX.amber,
-          'promedio del plantel',
-        ),
-      ];
-    }
+    final attendance = summarizeAttendance(attendanceRecords).average;
+    items = [
+      ...items,
+      _Metric(
+        'Asistencia',
+        attendance == null ? '—' : '${(attendance * 100).round()}%',
+        Icons.fact_check_outlined,
+        attendance == null
+            ? CX.faint
+            : attendance >= .8
+            ? CX.green
+            : CX.amber,
+        attendance == null ? 'Sin registros' : 'promedio del plantel',
+      ),
+    ];
 
     return MetricGrid(
       tiles: [
@@ -938,7 +970,8 @@ class _FormPanel extends StatelessWidget {
                     final ga = home ? match.awayScore! : match.homeScore!;
                     final rival = match.opponentName.trim().isNotEmpty
                         ? match.opponentName.trim()
-                        : (home ? match.awayTeamName : match.homeTeamName).trim();
+                        : (home ? match.awayTeamName : match.homeTeamName)
+                              .trim();
                     return Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 3),
@@ -987,8 +1020,14 @@ class _GoalsPanel extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('${row!.goalsFor} a favor', style: const TextStyle(fontWeight: FontWeight.w800)),
-                    Text('${row!.goalsAgainst} recibidos', style: const TextStyle(fontWeight: FontWeight.w800)),
+                    Text(
+                      '${row!.goalsFor} a favor',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    Text(
+                      '${row!.goalsAgainst} recibidos',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 18),
@@ -1117,7 +1156,12 @@ class _AutomaticReading extends StatelessWidget {
                         children: [
                           const Icon(Icons.arrow_right, color: CX.green),
                           const SizedBox(width: 6),
-                          Expanded(child: Text(message, style: const TextStyle(height: 1.4))),
+                          Expanded(
+                            child: Text(
+                              message,
+                              style: const TextStyle(height: 1.4),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -1130,6 +1174,7 @@ class _AutomaticReading extends StatelessWidget {
 
 class _PlayerLeaders extends StatelessWidget {
   final List<_PlayerStat> players;
+
   /// False for No-LUD categories: minutos/asistencias/amarillas nunca se
   /// cargan a mano ahí, así que mostrarlas sería un 0 que parece un dato
   /// real cuando en verdad nunca se registró. Solo Goles/PJ, que desde esta
@@ -1144,9 +1189,11 @@ class _PlayerLeaders extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final withData = players.where(
-      (p) => showFullColumns ? p.hasData : (p.goals > 0 || p.matches > 0),
-    ).toList();
+    final withData = players
+        .where(
+          (p) => showFullColumns ? p.hasData : (p.goals > 0 || p.matches > 0),
+        )
+        .toList();
     if (withData.isEmpty) {
       return const _Panel(
         title: 'Jugadores',
@@ -1158,7 +1205,9 @@ class _PlayerLeaders extends StatelessWidget {
     // proxy.
     final ranked = [...withData]
       ..sort((a, b) {
-        final byContribution = b.goalContributions.compareTo(a.goalContributions);
+        final byContribution = b.goalContributions.compareTo(
+          a.goalContributions,
+        );
         return byContribution != 0
             ? byContribution
             : b.minutes.compareTo(a.minutes);
@@ -1172,13 +1221,9 @@ class _PlayerLeaders extends StatelessWidget {
             children: [
               const Spacer(),
               const _ColHead('G', 34),
-              if (showFullColumns) ...const [
-                _ColHead('A', 34),
-              ],
+              if (showFullColumns) ...const [_ColHead('A', 34)],
               const _ColHead('PJ', 40),
-              if (showFullColumns) ...const [
-                _ColHead('min', 56),
-              ],
+              if (showFullColumns) ...const [_ColHead('min', 56)],
             ],
           ),
           const SizedBox(height: 4),
@@ -1189,55 +1234,63 @@ class _PlayerLeaders extends StatelessWidget {
               onTap: canTap ? () => onTapPlayer!(player.id) : null,
               borderRadius: BorderRadius.circular(8),
               child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 14,
-                    backgroundColor: CX.greenDark,
-                    child: Icon(Icons.person_outline, size: 16, color: CX.green),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                player.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                            if (risk) ...[
-                              const SizedBox(width: 6),
-                              const Icon(Icons.warning_amber_rounded,
-                                  size: 13, color: CX.amber),
-                            ],
-                          ],
-                        ),
-                        Text(
-                          player.position.isEmpty
-                              ? 'Sin posición cargada'
-                              : player.position,
-                          style: const TextStyle(color: CX.faint, fontSize: 10),
-                        ),
-                      ],
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                child: Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 14,
+                      backgroundColor: CX.greenDark,
+                      child: Icon(
+                        Icons.person_outline,
+                        size: 16,
+                        color: CX.green,
+                      ),
                     ),
-                  ),
-                  _Cell('${player.goals}', 34, bold: player.goals > 0),
-                  if (showFullColumns) ...[
-                    _Cell('${player.assists}', 34),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  player.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              if (risk) ...[
+                                const SizedBox(width: 6),
+                                const Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 13,
+                                  color: CX.amber,
+                                ),
+                              ],
+                            ],
+                          ),
+                          Text(
+                            player.position.isEmpty
+                                ? 'Sin posición cargada'
+                                : player.position,
+                            style: const TextStyle(
+                              color: CX.faint,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _Cell('${player.goals}', 34, bold: player.goals > 0),
+                    if (showFullColumns) ...[_Cell('${player.assists}', 34)],
+                    _Cell('${player.matches}', 40),
+                    if (showFullColumns) ...[_Cell('${player.minutes}', 56)],
                   ],
-                  _Cell('${player.matches}', 40),
-                  if (showFullColumns) ...[
-                    _Cell('${player.minutes}', 56),
-                  ],
-                ],
-              ),
+                ),
               ),
             );
           }),
@@ -1257,7 +1310,11 @@ class _ColHead extends StatelessWidget {
     child: Text(
       text,
       textAlign: TextAlign.right,
-      style: const TextStyle(color: CX.faint, fontSize: 10, fontWeight: FontWeight.w800),
+      style: const TextStyle(
+        color: CX.faint,
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+      ),
     ),
   );
 }
@@ -1293,14 +1350,45 @@ class _TablePanel extends StatelessWidget {
               children: table!.rows.map((row) {
                 return Container(
                   color: row.isOwnTeam ? CX.greenDark : Colors.transparent,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 9,
+                  ),
                   child: Row(
                     children: [
                       SizedBox(width: 28, child: Text('${row.rank}')),
-                      Expanded(child: Text(row.teamName, style: TextStyle(fontWeight: row.isOwnTeam ? FontWeight.w900 : FontWeight.w600))),
-                      SizedBox(width: 34, child: Text('${row.played}', textAlign: TextAlign.center)),
-                      SizedBox(width: 42, child: Text('${row.goalDifference >= 0 ? '+' : ''}${row.goalDifference}', textAlign: TextAlign.center)),
-                      SizedBox(width: 38, child: Text('${row.points}', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w900))),
+                      Expanded(
+                        child: Text(
+                          row.teamName,
+                          style: TextStyle(
+                            fontWeight: row.isOwnTeam
+                                ? FontWeight.w900
+                                : FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 34,
+                        child: Text(
+                          '${row.played}',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 42,
+                        child: Text(
+                          '${row.goalDifference >= 0 ? '+' : ''}${row.goalDifference}',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 38,
+                        child: Text(
+                          '${row.points}',
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -1335,7 +1423,13 @@ class _Panel extends StatelessWidget {
             children: [
               Icon(icon, color: accent, size: 20),
               const SizedBox(width: 9),
-              Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 18),
@@ -1366,6 +1460,7 @@ class _NoLudStatsBody extends StatelessWidget {
   final String categoryId;
   final List<MatchResult> allResults;
   final List<Player> players;
+  final List<AttendanceRecord> attendanceRecords;
   final ValueChanged<List<MatchResult>> onChanged;
   final VoidCallback onGenerateReport;
 
@@ -1375,6 +1470,7 @@ class _NoLudStatsBody extends StatelessWidget {
     required this.categoryId,
     required this.allResults,
     required this.players,
+    required this.attendanceRecords,
     required this.onChanged,
     required this.onGenerateReport,
   });
@@ -1482,8 +1578,15 @@ class _NoLudStatsBody extends StatelessWidget {
           ),
           _NoLudMetrics(
             summary: summary,
-            attendanceAverage: averageAttendanceRate(
-              players.map((p) => p.attendanceRate).toList(),
+            attendanceAverage: summarizeAttendance(attendanceRecords).average,
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () =>
+                  ShellActions.of(context).openSection(ShellSection.attendance),
+              icon: const Icon(Icons.history, size: 17),
+              label: const Text('Ver historial de asistencia'),
             ),
           ),
           const SizedBox(height: 20),
@@ -1493,10 +1596,7 @@ class _NoLudStatsBody extends StatelessWidget {
           ),
           _NoLudForm(summary: summary),
           const SizedBox(height: 20),
-          const PremiumSectionHeader(
-            eyebrow: 'Plantel',
-            title: 'Goleadores',
-          ),
+          const PremiumSectionHeader(eyebrow: 'Plantel', title: 'Goleadores'),
           _PlayerLeaders(
             showFullColumns: false,
             players: [
@@ -1547,7 +1647,8 @@ class _NoLudEmpty extends StatelessWidget {
     return EmptyStatePanel(
       icon: Icons.scoreboard_outlined,
       title: 'Todavía no cargaste resultados',
-      message: 'Cargá los partidos de tu equipo y fobal arma la tabla, la '
+      message:
+          'Cargá los partidos de tu equipo y fobal arma la tabla, la '
           'forma reciente y una lectura de cómo viene el rendimiento.',
       primaryLabel: 'Cargar el primer resultado',
       onPrimary: onAdd,
@@ -1630,7 +1731,8 @@ class _NoLudReading extends StatelessWidget {
             scoring: summary.scoring,
             conceding: summary.conceding,
             played: summary.played,
-            formSummary: 'Últimos ${summary.last5.length}: '
+            formSummary:
+                'Últimos ${summary.last5.length}: '
                 '${summary.last5.where((o) => o == 'G').length}G '
                 '${summary.last5.where((o) => o == 'E').length}E '
                 '${summary.last5.where((o) => o == 'P').length}P',
@@ -1676,10 +1778,22 @@ class _NoLudMetrics extends StatelessWidget {
     final s = summary;
     final hasCompetitive = s.played > 0;
     final items = <_Metric>[
-      _Metric('Partidos', '${s.played}', Icons.event_available, CX.blue,
-          s.friendlies > 0 ? '+ ${s.friendlies} amistosos' : 'oficiales'),
-      _Metric('Puntos', hasCompetitive ? '${s.points}' : '—', Icons.stars, CX.green,
-          hasCompetitive ? '${s.wins}G ${s.draws}E ${s.losses}P' : 'sin oficiales'),
+      _Metric(
+        'Partidos',
+        '${s.played}',
+        Icons.event_available,
+        CX.blue,
+        s.friendlies > 0 ? '+ ${s.friendlies} amistosos' : 'oficiales',
+      ),
+      _Metric(
+        'Puntos',
+        hasCompetitive ? '${s.points}' : '—',
+        Icons.stars,
+        CX.green,
+        hasCompetitive
+            ? '${s.wins}G ${s.draws}E ${s.losses}P'
+            : 'sin oficiales',
+      ),
       _Metric(
         'Puntos obtenidos',
         hasCompetitive ? '${(s.pointsRate * 100).round()}%' : '—',
@@ -1692,7 +1806,9 @@ class _NoLudMetrics extends StatelessWidget {
         hasCompetitive ? '${s.goalDiff >= 0 ? '+' : ''}${s.goalDiff}' : '—',
         Icons.swap_vert,
         s.goalDiff >= 0 ? CX.green : CX.red,
-        hasCompetitive ? '${s.goalsFor} a favor / ${s.goalsAgainst} en contra' : '',
+        hasCompetitive
+            ? '${s.goalsFor} a favor / ${s.goalsAgainst} en contra'
+            : '',
       ),
       _Metric(
         'Goles / partido',
@@ -1709,17 +1825,21 @@ class _NoLudMetrics extends StatelessWidget {
         'en contra',
       ),
     ];
-    if (attendanceAverage != null) {
-      items.add(
-        _Metric(
-          'Asistencia',
-          '${(attendanceAverage! * 100).round()}%',
-          Icons.fact_check_outlined,
-          attendanceAverage! >= .8 ? CX.green : CX.amber,
-          'promedio del plantel',
-        ),
-      );
-    }
+    items.add(
+      _Metric(
+        'Asistencia',
+        attendanceAverage == null
+            ? '—'
+            : '${(attendanceAverage! * 100).round()}%',
+        Icons.fact_check_outlined,
+        attendanceAverage == null
+            ? CX.faint
+            : attendanceAverage! >= .8
+            ? CX.green
+            : CX.amber,
+        attendanceAverage == null ? 'Sin registros' : 'promedio del plantel',
+      ),
+    );
 
     return MetricGrid(
       tiles: [
@@ -1853,7 +1973,11 @@ class _NoLudResultsList extends StatelessWidget {
                   ),
                   child: Text(
                     r.outcome,
-                    style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 12),
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1877,7 +2001,10 @@ class _NoLudResultsList extends StatelessWidget {
                           'Goles: ${_scorers(r)}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: CX.muted, fontSize: 10.5),
+                          style: const TextStyle(
+                            color: CX.muted,
+                            fontSize: 10.5,
+                          ),
                         ),
                     ],
                   ),

@@ -28,6 +28,7 @@ import 'services/offline_mutation_service.dart';
 import 'state/section_handoff.dart';
 import 'services/preview_access_service.dart';
 import 'services/supabase_auth_service.dart';
+import 'ui/sync_recovery_dialog.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -310,9 +311,11 @@ class _CanteraAppState extends State<CanteraApp> {
   /// kept as a backup. Full conflict UX is Phase 2c.
   void _onSyncEvent(ClubSyncEvent event) {
     if (!mounted) return;
-    if (event.type == ClubSyncEventType.conflict &&
+    if ((event.type == ClubSyncEventType.conflict ||
+            event.type == ClubSyncEventType.restored) &&
         event.clubId == _club.id) {
       setState(() => _club = _loadClubById(event.clubId));
+      if (event.type != ClubSyncEventType.conflict) return;
       _messengerKey.currentState?.showSnackBar(
         const SnackBar(
           duration: Duration(seconds: 6),
@@ -413,6 +416,9 @@ class _CanteraAppState extends State<CanteraApp> {
       trainingReports: _club.trainingReports
           .where((report) => report.categoryId == categoryId)
           .toList(),
+      attendanceRecords: _club.attendanceRecords
+          .where((record) => record.categoryId == categoryId)
+          .toList(),
       matchResults: _club.matchResults
           .where((result) => result.categoryId == categoryId)
           .toList(),
@@ -477,6 +483,14 @@ class _CanteraAppState extends State<CanteraApp> {
         ),
         ...scopedClub.trainingReports.where(
           (report) => report.categoryId == categoryId,
+        ),
+      ],
+      attendanceRecords: [
+        ..._club.attendanceRecords.where(
+          (record) => record.categoryId != categoryId,
+        ),
+        ...scopedClub.attendanceRecords.where(
+          (record) => record.categoryId == categoryId,
         ),
       ],
       // Manual match results follow the same per-category merge pattern as
@@ -818,22 +832,17 @@ class _CanteraAppState extends State<CanteraApp> {
           ),
           radioTheme: RadioThemeData(
             fillColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.selected)
-                  ? CX.green
-                  : CX.lineStrong,
+              (s) =>
+                  s.contains(WidgetState.selected) ? CX.green : CX.lineStrong,
             ),
             visualDensity: VisualDensity.compact,
           ),
           switchTheme: SwitchThemeData(
             thumbColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.selected)
-                  ? Colors.white
-                  : CX.faint,
+              (s) => s.contains(WidgetState.selected) ? Colors.white : CX.faint,
             ),
             trackColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.selected)
-                  ? CX.green
-                  : CX.panel2,
+              (s) => s.contains(WidgetState.selected) ? CX.green : CX.panel2,
             ),
             trackOutlineColor: WidgetStateProperty.resolveWith(
               (s) => s.contains(WidgetState.selected)
@@ -951,9 +960,7 @@ class _CanteraAppState extends State<CanteraApp> {
           scrollbarTheme: ScrollbarThemeData(
             thumbVisibility: const WidgetStatePropertyAll(false),
             thumbColor: WidgetStateProperty.resolveWith(
-              (s) => s.contains(WidgetState.hovered)
-                  ? CX.lineStrong
-                  : CX.line,
+              (s) => s.contains(WidgetState.hovered) ? CX.lineStrong : CX.line,
             ),
             thickness: const WidgetStatePropertyAll(6),
             radius: const Radius.circular(999),
@@ -973,8 +980,10 @@ class _CanteraAppState extends State<CanteraApp> {
           '/local-home': (context) => const _LocalHomeRoute(),
           '/local-team': (context) => const _LocalHomeRoute(initialIndex: 0),
           '/local-tactica': (context) => const _LocalHomeRoute(initialIndex: 1),
-          '/local-calendar': (context) => const _LocalHomeRoute(initialIndex: 2),
-          '/local-attendance': (context) => const _LocalHomeRoute(initialIndex: 3),
+          '/local-calendar': (context) =>
+              const _LocalHomeRoute(initialIndex: 2),
+          '/local-attendance': (context) =>
+              const _LocalHomeRoute(initialIndex: 3),
           '/local-lineups': (context) => const _LocalHomeRoute(initialIndex: 4),
           '/home': (context) => const _ProtectedHome(),
           '/preview-access': (context) => const _PreviewAccessRoute(),
@@ -1333,7 +1342,8 @@ class _MembershipHydratorState extends State<_MembershipHydrator> {
           : UserRole.coach,
     );
     if (!widget.membership.isClubAdmin && categories.isNotEmpty) {
-      final stored = html.window
+      final stored = html
+          .window
           .localStorage['fobal_selected_category_${widget.membership.clubId}'];
       final storedValid =
           stored != null && categories.any((category) => category.id == stored);
@@ -1526,8 +1536,9 @@ class _TextPromptDialog extends StatefulWidget {
 }
 
 class _TextPromptDialogState extends State<_TextPromptDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initialValue);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialValue,
+  );
 
   @override
   void dispose() {
@@ -1580,12 +1591,16 @@ Future<void> importClubFromFile(BuildContext context) async {
     return;
   } catch (_) {
     messenger.showSnackBar(
-      const SnackBar(content: Text('No pudimos leer el archivo. Probá de nuevo.')),
+      const SnackBar(
+        content: Text('No pudimos leer el archivo. Probá de nuevo.'),
+      ),
     );
     return;
   }
   if (!context.mounted) return;
-  final name = incoming.name.trim().isEmpty ? 'sin nombre' : incoming.name.trim();
+  final name = incoming.name.trim().isEmpty
+      ? 'sin nombre'
+      : incoming.name.trim();
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
@@ -1609,9 +1624,7 @@ Future<void> importClubFromFile(BuildContext context) async {
   );
   if (confirmed != true || !context.mounted) return;
   scope.replaceClub(incoming);
-  messenger.showSnackBar(
-    const SnackBar(content: Text('Datos importados.')),
-  );
+  messenger.showSnackBar(const SnackBar(content: Text('Datos importados.')));
 }
 
 class CanteraScrollBehavior extends MaterialScrollBehavior {
@@ -1687,7 +1700,8 @@ class CanteraMotion {
     final out = <Widget>[];
     var revealIndex = 0;
     for (final child in children) {
-      final isSpacer = child is SizedBox &&
+      final isSpacer =
+          child is SizedBox &&
           child.child == null &&
           (child.height ?? 0) <= 40 &&
           (child.width ?? 0) <= 40;
@@ -1873,12 +1887,12 @@ class _MainShellState extends State<MainShell> {
   static const _allItems = <_ShellItem>[
     _ShellItem(Icons.space_dashboard_outlined, Icons.space_dashboard, 'Inicio'),
     _ShellItem(Icons.shield_outlined, Icons.shield, 'Mi equipo'),
+    _ShellItem(Icons.sports_soccer_outlined, Icons.sports_soccer, 'Táctica'),
     _ShellItem(
-      Icons.sports_soccer_outlined,
-      Icons.sports_soccer,
-      'Táctica',
+      Icons.calendar_month_outlined,
+      Icons.calendar_month,
+      'Calendario',
     ),
-    _ShellItem(Icons.calendar_month_outlined, Icons.calendar_month, 'Calendario'),
     _ShellItem(Icons.fact_check_outlined, Icons.fact_check, 'Asistencia'),
     _ShellItem(Icons.bar_chart_outlined, Icons.bar_chart, 'Estadísticas'),
     _ShellItem(Icons.settings_outlined, Icons.settings, 'Configurar'),
@@ -2012,14 +2026,14 @@ class _MainShellState extends State<MainShell> {
   };
 
   List<Widget> _screens(UserRole role, bool external) => [
-      if (external) const MiEquipoScreen() else HomeScreen(onNavigate: _goTo),
-      TacticaScreen(key: _tacticaKey),
-      if (external) const CalendarioScreen(),
-      if (!external) const EstadisticasScreen(),
-      if (!external && role == UserRole.coordinator)
-        const ConfiguracionClubScreen(),
-      if (role != UserRole.viewer) AlineacionScreen(onBack: () => _goTo(0)),
-    ];
+    if (external) const MiEquipoScreen() else HomeScreen(onNavigate: _goTo),
+    TacticaScreen(key: _tacticaKey),
+    if (external) const CalendarioScreen(),
+    if (!external) const EstadisticasScreen(),
+    if (!external && role == UserRole.coordinator)
+      const ConfiguracionClubScreen(),
+    if (role != UserRole.viewer) AlineacionScreen(onBack: () => _goTo(0)),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -2028,7 +2042,9 @@ class _MainShellState extends State<MainShell> {
     final scope = AppScope.of(context);
     final role = scope.role;
     final external = _isExternalClub(scope.fullClub);
-    final externalLabels = external ? _enabledExternalLabels(scope.fullClub) : const <String>[];
+    final externalLabels = external
+        ? _enabledExternalLabels(scope.fullClub)
+        : const <String>[];
     final items = external
         ? [
             _allItems[0],
@@ -2041,11 +2057,11 @@ class _MainShellState extends State<MainShell> {
           ].where((item) => externalLabels.contains(item.label)).toList()
         : switch (role) {
             UserRole.viewer => [_allItems[0], _allItems[2], _allItems[5]],
-      UserRole.coach => [
-        _allItems[0],
-        _allItems[2],
-        _allItems[5],
-        _allItems[7],
+            UserRole.coach => [
+              _allItems[0],
+              _allItems[2],
+              _allItems[5],
+              _allItems[7],
             ],
             UserRole.coordinator => [
               _allItems[0],
@@ -2334,7 +2350,8 @@ class _DesktopSidebar extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                SupabaseAuthService.currentEmail ?? 'Cuenta local',
+                                SupabaseAuthService.currentEmail ??
+                                    'Cuenta local',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -2734,9 +2751,16 @@ class _DataStatusChipState extends State<_DataStatusChip> {
   Widget build(BuildContext context) {
     final clubId = AppScope.of(context).fullClub.id;
     final dirty = ClubSyncService.isDirty(clubId);
-    final syncedAt = ClubSyncService.lastPushedAt(clubId) ??
+    final hasConflict = ClubSyncService.conflicts(clubId).isNotEmpty;
+    final syncError = ClubSyncService.syncError(clubId);
+    final syncedAt =
+        ClubSyncService.lastPushedAt(clubId) ??
         DateTime.tryParse(AppScope.of(context).club.syncedAt);
-    final (IconData icon, Color color, String text) = !_online
+    final (IconData icon, Color color, String text) = hasConflict
+        ? (Icons.warning_amber_rounded, CX.amber, 'Revisar sincronización')
+        : syncError != null
+        ? (Icons.error_outline, CX.red, 'Problema de sincronización')
+        : !_online
         ? (Icons.cloud_off_outlined, CX.amber, 'Trabajando sin conexión')
         : (_pending > 0 || dirty)
         ? (Icons.sync, CX.blue, 'Guardando cambios…')
@@ -2747,23 +2771,38 @@ class _DataStatusChipState extends State<_DataStatusChip> {
                 ? 'Sincronizado'
                 : 'Sincronizado · ${_relativeTime(syncedAt)}',
           );
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 13, color: color),
-        const SizedBox(width: 5),
-        Text(
-          text,
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: color,
-            fontSize: widget.compact ? 10 : 11,
-            fontWeight: FontWeight.w700,
-          ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: hasConflict || syncError != null
+          ? () async {
+              final restored = await showSyncRecoveryDialog(
+                context,
+                currentClub: AppScope.of(context).fullClub,
+              );
+              if (restored == true && mounted) setState(() {});
+            }
+          : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 5),
+            Text(
+              text,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: widget.compact ? 10 : 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -2836,7 +2875,8 @@ class FobalMarkPainter extends CustomPainter {
   const FobalMarkPainter({this.color = CX.green});
 
   @override
-  void paint(Canvas canvas, Size size) => paintFobalMark(canvas, size, color: color);
+  void paint(Canvas canvas, Size size) =>
+      paintFobalMark(canvas, size, color: color);
 
   @override
   bool shouldRepaint(covariant FobalMarkPainter oldDelegate) =>

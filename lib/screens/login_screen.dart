@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../services/account_identity_service.dart';
 import '../services/supabase_auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -49,23 +50,17 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return;
         final fragment = Uri.base.fragment;
         final fragmentPath = fragment.split('?').first;
-        final uriMode = fragmentPath == '/auth-local' ||
-                fragment.contains('mode=local')
+        final uriMode =
+            fragmentPath == '/auth-local' || fragment.contains('mode=local')
             ? 'local'
             : fragmentPath == '/auth-lud' || fragment.contains('mode=lud')
             ? 'lud'
             : null;
         final mode = uriMode ?? html.window.localStorage[_postAuthModeKey];
         html.window.localStorage.remove(_postAuthModeKey);
-        final localClubId =
-            html.window.localStorage['fobal_local_profile_club_id'];
         Navigator.pushReplacementNamed(
           context,
-          mode == 'local'
-              ? (localClubId == null || localClubId.isEmpty
-                    ? '/local-setup'
-                    : '/local-home')
-              : '/access',
+          mode == 'local' ? '/local-entry' : '/access',
         );
       });
     }
@@ -84,10 +79,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   String _localRoute() {
-    final localClubId = html.window.localStorage['fobal_local_profile_club_id'];
-    return localClubId == null || localClubId.isEmpty
-        ? '/local-setup'
-        : '/local-home';
+    return AccountIdentityService.currentUserId == null
+        ? '/login?mode=local'
+        : '/local-entry';
   }
 
   Future<void> _enterWithGoogle() async {
@@ -102,16 +96,11 @@ class _LoginScreenState extends State<LoginScreen> {
       await SupabaseAuthService.signInWithGoogle(localMode: !_ludMode);
     } on AuthConfigException {
       if (!mounted) return;
-      if (!_ludMode) {
-        Navigator.pushReplacementNamed(context, _localRoute());
-        return;
-      }
       setState(() => _authMessage = 'No se pudo conectar el inicio de sesión.');
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _authMessage =
-            'No se pudo iniciar con Google. Vuelve a intentar.';
+        _authMessage = 'No se pudo iniciar con Google. Vuelve a intentar.';
       });
     } finally {
       if (mounted) setState(() => _googleLoading = false);
@@ -137,10 +126,6 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } on AuthConfigException {
       if (!mounted) return;
-      if (!_ludMode) {
-        Navigator.pushReplacementNamed(context, _localRoute());
-        return;
-      }
       setState(() => _authMessage = 'No se pudo conectar el inicio de sesión.');
     } on AuthInputException catch (error) {
       if (mounted) setState(() => _authMessage = error.message);
@@ -213,10 +198,6 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } on AuthConfigException {
       if (!mounted) return;
-      if (!_ludMode) {
-        Navigator.pushReplacementNamed(context, _localRoute());
-        return;
-      }
       setState(() => _authMessage = 'No se pudo conectar el registro.');
     } on AuthInputException catch (error) {
       if (mounted) setState(() => _authMessage = error.message);
@@ -248,9 +229,9 @@ class _LoginScreenState extends State<LoginScreen> {
         onBack: _signupStep == 0
             ? null
             : () => setState(() {
-                  _signupStep = 0;
-                  _authMessage = null;
-                }),
+                _signupStep = 0;
+                _authMessage = null;
+              }),
         onTogglePassword: () =>
             setState(() => _passwordVisible = !_passwordVisible),
         onContinue: _emailLoading ? null : _createAccount,
@@ -304,20 +285,22 @@ void _showLoginHelp(BuildContext context, {required bool ludMode}) {
           Text(
             ludMode
                 ? 'Revisá que el correo y la contraseña sean los mismos con '
-                    'los que te diste de alta en la liga universitaria.'
+                      'los que te diste de alta en la liga universitaria.'
                 : 'Revisá que el correo y la contraseña sean los mismos con '
-                    'los que creaste tu club en fobal.',
+                      'los que creaste tu club en fobal.',
           ),
           const SizedBox(height: 10),
           Text(
             ludMode
                 ? 'Si tu club no juega en la liga universitaria, elegí '
-                    '"No soy DT de Liga" arriba.'
+                      '"No soy DT de Liga" arriba.'
                 : 'Si tu categoría juega en la liga universitaria, elegí '
-                    '"Soy DT de Liga" arriba e ingresá con esas credenciales.',
+                      '"Soy DT de Liga" arriba e ingresá con esas credenciales.',
           ),
           const SizedBox(height: 10),
-          const Text('También podés ingresar con Google o crear una cuenta nueva.'),
+          const Text(
+            'También podés ingresar con Google o crear una cuenta nueva.',
+          ),
         ],
       ),
       actions: [
@@ -369,97 +352,116 @@ class _ModernLoginView extends StatelessWidget {
     final form = Material(
       type: MaterialType.transparency,
       child: SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: desktop ? 54 : 28, vertical: 28),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 390),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (!desktop) ...[
-              const _MobileBrand(),
-              const SizedBox(height: 34),
-            ],
-            const Text(
-              'Inicia sesión en fobal',
-              style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 18),
-            _AccessPathSelector(ludMode: ludMode, onChanged: onModeChanged),
-            const SizedBox(height: 20),
-            const Text('Correo electrónico', style: TextStyle(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
-              autofillHints: const [AutofillHints.email],
-              decoration: const InputDecoration(hintText: 'tu@email.com'),
-            ),
-            const SizedBox(height: 12),
-            const Text('Contraseña', style: TextStyle(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: passwordController,
-              obscureText: !passwordVisible,
-              autofillHints: const [AutofillHints.password],
-              onSubmitted: (_) => onSubmit?.call(),
-              decoration: InputDecoration(
-                suffixIcon: IconButton(
-                  onPressed: onTogglePassword,
-                  icon: Icon(passwordVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+        padding: EdgeInsets.symmetric(
+          horizontal: desktop ? 54 : 28,
+          vertical: 28,
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 390),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!desktop) ...[
+                const _MobileBrand(),
+                const SizedBox(height: 34),
+              ],
+              const Text(
+                'Inicia sesión en fobal',
+                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 18),
+              _AccessPathSelector(ludMode: ludMode, onChanged: onModeChanged),
+              const SizedBox(height: 20),
+              const Text(
+                'Correo electrónico',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [AutofillHints.email],
+                decoration: const InputDecoration(hintText: 'tu@email.com'),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Contraseña',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: passwordController,
+                obscureText: !passwordVisible,
+                autofillHints: const [AutofillHints.password],
+                onSubmitted: (_) => onSubmit?.call(),
+                decoration: InputDecoration(
+                  suffixIcon: IconButton(
+                    onPressed: onTogglePassword,
+                    icon: Icon(
+                      passwordVisible
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-            CheckboxListTile(
-              value: remember,
-              onChanged: onRememberChanged,
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('Recordarme', style: TextStyle(fontWeight: FontWeight.w700)),
-            ),
-            ElevatedButton(
-              onPressed: onSubmit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: CX.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+              const SizedBox(height: 10),
+              CheckboxListTile(
+                value: remember,
+                onChanged: onRememberChanged,
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text(
+                  'Recordarme',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
-              child: Text(loading ? 'Ingresando...' : ludMode ? 'Iniciar sesión' : 'Continuar'),
-            ),
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: () => _showLoginHelp(context, ludMode: ludMode),
-              child: const Text('¿Problemas para iniciar sesión?'),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                ludMode ? 'O inicia sesión con' : 'O continúa con',
-                style: const TextStyle(color: CX.muted),
+              ElevatedButton(
+                onPressed: onSubmit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: CX.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text(
+                  loading
+                      ? 'Ingresando...'
+                      : ludMode
+                      ? 'Iniciar sesión'
+                      : 'Continuar',
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Center(
-              child: _SocialCircle(
-                loading: googleLoading,
-                onTap: onGoogle,
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () => _showLoginHelp(context, ludMode: ludMode),
+                child: const Text('¿Problemas para iniciar sesión?'),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Divider(),
-            const SizedBox(height: 18),
-            OutlinedButton(
-              onPressed: onCreateAccount,
-              child: const Text('Crear cuenta nueva'),
-            ),
-            if (message != null) ...[
-              const SizedBox(height: 14),
-              _AuthMessage(message: message!),
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  ludMode ? 'O inicia sesión con' : 'O continúa con',
+                  style: const TextStyle(color: CX.muted),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: _SocialCircle(loading: googleLoading, onTap: onGoogle),
+              ),
+              const SizedBox(height: 20),
+              const Divider(),
+              const SizedBox(height: 18),
+              OutlinedButton(
+                onPressed: onCreateAccount,
+                child: const Text('Crear cuenta nueva'),
+              ),
+              if (message != null) ...[
+                const SizedBox(height: 14),
+                _AuthMessage(message: message!),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
       ),
     );
     return Scaffold(
@@ -557,7 +559,12 @@ class _CreateAccountView extends StatelessWidget {
       backgroundColor: CX.canvas,
       body: Column(
         children: [
-          LinearProgressIndicator(value: step == 0 ? .45 : .9, minHeight: 4, color: CX.green, backgroundColor: CX.line),
+          LinearProgressIndicator(
+            value: step == 0 ? .45 : .9,
+            minHeight: 4,
+            color: CX.green,
+            backgroundColor: CX.line,
+          ),
           Expanded(
             child: Center(
               child: SingleChildScrollView(
@@ -569,47 +576,83 @@ class _CreateAccountView extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          IconButton.outlined(onPressed: onClose, icon: const Icon(Icons.close)),
+                          IconButton.outlined(
+                            onPressed: onClose,
+                            icon: const Icon(Icons.close),
+                          ),
                           const Spacer(),
                           if (onBack != null)
-                            IconButton.outlined(onPressed: onBack, icon: const Icon(Icons.arrow_back)),
+                            IconButton.outlined(
+                              onPressed: onBack,
+                              icon: const Icon(Icons.arrow_back),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 24),
                       if (step == 0) ...[
-                        const Text('¿Cuál es tu correo?', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+                        const Text(
+                          '¿Cuál es tu correo?',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                         const SizedBox(height: 24),
-                        const Text('Correo electrónico', style: TextStyle(fontWeight: FontWeight.w800)),
+                        const Text(
+                          'Correo electrónico',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
                         const SizedBox(height: 8),
-                        TextField(controller: emailController, keyboardType: TextInputType.emailAddress),
+                        TextField(
+                          controller: emailController,
+                          keyboardType: TextInputType.emailAddress,
+                        ),
                         const SizedBox(height: 18),
                         const Text(
                           'Al registrarte aceptas nuestros Términos y condiciones y la política de privacidad.',
                           style: TextStyle(color: CX.muted, height: 1.45),
                         ),
                         const SizedBox(height: 22),
-                        ElevatedButton(onPressed: onContinue, child: const Text('Continuar')),
+                        ElevatedButton(
+                          onPressed: onContinue,
+                          child: const Text('Continuar'),
+                        ),
                         const SizedBox(height: 24),
                         Center(
-                          child: _SocialCircle(
-                            loading: false,
-                            onTap: onGoogle,
-                          ),
+                          child: _SocialCircle(loading: false, onTap: onGoogle),
                         ),
                         const SizedBox(height: 20),
-                        TextButton(onPressed: onLogin, child: const Text('Ya tengo una cuenta')),
+                        TextButton(
+                          onPressed: onLogin,
+                          child: const Text('Ya tengo una cuenta'),
+                        ),
                       ] else ...[
-                        const Text('Sobre ti', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+                        const Text(
+                          'Sobre ti',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                         const SizedBox(height: 22),
-                        const Text('Nombre', style: TextStyle(fontWeight: FontWeight.w800)),
+                        const Text(
+                          'Nombre',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
                         const SizedBox(height: 8),
                         TextField(controller: firstNameController),
                         const SizedBox(height: 14),
-                        const Text('Apellido', style: TextStyle(fontWeight: FontWeight.w800)),
+                        const Text(
+                          'Apellido',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
                         const SizedBox(height: 8),
                         TextField(controller: lastNameController),
                         const SizedBox(height: 14),
-                        const Text('Contraseña', style: TextStyle(fontWeight: FontWeight.w800)),
+                        const Text(
+                          'Contraseña',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
                         const SizedBox(height: 8),
                         TextField(
                           controller: passwordController,
@@ -617,14 +660,24 @@ class _CreateAccountView extends StatelessWidget {
                           decoration: InputDecoration(
                             suffixIcon: IconButton(
                               onPressed: onTogglePassword,
-                              icon: Icon(passwordVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                              icon: Icon(
+                                passwordVisible
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(height: 7),
-                        const Text("Los caracteres '/' y ' no están permitidos en la contraseña", style: TextStyle(color: CX.muted, fontSize: 11)),
+                        const Text(
+                          "Los caracteres '/' y ' no están permitidos en la contraseña",
+                          style: TextStyle(color: CX.muted, fontSize: 11),
+                        ),
                         const SizedBox(height: 14),
-                        const Text('Confirmar contraseña', style: TextStyle(fontWeight: FontWeight.w800)),
+                        const Text(
+                          'Confirmar contraseña',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
                         const SizedBox(height: 8),
                         TextField(
                           controller: confirmPasswordController,
@@ -632,12 +685,19 @@ class _CreateAccountView extends StatelessWidget {
                           decoration: InputDecoration(
                             suffixIcon: IconButton(
                               onPressed: onTogglePassword,
-                              icon: Icon(passwordVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                              icon: Icon(
+                                passwordVisible
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(height: 22),
-                        ElevatedButton(onPressed: onContinue, child: Text(loading ? 'Creando...' : 'Crear cuenta')),
+                        ElevatedButton(
+                          onPressed: onContinue,
+                          child: Text(loading ? 'Creando...' : 'Crear cuenta'),
+                        ),
                       ],
                       if (message != null) ...[
                         const SizedBox(height: 14),
@@ -676,7 +736,11 @@ class _SocialCircle extends StatelessWidget {
           shape: BoxShape.circle,
           color: Colors.white,
           boxShadow: [
-            BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2)),
+            BoxShadow(
+              color: Color(0x1A000000),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
           ],
         ),
         child: loading
@@ -710,10 +774,34 @@ class _GoogleGPainter extends CustomPainter {
     const quarter = twoPi / 4;
     // Four quarter-arcs, one per Google brand color, matching the familiar
     // ring-with-a-notch "G" composition.
-    canvas.drawArc(rect, -quarter * .18, quarter, false, arc(const Color(0xFF4285F4)));
-    canvas.drawArc(rect, quarter * .82, quarter, false, arc(const Color(0xFF34A853)));
-    canvas.drawArc(rect, quarter * 1.82, quarter, false, arc(const Color(0xFFFBBC05)));
-    canvas.drawArc(rect, quarter * 2.82, quarter * 1.18, false, arc(const Color(0xFFEA4335)));
+    canvas.drawArc(
+      rect,
+      -quarter * .18,
+      quarter,
+      false,
+      arc(const Color(0xFF4285F4)),
+    );
+    canvas.drawArc(
+      rect,
+      quarter * .82,
+      quarter,
+      false,
+      arc(const Color(0xFF34A853)),
+    );
+    canvas.drawArc(
+      rect,
+      quarter * 1.82,
+      quarter,
+      false,
+      arc(const Color(0xFFFBBC05)),
+    );
+    canvas.drawArc(
+      rect,
+      quarter * 2.82,
+      quarter * 1.18,
+      false,
+      arc(const Color(0xFFEA4335)),
+    );
     // The bar that closes the ring into a "G": a blue square filling the
     // notch on the right, matching the arc's own thickness.
     canvas.drawRect(
@@ -740,7 +828,10 @@ class _AuthMessage extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0x66F0BE57)),
       ),
-      child: Text(message, style: const TextStyle(color: CX.amber, fontSize: 12, height: 1.35)),
+      child: Text(
+        message,
+        style: const TextStyle(color: CX.amber, fontSize: 12, height: 1.35),
+      ),
     );
   }
 }
@@ -761,7 +852,9 @@ class _ProductStory extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          const Positioned.fill(child: CustomPaint(painter: _LoginTacticPainter())),
+          const Positioned.fill(
+            child: CustomPaint(painter: _LoginTacticPainter()),
+          ),
           Positioned(
             left: 382,
             top: 98,
@@ -871,10 +964,7 @@ class _AccessPathSelector extends StatelessWidget {
   final bool ludMode;
   final ValueChanged<bool> onChanged;
 
-  const _AccessPathSelector({
-    required this.ludMode,
-    required this.onChanged,
-  });
+  const _AccessPathSelector({required this.ludMode, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -974,10 +1064,7 @@ class _MobileBrand extends StatelessWidget {
             borderRadius: BorderRadius.circular(9),
             border: Border.all(color: CX.green.withValues(alpha: .45)),
             boxShadow: [
-              BoxShadow(
-                color: CX.green.withValues(alpha: .18),
-                blurRadius: 14,
-              ),
+              BoxShadow(color: CX.green.withValues(alpha: .18), blurRadius: 14),
             ],
           ),
           child: const CustomPaint(painter: FobalMarkPainter()),
@@ -991,7 +1078,10 @@ class _MobileBrand extends StatelessWidget {
               letterSpacing: 0,
             ),
             children: [
-              TextSpan(text: 'fobal', style: TextStyle(color: CX.white)),
+              TextSpan(
+                text: 'fobal',
+                style: TextStyle(color: CX.white),
+              ),
             ],
           ),
         ),
@@ -1058,11 +1148,21 @@ class _LoginTacticPainter extends CustomPainter {
     );
     canvas.drawCircle(field.center, size.shortestSide * .07, linePaint);
     canvas.drawRect(
-      Rect.fromLTWH(field.left, field.top + field.height * .28, field.width * .18, field.height * .44),
+      Rect.fromLTWH(
+        field.left,
+        field.top + field.height * .28,
+        field.width * .18,
+        field.height * .44,
+      ),
       linePaint,
     );
     canvas.drawRect(
-      Rect.fromLTWH(field.right - field.width * .18, field.top + field.height * .28, field.width * .18, field.height * .44),
+      Rect.fromLTWH(
+        field.right - field.width * .18,
+        field.top + field.height * .28,
+        field.width * .18,
+        field.height * .44,
+      ),
       linePaint,
     );
 

@@ -178,6 +178,33 @@ class ClubSyncService {
     }
   }
 
+  /// Finds the newest manual workspace visible to the authenticated user.
+  /// RLS on `club_documents` limits the result set to `auth.uid()`, so this is
+  /// safe to use when a browser has no user-scoped local pointer yet.
+  static Future<ClubDocument?> pullLatestOwnedManualClub() async {
+    if (!_canSync) return null;
+    try {
+      final rows = await SupabaseAuthService.client
+          .from('club_documents')
+          .select('data, version, updated_at')
+          .order('updated_at', ascending: false)
+          .limit(50);
+      for (final row in rows) {
+        final rawData = row['data'];
+        if (rawData is! Map) continue;
+        final club = ClubBackupCodec.parseClubJson(jsonEncode(rawData));
+        if (club == null || !club.isManualClub) continue;
+        return ClubDocument(
+          club: club,
+          version: (row['version'] as num?)?.toInt() ?? 0,
+        );
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // --- write ---------------------------------------------------------------
 
   /// Pushes the CURRENT local blob for [clubId] (read fresh from storage, never

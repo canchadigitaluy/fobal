@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../services/account_identity_service.dart';
 
 class LocalCoachSetupScreen extends StatefulWidget {
   const LocalCoachSetupScreen({super.key});
@@ -98,7 +99,15 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
       return;
     }
 
-    final id = 'externo-${_slug(clubName)}';
+    final userId = AccountIdentityService.currentUserId;
+    if (userId == null) {
+      setState(() {
+        _message =
+            'Tu sesión venció. Volvé a iniciar sesión para crear tu espacio.';
+      });
+      return;
+    }
+    final id = AccountIdentityService.manualClubIdFor(userId, _slug(clubName));
     final categoryId = '$id-plantel';
     final schedule = [
       if (_days.isNotEmpty) _days.join(', '),
@@ -136,7 +145,9 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
           practiceSchedule: schedule,
         ),
       ],
-      players: _players.map((player) => player.copyWith(categoryId: categoryId)).toList(),
+      players: _players
+          .map((player) => player.copyWith(categoryId: categoryId))
+          .toList(),
       sessions: const [],
       trainingReports: const [],
       alerts: const [],
@@ -154,9 +165,11 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
 
     final scope = AppScope.of(context);
     scope.updateClub(club);
-    html.window.localStorage['fobal_local_profile_club_id'] = club.id;
-    html.window.localStorage['fobal_panel_sections_${club.id}'] =
-        jsonEncode(_panelSections.toList());
+    AccountIdentityService.writeLocalClubId(club.id);
+    AccountIdentityService.writeActiveClubId(club.id);
+    html.window.localStorage['fobal_panel_sections_${club.id}'] = jsonEncode(
+      _panelSections.toList(),
+    );
     scope.selectRole(UserRole.coach);
     scope.selectCategory(categoryId);
     Navigator.pushReplacementNamed(context, '/local-home');
@@ -182,7 +195,10 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
               ? Navigator.pushReplacementNamed(context, '/login')
               : setState(() => _step--),
         ),
-        title: const Text('¡Bienvenido!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+        title: const Text(
+          '¡Bienvenido!',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 22, 18, 34),
@@ -201,21 +217,29 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
                       0 => _teamStep(),
                       1 => _trainingStep(),
                       2 => _simpleStep(
-                          icon: Icons.sports_soccer_outlined,
-                          title: 'Partido',
-                          text: 'Luego vas a poder preparar partidos y citaciones manualmente.',
-                        ),
+                        icon: Icons.sports_soccer_outlined,
+                        title: 'Partido',
+                        text:
+                            'Luego vas a poder preparar partidos y citaciones manualmente.',
+                      ),
                       _ => _simpleStep(
-                          icon: Icons.emoji_events_outlined,
-                          title: 'Panel',
-                          text: 'Elegí qué herramientas querés ver para que el panel arranque simple.',
-                          child: _panelStep(),
-                        ),
+                        icon: Icons.emoji_events_outlined,
+                        title: 'Panel',
+                        text:
+                            'Elegí qué herramientas querés ver para que el panel arranque simple.',
+                        child: _panelStep(),
+                      ),
                     },
                   ),
                   if (_message != null) ...[
                     const SizedBox(height: 10),
-                    Text(_message!, style: const TextStyle(color: CX.amber, fontWeight: FontWeight.w800)),
+                    Text(
+                      _message!,
+                      style: const TextStyle(
+                        color: CX.amber,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ],
                   const SizedBox(height: 18),
                   TextButton.icon(
@@ -239,7 +263,9 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
       children: [
         TextField(
           controller: _clubController,
-          decoration: const InputDecoration(labelText: 'Nombre del club o colegio'),
+          decoration: const InputDecoration(
+            labelText: 'Nombre del club o colegio',
+          ),
         ),
         const SizedBox(height: 10),
         TextField(
@@ -260,8 +286,12 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: ChoiceChip(
                             selected: _memberType == item,
-                            onSelected: (_) => setState(() => _memberType = item),
-                            label: SizedBox(width: double.infinity, child: Center(child: Text(item))),
+                            onSelected: (_) =>
+                                setState(() => _memberType = item),
+                            label: SizedBox(
+                              width: double.infinity,
+                              child: Center(child: Text(item)),
+                            ),
                           ),
                         ),
                       ),
@@ -269,9 +299,15 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
                     .toList(),
               ),
               const SizedBox(height: 12),
-              TextField(controller: _nameController, decoration: const InputDecoration(hintText: 'Nombre')),
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(hintText: 'Nombre'),
+              ),
               const SizedBox(height: 10),
-              TextField(controller: _lastNameController, decoration: const InputDecoration(hintText: 'Apellido')),
+              TextField(
+                controller: _lastNameController,
+                decoration: const InputDecoration(hintText: 'Apellido'),
+              ),
               const SizedBox(height: 12),
               ElevatedButton.icon(
                 onPressed: _addMember,
@@ -305,7 +341,10 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
     return Column(
       key: const ValueKey('training'),
       children: [
-        const Text('¿Cuándo entrenas durante la semana?', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+        const Text(
+          '¿Cuándo entrenas durante la semana?',
+          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+        ),
         const SizedBox(height: 22),
         const Icon(Icons.sports_soccer, color: CX.green, size: 26),
         const SizedBox(height: 18),
@@ -328,7 +367,10 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
         const SizedBox(height: 18),
         TextField(
           controller: _timeController,
-          decoration: const InputDecoration(labelText: 'Horarios de práctica', hintText: 'Ej: 19:30 a 21:00'),
+          decoration: const InputDecoration(
+            labelText: 'Horarios de práctica',
+            hintText: 'Ej: 19:30 a 21:00',
+          ),
         ),
       ],
     );
@@ -380,13 +422,17 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
         children: [
           Icon(icon, color: CX.green, size: 42),
           const SizedBox(height: 14),
-          Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+          ),
           const SizedBox(height: 8),
-          Text(text, textAlign: TextAlign.center, style: const TextStyle(color: CX.muted)),
-          if (child != null) ...[
-            const SizedBox(height: 18),
-            child,
-          ],
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: CX.muted),
+          ),
+          if (child != null) ...[const SizedBox(height: 18), child],
         ],
       ),
     );
@@ -398,7 +444,11 @@ class _SetupPanel extends StatelessWidget {
   final String subtitle;
   final Widget child;
 
-  const _SetupPanel({required this.title, required this.subtitle, required this.child});
+  const _SetupPanel({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -412,7 +462,14 @@ class _SetupPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(color: CX.green, fontWeight: FontWeight.w900, fontSize: 16)),
+          Text(
+            title,
+            style: const TextStyle(
+              color: CX.green,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
+          ),
           Text(subtitle, style: const TextStyle(color: CX.muted, fontSize: 12)),
           const SizedBox(height: 14),
           child,
@@ -453,12 +510,24 @@ class _Stepper extends StatelessWidget {
                             ),
                     ),
                     const SizedBox(height: 6),
-                    Text(labels[index], style: TextStyle(fontSize: 11, color: active ? CX.green : CX.muted, fontWeight: FontWeight.w800)),
+                    Text(
+                      labels[index],
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: active ? CX.green : CX.muted,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ],
                 ),
               ),
               if (index != labels.length - 1)
-                Expanded(child: Container(height: 2, color: index < current ? CX.green : CX.lineStrong)),
+                Expanded(
+                  child: Container(
+                    height: 2,
+                    color: index < current ? CX.green : CX.lineStrong,
+                  ),
+                ),
             ],
           ),
         );

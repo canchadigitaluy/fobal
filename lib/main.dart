@@ -22,6 +22,7 @@ import 'screens/mi_equipo_screen.dart';
 import 'screens/tactica_screen.dart';
 import 'screens/estadisticas_screen.dart';
 import 'services/club_access_service.dart';
+import 'services/account_identity_service.dart';
 import 'services/club_backup_service.dart';
 import 'services/club_sync_service.dart';
 import 'services/offline_mutation_service.dart';
@@ -36,7 +37,7 @@ Future<void> main() async {
   OfflineMutationService.instance.start();
   // Single source of truth for the active club: restore it before the first
   // frame so membership resolution and category storage stay in lockstep.
-  final restoredClubId = html.window.localStorage['fobal_active_club_id'];
+  final restoredClubId = AccountIdentityService.readActiveClubId();
   if (restoredClubId != null && restoredClubId.isNotEmpty) {
     ClubAccessService.selectActiveClub(restoredClubId);
   }
@@ -278,9 +279,7 @@ class CanteraApp extends StatefulWidget {
 
 class _CanteraAppState extends State<CanteraApp> {
   static const _storagePrefix = 'cantera_os_club_';
-  static const _localClubKey = 'fobal_local_profile_club_id';
   static const _categoryPrefix = 'fobal_selected_category_';
-  static const _activeClubKey = 'fobal_active_club_id';
   UserRole _role = UserRole.coach;
   String? _selectedCategoryId;
   late CanteraClub _club;
@@ -345,11 +344,11 @@ class _CanteraAppState extends State<CanteraApp> {
 
   CanteraClub _loadClub() {
     // Priority: last active club (LUD or manual) -> manual profile -> demo.
-    final activeClubId = html.window.localStorage[_activeClubKey];
+    final activeClubId = AccountIdentityService.readActiveClubId();
     if (activeClubId != null && activeClubId.isNotEmpty) {
       return _loadClubById(activeClubId);
     }
-    final localClubId = html.window.localStorage[_localClubKey];
+    final localClubId = AccountIdentityService.readLocalClubId();
     if (localClubId != null && localClubId.isNotEmpty) {
       return _loadClubById(localClubId);
     }
@@ -535,7 +534,7 @@ class _CanteraAppState extends State<CanteraApp> {
     );
     if (changingClub) {
       // Keep the active-club pointer and the per-club category key aligned.
-      html.window.localStorage[_activeClubKey] = nextClub.id;
+      AccountIdentityService.writeActiveClubId(nextClub.id);
       ClubAccessService.selectActiveClub(nextClub.id);
     }
     setState(() {
@@ -554,7 +553,7 @@ class _CanteraAppState extends State<CanteraApp> {
     html.window.localStorage['$_storagePrefix${club.id}'] = jsonEncode(
       club.toJson(),
     );
-    html.window.localStorage[_activeClubKey] = club.id;
+    AccountIdentityService.writeActiveClubId(club.id);
     ClubAccessService.selectActiveClub(club.id);
     setState(() {
       _club = club;
@@ -584,7 +583,7 @@ class _CanteraAppState extends State<CanteraApp> {
     }
     // The category preference is always written for the currently active club,
     // and the active-club pointer is refreshed so the two never drift apart.
-    html.window.localStorage[_activeClubKey] = _club.id;
+    AccountIdentityService.writeActiveClubId(_club.id);
     if (categoryId == null || categoryId.isEmpty) {
       html.window.localStorage.remove('$_categoryPrefix${_club.id}');
     } else {
@@ -976,6 +975,7 @@ class _CanteraAppState extends State<CanteraApp> {
           '/auth-lud': (context) => const _PostAuthRedirect(localMode: false),
           '/auth-local': (context) => const _PostAuthRedirect(localMode: true),
           '/access': (context) => const AccessGateScreen(),
+          '/local-entry': (context) => const _LocalEntryRoute(),
           '/local-setup': (context) => const LocalCoachSetupScreen(),
           '/local-home': (context) => const _LocalHomeRoute(),
           '/local-team': (context) => const _LocalHomeRoute(initialIndex: 0),
@@ -1025,14 +1025,7 @@ class _PostAuthRedirectState extends State<_PostAuthRedirect> {
       return;
     }
     if (widget.localMode) {
-      final localClubId =
-          html.window.localStorage[_CanteraAppState._localClubKey];
-      Navigator.pushReplacementNamed(
-        context,
-        localClubId == null || localClubId.isEmpty
-            ? '/local-setup'
-            : '/local-home',
-      );
+      Navigator.pushReplacementNamed(context, '/local-entry');
       return;
     }
     Navigator.pushReplacementNamed(context, '/access');
@@ -1042,6 +1035,57 @@ class _PostAuthRedirectState extends State<_PostAuthRedirect> {
   Widget build(BuildContext context) {
     return const _CalmLoadingScaffold();
   }
+}
+
+/// Resolves a No-LUD workspace exclusively within the authenticated account.
+/// It first uses that user's browser pointer, then their newest RLS-protected
+/// cloud document. The legacy global pointer is deliberately ignored because
+/// ownership cannot be proven from it.
+class _LocalEntryRoute extends StatefulWidget {
+  const _LocalEntryRoute();
+
+  @override
+  State<_LocalEntryRoute> createState() => _LocalEntryRouteState();
+}
+
+class _LocalEntryRouteState extends State<_LocalEntryRoute> {
+  bool _resolving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(_resolve);
+  }
+
+  Future<void> _resolve() async {
+    if (_resolving) return;
+    _resolving = true;
+    if (SupabaseAuthService.currentSession == null) {
+      if (mounted) Navigator.pushReplacementNamed(context, '/login?mode=local');
+      return;
+    }
+
+    final localClubId = AccountIdentityService.readLocalClubId();
+    if (localClubId != null) {
+      if (mounted) Navigator.pushReplacementNamed(context, '/local-home');
+      return;
+    }
+
+    final document = await ClubSyncService.pullLatestOwnedManualClub();
+    if (!mounted) return;
+    if (document != null) {
+      AccountIdentityService.writeLocalClubId(document.club.id);
+      AccountIdentityService.writeActiveClubId(document.club.id);
+      ClubSyncService.rememberVersion(document.club.id, document.version);
+      AppScope.of(context).adoptClub(document.club);
+      Navigator.pushReplacementNamed(context, '/local-home');
+      return;
+    }
+    Navigator.pushReplacementNamed(context, '/local-setup');
+  }
+
+  @override
+  Widget build(BuildContext context) => const _CalmLoadingScaffold();
 }
 
 class _LocalHomeRoute extends StatelessWidget {
@@ -1055,8 +1099,7 @@ class _LocalHomeRoute extends StatelessWidget {
         SupabaseAuthService.currentSession == null) {
       return const _AccessRedirect(route: '/login');
     }
-    final localClubId =
-        html.window.localStorage[_CanteraAppState._localClubKey];
+    final localClubId = AccountIdentityService.readLocalClubId();
     if (localClubId == null || localClubId.isEmpty) {
       return const _AccessRedirect(route: '/local-setup');
     }

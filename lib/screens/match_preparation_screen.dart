@@ -190,7 +190,9 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     CategorySquad category, {
     bool silent = false,
   }) {
-    final id = _id.isEmpty ? 'matchprep-${DateTime.now().millisecondsSinceEpoch}' : _id;
+    final id = _id.isEmpty
+        ? 'matchprep-${DateTime.now().millisecondsSinceEpoch}'
+        : _id;
     _id = id;
     final now = DateTime.now().toUtc().toIso8601String();
     final prep = MatchPreparation(
@@ -227,7 +229,11 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     );
     if (!silent) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Plan de partido guardado${_rival.text.trim().isEmpty ? '' : ' vs ${_rival.text.trim()}'}.')),
+        SnackBar(
+          content: Text(
+            'Plan de partido guardado${_rival.text.trim().isEmpty ? '' : ' vs ${_rival.text.trim()}'}.',
+          ),
+        ),
       );
     }
   }
@@ -246,10 +252,13 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     final categoryPlayers = categoryIsLud
         ? const <Player>[]
         : club.players.where((p) => p.categoryId == category.id).toList();
-    final historyRaw = html.window.localStorage[
-        'cantera_alignment_history_${club.id}_${category.id}'] ??
+    final historyRaw =
+        html
+            .window
+            .localStorage['cantera_alignment_history_${club.id}_${category.id}'] ??
         '';
-    final suggestedLineupIds = findLineupForRival(
+    final suggestedLineupIds =
+        findLineupForRival(
           historyJson: historyRaw,
           rivalName: _rival.text.trim(),
         ) ??
@@ -272,11 +281,13 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     ];
     var players = club.players;
     if (categoryPlayers.isNotEmpty) {
-      final categoryResults =
-          nextResults.where((r) => r.categoryId == category.id).toList();
+      final categoryResults = nextResults
+          .where((r) => r.categoryId == category.id)
+          .toList();
       final stats = computePlayerMatchStats(
         lineups: [for (final r in categoryResults) r.lineupIds],
         scorers: [for (final r in categoryResults) r.scorerIds],
+        minutesByMatch: [for (final r in categoryResults) r.minutesByPlayer],
         playerIds: categoryPlayers.map((p) => p.id).toList(),
       );
       players = [
@@ -285,25 +296,28 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
             player.copyWith(
               matchesPlayed: stats[player.id]!.matchesPlayed,
               goals: stats[player.id]!.goals,
+              minutesPlayed: stats[player.id]!.minutesPlayed,
             )
           else
             player,
       ];
     }
-    AppScope.of(context).updateClub(
-      club.copyWith(matchResults: nextResults, players: players),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Resultado guardado.')),
-    );
+    AppScope.of(
+      context,
+    ).updateClub(club.copyWith(matchResults: nextResults, players: players));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Resultado guardado.')));
   }
 
   void _goToLineup() {
-    ShellActions.of(context).openLineup(LineupHint(
-      rival: _rival.text.trim(),
-      date: _date.text.trim(),
-      time: _time.text.trim(),
-    ));
+    ShellActions.of(context).openLineup(
+      LineupHint(
+        rival: _rival.text.trim(),
+        date: _date.text.trim(),
+        time: _time.text.trim(),
+      ),
+    );
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
@@ -312,19 +326,25 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     // it now (silently) so the session the planner generates has a real
     // MatchPreparation to write linkedSessionId back onto.
     if (widget.calendarEventId.isNotEmpty &&
-        !club.matchPreparations
-            .any((p) => p.calendarEventId == widget.calendarEventId)) {
+        !club.matchPreparations.any(
+          (p) => p.calendarEventId == widget.calendarEventId,
+        )) {
       _persistPrep(club, category, silent: true);
     }
     final planSummary = [
       if (_planObjective.text.trim().isNotEmpty) _planObjective.text.trim(),
-      if (_offensiveKeys.text.trim().isNotEmpty) 'Claves ofensivas: ${_offensiveKeys.text.trim()}',
-      if (_defensiveKeys.text.trim().isNotEmpty) 'Claves defensivas: ${_defensiveKeys.text.trim()}',
+      if (_offensiveKeys.text.trim().isNotEmpty)
+        'Claves ofensivas: ${_offensiveKeys.text.trim()}',
+      if (_defensiveKeys.text.trim().isNotEmpty)
+        'Claves defensivas: ${_defensiveKeys.text.trim()}',
     ].join(' ');
     ShellActions.of(context).openMatchPrep(
       MatchPrepHandoff(
         rivalName: _rival.text.trim(),
-        rivalContext: [_opponentNotes.text.trim(), planSummary].where((s) => s.isNotEmpty).join(' — '),
+        rivalContext: [
+          _opponentNotes.text.trim(),
+          planSummary,
+        ].where((s) => s.isNotEmpty).join(' — '),
         note: _staffNotes.text.trim(),
         origin: 'Panel de partido',
         calendarEventId: widget.calendarEventId,
@@ -344,7 +364,11 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     return null;
   }
 
-  void _shareSummary(CanteraClub club, CategorySquad category, List<String> warnings) {
+  void _shareSummary(
+    CanteraClub club,
+    CategorySquad category,
+    List<String> warnings,
+  ) {
     final content = formatMatchPreparationText(
       categoryName: category.name,
       rival: _rival.text.trim(),
@@ -377,9 +401,9 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
       fileName: fileName,
       onDownload: (name, text) {
         ExportDownloadService.downloadText(name, text);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Plan descargado: $name')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Plan descargado: $name')));
       },
     );
   }
@@ -407,11 +431,16 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     _hydrate(club);
     final categoryIsLud = LudCategoryRef.teamIdOf(category.id) != null;
     if (categoryIsLud) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _loadRivalContext(category));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _loadRivalContext(category),
+      );
     }
     final rivalRow = _rivalRow();
     final warningPlayers = club.players
-        .where((player) => player.categoryId == category.id && player.hasAvailabilityWarning)
+        .where(
+          (player) =>
+              player.categoryId == category.id && player.hasAvailabilityWarning,
+        )
         .toList();
     final warningNotes = [
       for (final player in warningPlayers)
@@ -430,7 +459,9 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _rival.text.trim().isEmpty ? 'Panel de partido' : 'Vs ${_rival.text.trim()}',
+          _rival.text.trim().isEmpty
+              ? 'Panel de partido'
+              : 'Vs ${_rival.text.trim()}',
         ),
       ),
       body: SafeArea(
@@ -440,7 +471,10 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
               children: [
-                const PremiumSectionHeader(eyebrow: 'Partido', title: 'Datos del compromiso'),
+                const PremiumSectionHeader(
+                  eyebrow: 'Partido',
+                  title: 'Datos del compromiso',
+                ),
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: CX.panelDecoration(),
@@ -457,14 +491,19 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                           Expanded(
                             child: TextField(
                               controller: _date,
-                              decoration: const InputDecoration(labelText: 'Fecha'),
+                              decoration: const InputDecoration(
+                                labelText: 'Fecha',
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: TextField(
                               controller: _time,
-                              decoration: const InputDecoration(labelText: 'Hora', hintText: 'Ej: 16:00'),
+                              decoration: const InputDecoration(
+                                labelText: 'Hora',
+                                hintText: 'Ej: 16:00',
+                              ),
                             ),
                           ),
                         ],
@@ -472,20 +511,38 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                       const SizedBox(height: 10),
                       DropdownButtonFormField<String>(
                         initialValue: _venue,
-                        decoration: const InputDecoration(labelText: 'Condición'),
+                        decoration: const InputDecoration(
+                          labelText: 'Condición',
+                        ),
                         items: const [
-                          DropdownMenuItem(value: '', child: Text('Sin definir')),
-                          DropdownMenuItem(value: 'local', child: Text('Local')),
-                          DropdownMenuItem(value: 'visitante', child: Text('Visitante')),
-                          DropdownMenuItem(value: 'neutral', child: Text('Cancha neutral')),
+                          DropdownMenuItem(
+                            value: '',
+                            child: Text('Sin definir'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'local',
+                            child: Text('Local'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'visitante',
+                            child: Text('Visitante'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'neutral',
+                            child: Text('Cancha neutral'),
+                          ),
                         ],
-                        onChanged: (value) => setState(() => _venue = value ?? ''),
+                        onChanged: (value) =>
+                            setState(() => _venue = value ?? ''),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
-                const PremiumSectionHeader(eyebrow: 'Rival', title: 'Lo que sabemos'),
+                const PremiumSectionHeader(
+                  eyebrow: 'Rival',
+                  title: 'Lo que sabemos',
+                ),
                 if (categoryIsLud) ...[
                   if (rivalRow != null)
                     MetricGrid(
@@ -501,7 +558,8 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                           icon: Icons.stars,
                           value: '${rivalRow.points}',
                           label: 'Puntos',
-                          context: '${rivalRow.won}G ${rivalRow.drawn}E ${rivalRow.lost}P',
+                          context:
+                              '${rivalRow.won}G ${rivalRow.drawn}E ${rivalRow.lost}P',
                           accent: CX.blue,
                         ),
                         MetricTile(
@@ -523,7 +581,9 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                   else
                     EmptyStatePanel(
                       icon: Icons.query_stats_outlined,
-                      title: _loadingRival ? 'Buscando al rival en la tabla…' : 'Sin datos confiables del rival todavía',
+                      title: _loadingRival
+                          ? 'Buscando al rival en la tabla…'
+                          : 'Sin datos confiables del rival todavía',
                       message: _rival.text.trim().isEmpty
                           ? 'Escribí el nombre del rival para buscarlo en la tabla de la liga.'
                           : 'No lo encontramos en la tabla con ese nombre — puede ser de otra categoría o liga.',
@@ -535,15 +595,23 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                   minLines: 2,
                   maxLines: 4,
                   decoration: InputDecoration(
-                    labelText: categoryIsLud ? 'Notas propias sobre el rival' : 'Notas del rival',
-                    hintText: 'Sistema, presión, salida, zonas fuertes y débiles vistas',
+                    labelText: categoryIsLud
+                        ? 'Notas propias sobre el rival'
+                        : 'Notas del rival',
+                    hintText:
+                        'Sistema, presión, salida, zonas fuertes y débiles vistas',
                   ),
                 ),
                 const SizedBox(height: 20),
-                const PremiumSectionHeader(eyebrow: 'Plan', title: 'Idea de juego'),
+                const PremiumSectionHeader(
+                  eyebrow: 'Plan',
+                  title: 'Idea de juego',
+                ),
                 TextField(
                   controller: _planObjective,
-                  decoration: const InputDecoration(labelText: 'Objetivo del partido'),
+                  decoration: const InputDecoration(
+                    labelText: 'Objetivo del partido',
+                  ),
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -557,14 +625,18 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                   controller: _offensiveKeys,
                   minLines: 1,
                   maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'Claves ofensivas'),
+                  decoration: const InputDecoration(
+                    labelText: 'Claves ofensivas',
+                  ),
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _defensiveKeys,
                   minLines: 1,
                   maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'Claves defensivas'),
+                  decoration: const InputDecoration(
+                    labelText: 'Claves defensivas',
+                  ),
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -574,7 +646,10 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                   decoration: const InputDecoration(labelText: 'Transiciones'),
                 ),
                 const SizedBox(height: 20),
-                const PremiumSectionHeader(eyebrow: 'Pelota quieta', title: 'A favor y en contra'),
+                const PremiumSectionHeader(
+                  eyebrow: 'Pelota quieta',
+                  title: 'A favor y en contra',
+                ),
                 TextField(
                   controller: _setPiecesFor,
                   minLines: 1,
@@ -593,15 +668,21 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                   controller: _playersToWatch,
                   minLines: 1,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Jugadores a observar'),
+                  decoration: const InputDecoration(
+                    labelText: 'Jugadores a observar',
+                  ),
                 ),
                 const SizedBox(height: 20),
-                const PremiumSectionHeader(eyebrow: 'Citación', title: 'Disponibilidad del plantel'),
+                const PremiumSectionHeader(
+                  eyebrow: 'Citación',
+                  title: 'Disponibilidad del plantel',
+                ),
                 if (warningPlayers.isEmpty)
                   const EmptyStatePanel(
                     icon: Icons.verified_outlined,
                     title: 'Sin alertas de disponibilidad',
-                    message: 'Todo el plantel de esta categoría figura disponible.',
+                    message:
+                        'Todo el plantel de esta categoría figura disponible.',
                   )
                 else
                   Container(
@@ -610,7 +691,9 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                     decoration: BoxDecoration(
                       color: CX.amber.withValues(alpha: .08),
                       borderRadius: BorderRadius.circular(9),
-                      border: Border.all(color: CX.amber.withValues(alpha: .25)),
+                      border: Border.all(
+                        color: CX.amber.withValues(alpha: .25),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -619,7 +702,10 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                           warningPlayers.length == 1
                               ? '1 jugador con estado a confirmar'
                               : '${warningPlayers.length} jugadores con estado a confirmar',
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Wrap(
@@ -631,15 +717,25 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                                 borderRadius: BorderRadius.circular(999),
                                 onTap: () => openPlayerProfile(context, player),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: CX.panel,
                                     borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(color: player.availability.color.withValues(alpha: .4)),
+                                    border: Border.all(
+                                      color: player.availability.color
+                                          .withValues(alpha: .4),
+                                    ),
                                   ),
                                   child: Text(
                                     '${player.fullName.trim()} · ${player.availability.label}',
-                                    style: TextStyle(color: player.availability.color, fontSize: 11, fontWeight: FontWeight.w700),
+                                    style: TextStyle(
+                                      color: player.availability.color,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -677,23 +773,38 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                   label: const Text('Ir a Alineación & citaciones'),
                 ),
                 const SizedBox(height: 20),
-                const PremiumSectionHeader(eyebrow: 'Entrenamiento', title: 'Preparación asociada'),
+                const PremiumSectionHeader(
+                  eyebrow: 'Entrenamiento',
+                  title: 'Preparación asociada',
+                ),
                 if (_linkedSessionTitle(club) case final title?) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: CX.greenDark.withValues(alpha: .3),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: CX.green.withValues(alpha: .24)),
+                      border: Border.all(
+                        color: CX.green.withValues(alpha: .24),
+                      ),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle_outline, color: CX.green, size: 17),
+                        const Icon(
+                          Icons.check_circle_outline,
+                          color: CX.green,
+                          size: 17,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Entrenamiento vinculado: $title',
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       ],
@@ -711,12 +822,17 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const PremiumSectionHeader(eyebrow: 'Seguimiento', title: 'Notas'),
+                const PremiumSectionHeader(
+                  eyebrow: 'Seguimiento',
+                  title: 'Notas',
+                ),
                 TextField(
                   controller: _staffNotes,
                   minLines: 2,
                   maxLines: 4,
-                  decoration: const InputDecoration(labelText: 'Notas del cuerpo técnico'),
+                  decoration: const InputDecoration(
+                    labelText: 'Notas del cuerpo técnico',
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Wrap(
@@ -734,7 +850,8 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                     SizedBox(
                       width: 190,
                       child: OutlinedButton.icon(
-                        onPressed: () => _shareSummary(club, category, warningNotes),
+                        onPressed: () =>
+                            _shareSummary(club, category, warningNotes),
                         icon: const Icon(Icons.notes_outlined),
                         label: const Text('Compartir texto'),
                       ),

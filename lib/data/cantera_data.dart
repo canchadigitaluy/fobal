@@ -1973,6 +1973,9 @@ class MatchResult {
   /// same manual-only scope as [lineupIds].
   final List<String> scorerIds;
 
+  /// Minutes played by player id for manually logged matches.
+  final Map<String, int> minutesByPlayer;
+
   const MatchResult({
     required this.id,
     required this.categoryId,
@@ -1986,6 +1989,7 @@ class MatchResult {
     this.calendarKey = '',
     this.lineupIds = const [],
     this.scorerIds = const [],
+    this.minutesByPlayer = const {},
   });
 
   /// Counts toward points / % of points at stake. Friendlies and practice
@@ -2025,6 +2029,7 @@ class MatchResult {
     String? calendarKey,
     List<String>? lineupIds,
     List<String>? scorerIds,
+    Map<String, int>? minutesByPlayer,
   }) {
     return MatchResult(
       id: id,
@@ -2039,6 +2044,7 @@ class MatchResult {
       calendarKey: calendarKey ?? this.calendarKey,
       lineupIds: lineupIds ?? this.lineupIds,
       scorerIds: scorerIds ?? this.scorerIds,
+      minutesByPlayer: minutesByPlayer ?? this.minutesByPlayer,
     );
   }
 
@@ -2055,6 +2061,7 @@ class MatchResult {
     'calendarKey': calendarKey,
     'lineupIds': lineupIds,
     'scorerIds': scorerIds,
+    'minutesByPlayer': minutesByPlayer,
   };
 
   factory MatchResult.fromJson(Map<String, dynamic> json) {
@@ -2079,6 +2086,12 @@ class MatchResult {
       scorerIds: List<String>.from(
         json['scorerIds'] as List<dynamic>? ?? const [],
       ),
+      minutesByPlayer: {
+        for (final entry
+            in (json['minutesByPlayer'] as Map<String, dynamic>? ?? const {})
+                .entries)
+          entry.key: (entry.value as num?)?.toInt() ?? 0,
+      },
     );
   }
 }

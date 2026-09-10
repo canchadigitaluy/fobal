@@ -130,6 +130,9 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
     final stats = computePlayerMatchStats(
       lineups: [for (final result in categoryResults) result.lineupIds],
       scorers: [for (final result in categoryResults) result.scorerIds],
+      minutesByMatch: [
+        for (final result in categoryResults) result.minutesByPlayer,
+      ],
       playerIds: categoryPlayerIds,
     );
     final players = [
@@ -138,6 +141,7 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
           player.copyWith(
             matchesPlayed: stats[player.id]!.matchesPlayed,
             goals: stats[player.id]!.goals,
+            minutesPlayed: stats[player.id]!.minutesPlayed,
           )
         else
           player,

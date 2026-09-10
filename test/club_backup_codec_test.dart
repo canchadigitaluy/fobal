@@ -136,6 +136,18 @@ void main() {
     expect(restored.matchResults[1].isCompetitive, isFalse); // amistoso
   });
 
+  test('MatchResult keeps player minutes and old records default to empty', () {
+    final result = res(
+      '2026-09-01',
+      'Rival',
+      1,
+      0,
+    ).copyWith(lineupIds: const ['p1'], minutesByPlayer: const {'p1': 73});
+    final restored = MatchResult.fromJson(result.toJson());
+    expect(restored.minutesByPlayer, {'p1': 73});
+    expect(MatchResult.fromJson(const {'id': 'old'}).minutesByPlayer, isEmpty);
+  });
+
   test('AttendanceRecord round-trips through the club blob', () {
     final club = canteraDemoClub.copyWith(
       attendanceRecords: const [

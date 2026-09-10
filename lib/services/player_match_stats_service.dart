@@ -11,7 +11,12 @@ library;
 class PlayerMatchStats {
   final int matchesPlayed;
   final int goals;
-  const PlayerMatchStats({this.matchesPlayed = 0, this.goals = 0});
+  final int minutesPlayed;
+  const PlayerMatchStats({
+    this.matchesPlayed = 0,
+    this.goals = 0,
+    this.minutesPlayed = 0,
+  });
 }
 
 /// player id -> stats, one entry per id in [playerIds]. A player who never
@@ -21,6 +26,7 @@ Map<String, PlayerMatchStats> computePlayerMatchStats({
   required List<List<String>> lineups,
   required List<List<String>> scorers,
   required List<String> playerIds,
+  List<Map<String, int>> minutesByMatch = const [],
 }) {
   final matches = <String, int>{};
   for (final lineup in lineups) {
@@ -34,9 +40,19 @@ Map<String, PlayerMatchStats> computePlayerMatchStats({
       goals[id] = (goals[id] ?? 0) + 1;
     }
   }
+  final minutes = <String, int>{};
+  for (final match in minutesByMatch) {
+    for (final entry in match.entries) {
+      minutes[entry.key] = (minutes[entry.key] ?? 0) + entry.value;
+    }
+  }
   return {
     for (final id in playerIds)
-      id: PlayerMatchStats(matchesPlayed: matches[id] ?? 0, goals: goals[id] ?? 0),
+      id: PlayerMatchStats(
+        matchesPlayed: matches[id] ?? 0,
+        goals: goals[id] ?? 0,
+        minutesPlayed: minutes[id] ?? 0,
+      ),
   };
 }
 
@@ -58,7 +74,5 @@ List<({String name, int goals})> topScorers({
   }
   final ordered = counts.entries.toList()
     ..sort((a, b) => b.value.compareTo(a.value));
-  return [
-    for (final e in ordered.take(limit)) (name: e.key, goals: e.value),
-  ];
+  return [for (final e in ordered.take(limit)) (name: e.key, goals: e.value)];
 }

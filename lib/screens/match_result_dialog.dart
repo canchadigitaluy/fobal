@@ -13,10 +13,12 @@ Future<MatchResult?> showMatchResultDialog(
   DateTime? initialDate,
   String? initialOpponent,
   String? calendarKey,
+
   /// Category's own players, for the optional "quién jugó / quién anotó"
   /// picker — only meaningful (and only shown) for manual/No-LUD categories,
   /// which have no league sync to source matchesPlayed/goals from.
   List<Player> players = const [],
+
   /// Best-effort lineup suggestion (from Alineación's saved history for this
   /// rival) to pre-check when creating a brand-new result. Ignored when
   /// editing an existing one — that already has its own real lineup.
@@ -70,6 +72,7 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
   bool _showOpponentError = false;
   final Set<String> _lineup = {};
   final Map<String, int> _scorers = {};
+  final Map<String, int> _minutes = {};
   bool _lineupSuggested = false;
   String _playerSearch = '';
 
@@ -93,6 +96,7 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
       for (final id in e.scorerIds) {
         _scorers[id] = (_scorers[id] ?? 0) + 1;
       }
+      _minutes.addAll(e.minutesByPlayer);
     } else if (widget.suggestedLineupIds.isNotEmpty) {
       final validIds = widget.players.map((p) => p.id).toSet();
       _lineup.addAll(widget.suggestedLineupIds.where(validIds.contains));
@@ -133,6 +137,9 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
         for (final entry in _scorers.entries)
           for (var i = 0; i < entry.value; i++) entry.key,
       ],
+      minutesByPlayer: {
+        for (final id in _lineup) id: (_minutes[id] ?? 0).clamp(0, 240),
+      },
     );
     Navigator.pop(context, result);
   }
@@ -141,7 +148,9 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
   Widget build(BuildContext context) {
     final isLud = isLudCategoryId(widget.categoryId);
     return AlertDialog(
-      title: Text(widget.existing == null ? 'Cargar resultado' : 'Editar resultado'),
+      title: Text(
+        widget.existing == null ? 'Cargar resultado' : 'Editar resultado',
+      ),
       content: SizedBox(
         width: 460,
         child: SingleChildScrollView(
@@ -160,7 +169,11 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
                   child: const Text(
                     'Este es un registro personal — no reemplaza ni modifica '
                     'la tabla oficial de la liga.',
-                    style: TextStyle(color: CX.amber, fontSize: 11.5, height: 1.35),
+                    style: TextStyle(
+                      color: CX.amber,
+                      fontSize: 11.5,
+                      height: 1.35,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -171,7 +184,9 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
                   final picked = await showDatePicker(
                     context: context,
                     initialDate: _date,
-                    firstDate: DateTime.now().subtract(const Duration(days: 730)),
+                    firstDate: DateTime.now().subtract(
+                      const Duration(days: 730),
+                    ),
                     lastDate: DateTime.now().add(const Duration(days: 7)),
                   );
                   if (picked != null) setState(() => _date = picked);
@@ -193,7 +208,9 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
                 textCapitalization: TextCapitalization.words,
                 decoration: InputDecoration(
                   labelText: 'Rival',
-                  errorText: _showOpponentError ? 'Escribí el nombre del rival' : null,
+                  errorText: _showOpponentError
+                      ? 'Escribí el nombre del rival'
+                      : null,
                 ),
                 onChanged: (_) {
                   if (_showOpponentError) {
@@ -272,7 +289,11 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
                   const SizedBox(height: 6),
                   Text(
                     'Precargado desde la última alineación citada contra este rival — revisá y ajustá.',
-                    style: const TextStyle(color: CX.blue, fontSize: 10.5, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      color: CX.blue,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 8),
@@ -293,21 +314,30 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
                     child: Column(
                       children: [
                         for (final player in widget.players.where(
-                          (p) => p.fullName
-                              .toLowerCase()
-                              .contains(_playerSearch.trim().toLowerCase()),
+                          (p) => p.fullName.toLowerCase().contains(
+                            _playerSearch.trim().toLowerCase(),
+                          ),
                         ))
                           _PlayerStatRow(
                             player: player,
                             played: _lineup.contains(player.id),
                             goals: _scorers[player.id] ?? 0,
+                            minutes: _minutes[player.id] ?? 0,
                             onPlayedChanged: (played) => setState(() {
                               if (played) {
                                 _lineup.add(player.id);
+                                if ((_minutes[player.id] ?? 0) == 0) {
+                                  _minutes[player.id] = 90;
+                                }
                               } else {
                                 _lineup.remove(player.id);
                                 _scorers.remove(player.id);
+                                _minutes.remove(player.id);
                               }
+                            }),
+                            onMinutesChanged: (minutes) => setState(() {
+                              _minutes[player.id] = minutes.clamp(0, 240);
+                              if (minutes > 0) _lineup.add(player.id);
                             }),
                             onGoalsChanged: (goals) => setState(() {
                               if (goals <= 0) {
@@ -332,10 +362,7 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancelar'),
         ),
-        ElevatedButton(
-          onPressed: _save,
-          child: const Text('Guardar'),
-        ),
+        ElevatedButton(onPressed: _save, child: const Text('Guardar')),
       ],
     );
   }
@@ -345,15 +372,19 @@ class _PlayerStatRow extends StatelessWidget {
   final Player player;
   final bool played;
   final int goals;
+  final int minutes;
   final ValueChanged<bool> onPlayedChanged;
   final ValueChanged<int> onGoalsChanged;
+  final ValueChanged<int> onMinutesChanged;
 
   const _PlayerStatRow({
     required this.player,
     required this.played,
     required this.goals,
+    required this.minutes,
     required this.onPlayedChanged,
     required this.onGoalsChanged,
+    required this.onMinutesChanged,
   });
 
   @override
@@ -374,7 +405,10 @@ class _PlayerStatRow extends StatelessWidget {
                     player.fullName.trim(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
                 if (player.hasAvailabilityWarning) ...[
@@ -382,6 +416,18 @@ class _PlayerStatRow extends StatelessWidget {
                   AvailabilityChip(player.availability, compact: true),
                 ],
               ],
+            ),
+          ),
+          SizedBox(
+            width: 58,
+            child: TextFormField(
+              key: ValueKey('${player.id}-$played'),
+              initialValue: played && minutes > 0 ? '$minutes' : '',
+              enabled: played,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              decoration: const InputDecoration(hintText: 'min', isDense: true),
+              onChanged: (value) => onMinutesChanged(int.tryParse(value) ?? 0),
             ),
           ),
           IconButton(
@@ -494,7 +540,10 @@ class _GoalStepper extends StatelessWidget {
               ),
               Text(
                 '$value',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,

@@ -20,22 +20,22 @@ import 'match_result_dialog.dart';
 bool isMatchEventType(String type) => type == 'Partido' || type == 'Torneo';
 
 Color _eventColor(String type) => switch (type) {
-      'Partido' => CX.blue,
-      'Torneo' => Colors.purple,
-      'Evento' => Colors.indigo,
-      'Cumpleaños' => Colors.pink,
-      'Tarea' => Colors.orange,
-      _ => CX.green,
-    };
+  'Partido' => CX.blue,
+  'Torneo' => Colors.purple,
+  'Evento' => Colors.indigo,
+  'Cumpleaños' => Colors.pink,
+  'Tarea' => Colors.orange,
+  _ => CX.green,
+};
 
 IconData _eventIcon(String type) => switch (type) {
-      'Partido' => Icons.sports_soccer_outlined,
-      'Torneo' => Icons.emoji_events_outlined,
-      'Evento' => Icons.event_outlined,
-      'Cumpleaños' => Icons.cake_outlined,
-      'Tarea' => Icons.task_alt,
-      _ => Icons.fitness_center,
-    };
+  'Partido' => Icons.sports_soccer_outlined,
+  'Torneo' => Icons.emoji_events_outlined,
+  'Evento' => Icons.event_outlined,
+  'Cumpleaños' => Icons.cake_outlined,
+  'Tarea' => Icons.task_alt,
+  _ => Icons.fitness_center,
+};
 
 class CalendarioScreen extends StatefulWidget {
   const CalendarioScreen({super.key});
@@ -96,7 +96,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
   void _save() {
     final payload = _events.map(
-      (key, value) => MapEntry(key, value.map((item) => item.toJson()).toList()),
+      (key, value) =>
+          MapEntry(key, value.map((item) => item.toJson()).toList()),
     );
     html.window.localStorage[_storageKey] = jsonEncode(payload);
     final scope = AppScope.of(context);
@@ -108,15 +109,14 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
         break;
       }
     }
-    unawaited(OfflineMutationService.instance.saveTacticalDataOfflineFirst(
-      type: 'calendar',
-      title: 'Calendario $categoryName',
-      content: {
-        'categoryId': categoryId,
-        'events': payload,
-      },
-      categoryId: categoryId,
-    ));
+    unawaited(
+      OfflineMutationService.instance.saveTacticalDataOfflineFirst(
+        type: 'calendar',
+        title: 'Calendario $categoryName',
+        content: {'categoryId': categoryId, 'events': payload},
+        categoryId: categoryId,
+      ),
+    );
   }
 
   void _openDay(DateTime day) {
@@ -125,7 +125,11 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
   void _addEvent(DateTime day, _CalendarEvent event) {
     setState(() {
-      _events.update(_key(day), (items) => [...items, event], ifAbsent: () => [event]);
+      _events.update(
+        _key(day),
+        (items) => [...items, event],
+        ifAbsent: () => [event],
+      );
       _save();
     });
   }
@@ -159,8 +163,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     final categoryPlayers = isLudCategoryId(categoryId)
         ? const <Player>[]
         : scope.fullClub.players
-            .where((player) => player.categoryId == categoryId)
-            .toList();
+              .where((player) => player.categoryId == categoryId)
+              .toList();
     final result = await showMatchResultDialog(
       context,
       categoryId: categoryId,
@@ -174,11 +178,13 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     final nextResults = [...club.matchResults, result];
     var players = club.players;
     if (categoryPlayers.isNotEmpty) {
-      final categoryResults =
-          nextResults.where((r) => r.categoryId == categoryId).toList();
+      final categoryResults = nextResults
+          .where((r) => r.categoryId == categoryId)
+          .toList();
       final stats = computePlayerMatchStats(
         lineups: [for (final r in categoryResults) r.lineupIds],
         scorers: [for (final r in categoryResults) r.scorerIds],
+        minutesByMatch: [for (final r in categoryResults) r.minutesByPlayer],
         playerIds: categoryPlayers.map((p) => p.id).toList(),
       );
       players = [
@@ -187,12 +193,15 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
             player.copyWith(
               matchesPlayed: stats[player.id]!.matchesPlayed,
               goals: stats[player.id]!.goals,
+              minutesPlayed: stats[player.id]!.minutesPlayed,
             )
           else
             player,
       ];
     }
-    scope.updateClub(club.copyWith(matchResults: nextResults, players: players));
+    scope.updateClub(
+      club.copyWith(matchResults: nextResults, players: players),
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Resultado cargado para ${event.title}.')),
     );
@@ -214,7 +223,12 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
     final offset = (first.weekday + 6) % 7;
     final cells = List<DateTime?>.filled(offset, null, growable: true)
-      ..addAll(List.generate(daysInMonth, (i) => DateTime(_month.year, _month.month, i + 1)));
+      ..addAll(
+        List.generate(
+          daysInMonth,
+          (i) => DateTime(_month.year, _month.month, i + 1),
+        ),
+      );
     while (cells.length % 7 != 0) {
       cells.add(null);
     }
@@ -279,30 +293,31 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                       ),
                       const SizedBox(height: 8),
                       Row(
-                        children: const [
-                          'LUN',
-                          'MAR',
-                          'MIÉ',
-                          'JUE',
-                          'VIE',
-                          'SÁB',
-                          'DOM',
-                        ]
-                            .map(
-                              (d) => Expanded(
-                                child: Center(
-                                  child: Text(
-                                    d,
-                                    style: TextStyle(
-                                      color: CX.faint,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
+                        children:
+                            const [
+                                  'LUN',
+                                  'MAR',
+                                  'MIÉ',
+                                  'JUE',
+                                  'VIE',
+                                  'SÁB',
+                                  'DOM',
+                                ]
+                                .map(
+                                  (d) => Expanded(
+                                    child: Center(
+                                      child: Text(
+                                        d,
+                                        style: TextStyle(
+                                          color: CX.faint,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
-                            )
-                            .toList(),
+                                )
+                                .toList(),
                       ),
                       const SizedBox(height: 8),
                       GridView.builder(
@@ -318,7 +333,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                           final day = cells[index];
                           if (day == null) return const SizedBox.shrink();
                           final today = _key(day) == _key(DateTime.now());
-                          final selected = _selectedDay != null &&
+                          final selected =
+                              _selectedDay != null &&
                               _key(day) == _key(_selectedDay!);
                           final dayEvents = _events[_key(day)] ?? const [];
                           final types = <String>{
@@ -333,8 +349,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                 color: selected
                                     ? CX.green.withValues(alpha: .12)
                                     : today
-                                        ? CX.greenDark
-                                        : Colors.transparent,
+                                    ? CX.greenDark
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: selected || today ? CX.green : CX.line,
@@ -356,7 +372,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                   SizedBox(
                                     height: 6,
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         for (final t in types)
                                           Container(
@@ -388,20 +405,30 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                           onOpenDay: _openDay,
                           onEdit: _openDayToEdit,
                           preparedEventIds: {
-                            for (final p in AppScope.of(context).fullClub.matchPreparations)
-                              if (p.calendarEventId.isNotEmpty) p.calendarEventId,
+                            for (final p in AppScope.of(
+                              context,
+                            ).fullClub.matchPreparations)
+                              if (p.calendarEventId.isNotEmpty)
+                                p.calendarEventId,
                           },
                           sessions: AppScope.of(context).club.sessions,
                         ),
                         Builder(
                           builder: (context) {
                             final logged = {
-                              for (final r in AppScope.of(context).fullClub.matchResults)
+                              for (final r in AppScope.of(
+                                context,
+                              ).fullClub.matchResults)
                                 if (r.calendarKey.isNotEmpty) r.calendarKey,
                             };
                             final now = DateTime.now();
-                            final floor = DateTime(now.year, now.month, now.day);
-                            final pending = <({DateTime day, _CalendarEvent event})>[];
+                            final floor = DateTime(
+                              now.year,
+                              now.month,
+                              now.day,
+                            );
+                            final pending =
+                                <({DateTime day, _CalendarEvent event})>[];
                             for (final entry in _events.entries) {
                               final parts = entry.key.split('-');
                               if (parts.length != 3) continue;
@@ -436,19 +463,25 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                           day: _selectedDay!,
                           events: _events[_key(_selectedDay!)] ?? const [],
                           loggedKeys: {
-                            for (final r in AppScope.of(context)
-                                .fullClub
-                                .matchResults)
+                            for (final r in AppScope.of(
+                              context,
+                            ).fullClub.matchResults)
                               if (r.calendarKey.isNotEmpty) r.calendarKey,
                           },
                           scoreByKey: {
-                            for (final r in AppScope.of(context).fullClub.matchResults)
+                            for (final r in AppScope.of(
+                              context,
+                            ).fullClub.matchResults)
                               if (r.calendarKey.isNotEmpty)
-                                r.calendarKey: '${r.goalsFor}-${r.goalsAgainst}',
+                                r.calendarKey:
+                                    '${r.goalsFor}-${r.goalsAgainst}',
                           },
                           preparedEventIds: {
-                            for (final p in AppScope.of(context).fullClub.matchPreparations)
-                              if (p.calendarEventId.isNotEmpty) p.calendarEventId,
+                            for (final p in AppScope.of(
+                              context,
+                            ).fullClub.matchPreparations)
+                              if (p.calendarEventId.isNotEmpty)
+                                p.calendarEventId,
                           },
                           daySessions: sessionsOnDay(
                             AppScope.of(context).club.sessions,
@@ -479,19 +512,19 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
   }
 
   String _monthName(int month) => const [
-        'Enero',
-        'Febrero',
-        'Marzo',
-        'Abril',
-        'Mayo',
-        'Junio',
-        'Julio',
-        'Agosto',
-        'Setiembre',
-        'Octubre',
-        'Noviembre',
-        'Diciembre',
-      ][month - 1];
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Setiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
+  ][month - 1];
 }
 
 class _PendingResultsPanel extends StatelessWidget {
@@ -517,12 +550,15 @@ class _PendingResultsPanel extends StatelessWidget {
             children: [
               Icon(Icons.scoreboard_outlined, color: CX.amber, size: 16),
               SizedBox(width: 6),
-              Text('PARTIDOS SIN RESULTADO',
-                  style: TextStyle(
-                      color: CX.amber,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .4)),
+              Text(
+                'PARTIDOS SIN RESULTADO',
+                style: TextStyle(
+                  color: CX.amber,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .4,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -540,7 +576,9 @@ class _PendingResultsPanel extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 12.5),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12.5,
+                        ),
                       ),
                     ),
                     Text(
@@ -578,13 +616,12 @@ class _UpcomingEvents extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final upcomingSessions =
-        sessions.where((session) {
-            if (session.status == 'completed') return false;
-            final date = DateTime.tryParse(session.scheduledDate);
-            return date != null && !DateTime(date.year, date.month, date.day).isBefore(today);
-          }).toList()
-          ..sort((a, b) => a.scheduledDate.compareTo(b.scheduledDate));
+    final upcomingSessions = sessions.where((session) {
+      if (session.status == 'completed') return false;
+      final date = DateTime.tryParse(session.scheduledDate);
+      return date != null &&
+          !DateTime(date.year, date.month, date.day).isBefore(today);
+    }).toList()..sort((a, b) => a.scheduledDate.compareTo(b.scheduledDate));
     final upcoming = <({DateTime day, _CalendarEvent event})>[];
     for (final entry in events.entries) {
       final parts = entry.key.split('-');
@@ -661,8 +698,11 @@ class _UpcomingEvents extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Icon(_eventIcon(item.event.type),
-                      size: 16, color: _eventColor(item.event.type)),
+                  Icon(
+                    _eventIcon(item.event.type),
+                    size: 16,
+                    color: _eventColor(item.event.type),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -675,23 +715,25 @@ class _UpcomingEvents extends StatelessWidget {
                                 item.event.title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.w700),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                             if (isMatchEventType(item.event.type) &&
                                 preparedEventIds.contains(item.event.id)) ...[
                               const SizedBox(width: 5),
-                              const Icon(Icons.assignment_turned_in_outlined,
-                                  size: 13, color: CX.green),
+                              const Icon(
+                                Icons.assignment_turned_in_outlined,
+                                size: 13,
+                                color: CX.green,
+                              ),
                             ],
                           ],
                         ),
                         Text(
                           _dayLabel(item.day),
-                          style: const TextStyle(
-                            color: CX.faint,
-                            fontSize: 11,
-                          ),
+                          style: const TextStyle(color: CX.faint, fontSize: 11),
                         ),
                         if (item.event.notes.trim().isNotEmpty)
                           Padding(
@@ -739,7 +781,11 @@ class _UpcomingEvents extends StatelessWidget {
                     tooltip: 'Editar',
                     visualDensity: VisualDensity.compact,
                     onPressed: () => onEdit(item.day, item.event.id),
-                    icon: const Icon(Icons.edit_outlined, size: 17, color: CX.muted),
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      size: 17,
+                      color: CX.muted,
+                    ),
                   ),
                 ],
               ),
@@ -775,8 +821,18 @@ class _UpcomingEvents extends StatelessWidget {
   static String _dayLabel(DateTime day) {
     const wd = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
     const mo = [
-      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-      'jul', 'ago', 'set', 'oct', 'nov', 'dic',
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'set',
+      'oct',
+      'nov',
+      'dic',
     ];
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -824,7 +880,10 @@ class _PlannedSessionTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-                Text(dayLabel, style: const TextStyle(color: CX.faint, fontSize: 11)),
+                Text(
+                  dayLabel,
+                  style: const TextStyle(color: CX.faint, fontSize: 11),
+                ),
               ],
             ),
           ),
@@ -936,8 +995,8 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
         content: Text(
           hasResult
               ? 'Vas a borrar "${event.title}". Este partido tiene un '
-                  'resultado cargado: el evento se borra del calendario, '
-                  'pero el resultado se conserva en Estadísticas.'
+                    'resultado cargado: el evento se borra del calendario, '
+                    'pero el resultado se conserva en Estadísticas.'
               : 'Vas a borrar "${event.title}". No se puede deshacer.',
         ),
         actions: [
@@ -956,9 +1015,9 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
     if (_editingIndex == index) _resetForm();
     widget.onDelete(index);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Evento borrado: ${event.title}')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Evento borrado: ${event.title}')));
   }
 
   Future<void> _pickTime() async {
@@ -995,7 +1054,9 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(editing != null ? 'Evento actualizado.' : 'Evento agregado.'),
+        content: Text(
+          editing != null ? 'Evento actualizado.' : 'Evento agregado.',
+        ),
       ),
     );
     _resetForm();
@@ -1014,46 +1075,56 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
       child: Material(
         type: MaterialType.transparency,
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${_weekday(widget.day.weekday)}, ${widget.day.day} de ${_month(widget.day.month)}',
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
-                ),
-              ),
-              if (widget.events.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: CX.panel2,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
+            Row(
+              children: [
+                Expanded(
                   child: Text(
-                    '${widget.events.length}',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11),
+                    '${_weekday(widget.day.weekday)}, ${widget.day.day} de ${_month(widget.day.month)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
-              IconButton(onPressed: widget.onClose, icon: const Icon(Icons.close)),
-            ],
-          ),
-          const SizedBox(height: 8),
+                if (widget.events.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: CX.panel2,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '${widget.events.length}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                IconButton(
+                  onPressed: widget.onClose,
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             if (widget.events.isEmpty && widget.daySessions.isEmpty)
               const EmptyStatePanel(
                 icon: Icons.calendar_month,
                 title: 'No hay eventos este día',
-                message: 'Cargá un entrenamiento, partido u otro evento con '
+                message:
+                    'Cargá un entrenamiento, partido u otro evento con '
                     'el formulario de abajo.',
               )
             else ...[
               for (final session in widget.daySessions)
-                _PlannedSessionTile(
-                  session: session,
-                  dayLabel: 'Planificada',
-                ),
+                _PlannedSessionTile(session: session, dayLabel: 'Planificada'),
               for (final (index, event) in widget.events.indexed)
                 _EventTile(
                   day: widget.day,
@@ -1068,13 +1139,15 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
                     context,
                     calendarEventId: event.id,
                     rival: event.title,
-                    date: '${widget.day.day.toString().padLeft(2, '0')}/'
+                    date:
+                        '${widget.day.day.toString().padLeft(2, '0')}/'
                         '${widget.day.month.toString().padLeft(2, '0')}/'
                         '${widget.day.year}',
                     time: event.time,
                   ),
-                  onTakeAttendance: () => ShellActions.maybeOf(context)
-                      ?.openSection(ShellSection.attendance),
+                  onTakeAttendance: () => ShellActions.maybeOf(
+                    context,
+                  )?.openSection(ShellSection.attendance),
                 ),
             ],
             const SizedBox(height: 10),
@@ -1085,9 +1158,20 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
             DropdownButtonFormField<String>(
               value: _type,
               decoration: const InputDecoration(labelText: 'Tipo de evento'),
-              items: const ['Entrenamiento', 'Partido', 'Torneo', 'Evento', 'Cumpleaños', 'Tarea']
-                  .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-                  .toList(),
+              items:
+                  const [
+                        'Entrenamiento',
+                        'Partido',
+                        'Torneo',
+                        'Evento',
+                        'Cumpleaños',
+                        'Tarea',
+                      ]
+                      .map(
+                        (item) =>
+                            DropdownMenuItem(value: item, child: Text(item)),
+                      )
+                      .toList(),
               onChanged: (value) => setState(() => _type = value ?? _type),
             ),
             const SizedBox(height: 10),
@@ -1112,7 +1196,9 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
                         ),
                 ),
                 child: Text(
-                  _timeValue.trim().isEmpty ? 'Sin hora definida' : _timeValue.trim(),
+                  _timeValue.trim().isEmpty
+                      ? 'Sin hora definida'
+                      : _timeValue.trim(),
                   style: TextStyle(
                     color: _timeValue.trim().isEmpty ? CX.faint : CX.white,
                     fontWeight: FontWeight.w700,
@@ -1156,8 +1242,22 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
     );
   }
 
-  static String _weekday(int day) => const ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'][day - 1];
-  static String _month(int month) => const ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'setiembre', 'octubre', 'noviembre', 'diciembre'][month - 1];
+  static String _weekday(int day) =>
+      const ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'][day - 1];
+  static String _month(int month) => const [
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'setiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+  ][month - 1];
 }
 
 class _EventTile extends StatelessWidget {
@@ -1188,8 +1288,11 @@ class _EventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    final past = DateTime(day.year, day.month, day.day)
-        .isBefore(DateTime(today.year, today.month, today.day));
+    final past = DateTime(
+      day.year,
+      day.month,
+      day.day,
+    ).isBefore(DateTime(today.year, today.month, today.day));
     final isMatch = isMatchEventType(event.type);
     final color = _eventColor(event.type);
     return Container(
@@ -1253,7 +1356,11 @@ class _EventTile extends StatelessWidget {
                 tooltip: 'Editar',
                 visualDensity: VisualDensity.compact,
                 onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined, size: 18, color: CX.muted),
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  size: 18,
+                  color: CX.muted,
+                ),
               ),
               IconButton(
                 tooltip: 'Borrar',
@@ -1267,7 +1374,11 @@ class _EventTile extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               event.notes.trim(),
-              style: const TextStyle(color: CX.faint, fontSize: 11.5, height: 1.35),
+              style: const TextStyle(
+                color: CX.faint,
+                fontSize: 11.5,
+                height: 1.35,
+              ),
             ),
           ],
           if (isMatch) ...[
@@ -1284,14 +1395,18 @@ class _EventTile extends StatelessWidget {
                         : Icons.assignment_outlined,
                     size: 16,
                   ),
-                  label: Text(hasPreparation ? 'Ver plan de partido' : 'Preparar partido'),
+                  label: Text(
+                    hasPreparation ? 'Ver plan de partido' : 'Preparar partido',
+                  ),
                 ),
                 if (past)
                   logged
                       ? Chip(
-                          label: Text(resultScore == null
-                              ? 'Resultado cargado'
-                              : 'Resultado $resultScore'),
+                          label: Text(
+                            resultScore == null
+                                ? 'Resultado cargado'
+                                : 'Resultado $resultScore',
+                          ),
                           visualDensity: VisualDensity.compact,
                         )
                       : OutlinedButton.icon(
@@ -1302,7 +1417,9 @@ class _EventTile extends StatelessWidget {
               ],
             ),
           ],
-          if (!isMatch && event.type == 'Entrenamiento' && onTakeAttendance != null) ...[
+          if (!isMatch &&
+              event.type == 'Entrenamiento' &&
+              onTakeAttendance != null) ...[
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: onTakeAttendance,
@@ -1339,7 +1456,10 @@ class _Legend extends StatelessWidget {
               children: [
                 CircleAvatar(radius: 3, backgroundColor: entry.value),
                 const SizedBox(width: 5),
-                Text(entry.key, style: const TextStyle(color: CX.muted, fontSize: 11)),
+                Text(
+                  entry.key,
+                  style: const TextStyle(color: CX.muted, fontSize: 11),
+                ),
               ],
             ),
           )
@@ -1367,16 +1487,21 @@ class _CalendarEvent {
     this.notes = '',
   });
 
-  Map<String, dynamic> toJson() =>
-      {'id': id, 'type': type, 'title': title, 'time': time, 'notes': notes};
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type,
+    'title': title,
+    'time': time,
+    'notes': notes,
+  };
 
   factory _CalendarEvent.fromJson(Map<String, dynamic> json) => _CalendarEvent(
-        id: (json['id'] as String?)?.trim().isNotEmpty == true
-            ? json['id'] as String
-            : newEventId(),
-        type: json['type'] as String? ?? 'Entrenamiento',
-        title: json['title'] as String? ?? '',
-        time: json['time'] as String? ?? '',
-        notes: json['notes'] as String? ?? '',
-      );
+    id: (json['id'] as String?)?.trim().isNotEmpty == true
+        ? json['id'] as String
+        : newEventId(),
+    type: json['type'] as String? ?? 'Entrenamiento',
+    title: json['title'] as String? ?? '',
+    time: json['time'] as String? ?? '',
+    notes: json['notes'] as String? ?? '',
+  );
 }

@@ -100,6 +100,7 @@ class CanteraClub {
   /// from the league and normally leave this empty; a friendly the league does
   /// not track can still be added here.
   final List<MatchResult> matchResults;
+  final List<CallUp> callUps;
 
   /// Club-wide reusable exercise library — not filtered by category (an
   /// exercise with an empty `categoryId` applies to every squad).
@@ -130,6 +131,7 @@ class CanteraClub {
     required this.trainingReports,
     this.attendanceRecords = const [],
     this.matchResults = const [],
+    this.callUps = const [],
     this.savedExercises = const [],
     this.matchPreparations = const [],
     required this.alerts,
@@ -158,6 +160,7 @@ class CanteraClub {
     List<TrainingReport>? trainingReports,
     List<AttendanceRecord>? attendanceRecords,
     List<MatchResult>? matchResults,
+    List<CallUp>? callUps,
     List<Exercise>? savedExercises,
     List<MatchPreparation>? matchPreparations,
     List<IntelligentAlert>? alerts,
@@ -185,6 +188,7 @@ class CanteraClub {
       trainingReports: trainingReports ?? this.trainingReports,
       attendanceRecords: attendanceRecords ?? this.attendanceRecords,
       matchResults: matchResults ?? this.matchResults,
+      callUps: callUps ?? this.callUps,
       savedExercises: savedExercises ?? this.savedExercises,
       matchPreparations: matchPreparations ?? this.matchPreparations,
       alerts: alerts ?? this.alerts,
@@ -215,6 +219,7 @@ class CanteraClub {
       'trainingReports': trainingReports.map((r) => r.toJson()).toList(),
       'attendanceRecords': attendanceRecords.map((r) => r.toJson()).toList(),
       'matchResults': matchResults.map((r) => r.toJson()).toList(),
+      'callUps': callUps.map((r) => r.toJson()).toList(),
       'savedExercises': savedExercises.map((e) => e.toJson()).toList(),
       'matchPreparations': matchPreparations.map((m) => m.toJson()).toList(),
       'users': users.map((u) => u.toJson()).toList(),
@@ -264,6 +269,10 @@ class CanteraClub {
       matchResults: (json['matchResults'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map(MatchResult.fromJson)
+          .toList(),
+      callUps: (json['callUps'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((item) => CallUp.fromJson(Map<String, dynamic>.from(item)))
           .toList(),
       savedExercises: (json['savedExercises'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
@@ -1940,6 +1949,92 @@ class AnimationScene {
       isFallback: true,
     );
   }
+}
+
+enum CallUpReason { lesionado, decisionTecnica, sancionado, permiso, otro }
+
+extension CallUpReasonX on CallUpReason {
+  String get label => switch (this) {
+    CallUpReason.lesionado => 'Lesionado',
+    CallUpReason.decisionTecnica => 'Decisión técnica',
+    CallUpReason.sancionado => 'Sancionado',
+    CallUpReason.permiso => 'Permiso',
+    CallUpReason.otro => 'Otro',
+  };
+}
+
+CallUpReason callUpReasonFromName(String? value) {
+  for (final reason in CallUpReason.values) {
+    if (reason.name == value) return reason;
+  }
+  return CallUpReason.decisionTecnica;
+}
+
+class CallUp {
+  final String calendarKey;
+  final String categoryId;
+  final String date;
+  final String time;
+  final String venue;
+  final String opponent;
+  final List<String> calledIds;
+  final Map<String, CallUpReason> excused;
+  final Map<String, String> otherReasons;
+  final Map<String, int> shirtNumbers;
+  final String staffNote;
+
+  const CallUp({
+    required this.calendarKey,
+    required this.categoryId,
+    this.date = '',
+    this.time = '',
+    this.venue = '',
+    this.opponent = '',
+    this.calledIds = const [],
+    this.excused = const {},
+    this.otherReasons = const {},
+    this.shirtNumbers = const {},
+    this.staffNote = '',
+  });
+
+  Map<String, dynamic> toJson() => {
+    'calendarKey': calendarKey,
+    'categoryId': categoryId,
+    'date': date,
+    'time': time,
+    'venue': venue,
+    'opponent': opponent,
+    'calledIds': calledIds,
+    'excused': {for (final e in excused.entries) e.key: e.value.name},
+    'otherReasons': otherReasons,
+    'shirtNumbers': shirtNumbers,
+    'staffNote': staffNote,
+  };
+
+  factory CallUp.fromJson(Map<String, dynamic> json) => CallUp(
+    calendarKey: json['calendarKey'] as String? ?? '',
+    categoryId: json['categoryId'] as String? ?? '',
+    date: json['date'] as String? ?? '',
+    time: json['time'] as String? ?? '',
+    venue: json['venue'] as String? ?? '',
+    opponent: json['opponent'] as String? ?? '',
+    calledIds: List<String>.from(
+      json['calledIds'] as List<dynamic>? ?? const [],
+    ),
+    excused: {
+      for (final entry in (json['excused'] as Map? ?? const {}).entries)
+        '${entry.key}': callUpReasonFromName('${entry.value}'),
+    },
+    otherReasons: {
+      for (final entry in (json['otherReasons'] as Map? ?? const {}).entries)
+        '${entry.key}': '${entry.value}',
+    },
+    shirtNumbers: {
+      for (final entry in (json['shirtNumbers'] as Map? ?? const {}).entries)
+        '${entry.key}': (entry.value as num?)?.toInt() ?? 0,
+    },
+    staffNote: json['staffNote'] as String? ?? '',
+  );
 }
 
 /// A match result a coach enters by hand. Persisted inside the club blob, so it

@@ -148,6 +148,29 @@ void main() {
     expect(MatchResult.fromJson(const {'id': 'old'}).minutesByPlayer, isEmpty);
   });
 
+  test('CallUp round-trips and old clubs default to no call-ups', () {
+    final withCallUp = club.copyWith(
+      callUps: const [
+        CallUp(
+          calendarKey: 'cat-1|2026-09-12|rival',
+          categoryId: 'cat-1',
+          opponent: 'Rival',
+          calledIds: ['p1'],
+          excused: {'p2': CallUpReason.lesionado},
+          shirtNumbers: {'p1': 8},
+          staffNote: 'Llegar 45 minutos antes',
+        ),
+      ],
+    );
+    final restored = ClubBackupCodec.parseClubJson(
+      ClubBackupCodec.exportJson(withCallUp),
+    )!;
+    expect(restored.callUps.single.calledIds, ['p1']);
+    expect(restored.callUps.single.excused['p2'], CallUpReason.lesionado);
+    expect(restored.callUps.single.shirtNumbers['p1'], 8);
+    expect(CanteraClub.fromJson(const {'id': 'old'}).callUps, isEmpty);
+  });
+
   test('AttendanceRecord round-trips through the club blob', () {
     final club = canteraDemoClub.copyWith(
       attendanceRecords: const [

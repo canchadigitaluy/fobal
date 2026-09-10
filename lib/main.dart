@@ -425,6 +425,9 @@ class _CanteraAppState extends State<CanteraApp> {
       matchResults: _club.matchResults
           .where((result) => result.categoryId == categoryId)
           .toList(),
+      callUps: _club.callUps
+          .where((item) => item.categoryId == categoryId)
+          .toList(),
       matchPreparations: _club.matchPreparations
           .where((prep) => prep.categoryId == categoryId)
           .toList(),
@@ -511,6 +514,10 @@ class _CanteraAppState extends State<CanteraApp> {
         ...scopedClub.matchResults.where(
           (result) => result.categoryId == categoryId,
         ),
+      ],
+      callUps: [
+        ..._club.callUps.where((item) => item.categoryId != categoryId),
+        ...scopedClub.callUps.where((item) => item.categoryId == categoryId),
       ],
       // Club-wide, not category-scoped — same treatment as name/league/etc.
       savedExercises: scopedClub.savedExercises,

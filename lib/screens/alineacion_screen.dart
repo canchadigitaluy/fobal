@@ -33,6 +33,8 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
   final _timeController = TextEditingController();
   final _titleController = TextEditingController();
   final _captureKey = GlobalKey();
+  final _callUpCaptureKey = GlobalKey();
+  final _callUpNoteController = TextEditingController();
   final List<String?> _xi = List<String?>.filled(11, null);
   final List<String?> _subs = List<String?>.filled(7, null);
   final Map<int, Offset> _customSpots = {};
@@ -41,6 +43,11 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
   String _formation = '4-4-2';
   bool _editing = false;
   String _plantelFilter = '';
+  bool _listMode = false;
+  final Set<String> _calledIds = {};
+  final Map<String, CallUpReason> _excused = {};
+  final Map<String, String> _otherReasons = {};
+  final Map<String, int> _shirtNumbers = {};
 
   static const _formations = <String, List<_Spot>>{
     '4-4-2': [
@@ -144,8 +151,8 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     final next = club.categories.any((c) => c.id == _categoryId)
         ? _categoryId
         : club.categories.isEmpty
-            ? null
-            : club.categories.first.id;
+        ? null
+        : club.categories.first.id;
     if (_categoryId == next) return;
     _categoryId = next;
     _plantelFilter = '';
@@ -169,6 +176,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     _dateController.dispose();
     _timeController.dispose();
     _titleController.dispose();
+    _callUpNoteController.dispose();
     super.dispose();
   }
 
@@ -263,16 +271,133 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     html.window.localStorage[_historyKey(club, category)] = jsonEncode(
       nextHistory.map((item) => item.toJson()).toList(),
     );
-    unawaited(OfflineMutationService.instance.saveTacticalDataOfflineFirst(
-      type: 'alignment',
-      title: title,
-      content: payload,
-      categoryId: category.id,
-    ));
+    unawaited(
+      OfflineMutationService.instance.saveTacticalDataOfflineFirst(
+        type: 'alignment',
+        title: title,
+        content: payload,
+        categoryId: category.id,
+      ),
+    );
     setState(() => _savedAlignments = nextHistory);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('Guardada en Alineación: $title')));
+  }
+
+  String _callUpKey(CategorySquad category) => [
+    category.id,
+    _dateController.text.trim(),
+    _rivalController.text.trim().toLowerCase(),
+  ].join('|');
+
+  void _loadCallUp(CanteraClub club, CategorySquad category) {
+    final key = _callUpKey(category);
+    CallUp? saved;
+    for (final item in club.callUps) {
+      if (item.calendarKey == key) saved = item;
+    }
+    setState(() {
+      _calledIds
+        ..clear()
+        ..addAll(saved?.calledIds ?? const []);
+      _excused
+        ..clear()
+        ..addAll(saved?.excused ?? const {});
+      _shirtNumbers
+        ..clear()
+        ..addAll(saved?.shirtNumbers ?? const {});
+      _otherReasons
+        ..clear()
+        ..addAll(saved?.otherReasons ?? const {});
+      _callUpNoteController.text = saved?.staffNote ?? '';
+      _listMode = true;
+    });
+  }
+
+  void _saveCallUp(CanteraClub club, CategorySquad category) {
+    final key = _callUpKey(category);
+    final item = CallUp(
+      calendarKey: key,
+      categoryId: category.id,
+      date: _dateController.text.trim(),
+      time: _timeController.text.trim(),
+      opponent: _rivalController.text.trim(),
+      calledIds: _calledIds.toList(),
+      excused: Map.of(_excused),
+      otherReasons: Map.of(_otherReasons),
+      shirtNumbers: Map.of(_shirtNumbers),
+      staffNote: _callUpNoteController.text.trim(),
+    );
+    final next = [
+      for (final existing in club.callUps)
+        if (existing.calendarKey != key) existing,
+      item,
+    ];
+    AppScope.of(context).updateClub(club.copyWith(callUps: next));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Citación guardada.')));
+  }
+
+  void _exportCallUpText(
+    CanteraClub club,
+    CategorySquad category,
+    List<Player> players,
+  ) {
+    final byId = {for (final player in players) player.id: player};
+    final content = formatCitationText(
+      title: _titleController.text.trim(),
+      categoryName: category.name,
+      rival: _rivalController.text.trim(),
+      date: _dateController.text.trim(),
+      time: _timeController.text.trim(),
+      titulares: [
+        for (final id in _calledIds)
+          '${_shirtNumbers[id] == null ? '' : '${_shirtNumbers[id]} · '}${byId[id]?.fullName ?? id}',
+      ],
+      suplentes: const [],
+      noConvocados: [
+        for (final entry in _excused.entries)
+          '${byId[entry.key]?.fullName ?? entry.key}: ${entry.value == CallUpReason.otro && (_otherReasons[entry.key] ?? '').isNotEmpty ? _otherReasons[entry.key] : entry.value.label}',
+      ],
+      notes: _callUpNoteController.text.trim(),
+    );
+    showExportPreviewDialog(
+      context,
+      title: 'Citación',
+      content: content,
+      fileName: buildExportFileName(
+        club: club.name,
+        category: category.name,
+        type: 'citacion',
+        extension: 'txt',
+      ),
+      onDownload: ExportDownloadService.downloadText,
+    );
+  }
+
+  Future<void> _exportCallUpImage(
+    CanteraClub club,
+    CategorySquad category,
+  ) async {
+    final boundary =
+        _callUpCaptureKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
+    if (boundary == null) return;
+    final image = await boundary.toImage(pixelRatio: 3);
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    if (bytes == null) return;
+    ExportDownloadService.downloadBytes(
+      buildExportFileName(
+        club: club.name,
+        category: category.name,
+        type: 'citacion',
+        extension: 'png',
+      ),
+      bytes.buffer.asUint8List(),
+      mime: 'image/png',
+    );
   }
 
   void _deleteSaved(
@@ -287,9 +412,9 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
       nextHistory.map((entry) => entry.toJson()).toList(),
     );
     setState(() => _savedAlignments = nextHistory);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Borrada: ${item.title}')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Borrada: ${item.title}')));
   }
 
   Future<void> _exportImage(CanteraClub club, CategorySquad category) async {
@@ -313,9 +438,9 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
       ..click();
     html.Url.revokeObjectUrl(url);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Imagen descargada: $fileName')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Imagen descargada: $fileName')));
   }
 
   void _exportCitation(
@@ -334,7 +459,10 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
         if (id != null) names[id] ?? '-',
     ];
     final availabilityNotes = [
-      for (final id in [..._xi.whereType<String>(), ..._subs.whereType<String>()])
+      for (final id in [
+        ..._xi.whereType<String>(),
+        ..._subs.whereType<String>(),
+      ])
         if (byId[id]?.hasAvailabilityWarning ?? false)
           '${byId[id]!.fullName.trim()}: ${byId[id]!.availability.label.toLowerCase()}, confirmar antes del partido.',
     ];
@@ -363,9 +491,9 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
       fileName: fileName,
       onDownload: (name, text) {
         ExportDownloadService.downloadText(name, text);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Citación descargada: $name')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Citación descargada: $name')));
       },
     );
   }
@@ -497,14 +625,89 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
               ),
               const SizedBox(height: 12),
             ],
+            if (category != null) ...[
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(
+                    value: false,
+                    icon: Icon(Icons.stadium_outlined),
+                    label: Text('Cancha'),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    icon: Icon(Icons.format_list_bulleted),
+                    label: Text('Listado'),
+                  ),
+                ],
+                selected: {_listMode},
+                onSelectionChanged: (value) {
+                  if (value.first) {
+                    _loadCallUp(club, category);
+                  } else {
+                    setState(() => _listMode = false);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
             if (category == null)
               const EmptyStatePanel(
                 icon: Icons.account_tree_outlined,
                 title: 'Primero cargá una categoría',
-                message: 'Creá una categoría con jugadores para poder armar '
+                message:
+                    'Creá una categoría con jugadores para poder armar '
                     'la alineación y la citación.',
               )
-            else if (!_editing) ...[
+            else if (_listMode) ...[
+              _AlignmentHeader(
+                categories: club.categories,
+                categoryId: category.id,
+                titleController: _titleController,
+                rivalController: _rivalController,
+                dateController: _dateController,
+                timeController: _timeController,
+                formation: _formation,
+                formations: _formations.keys.toList(),
+                onCategory: (value) => setState(() => _categoryId = value),
+                onFormation: (_) {},
+              ),
+              const SizedBox(height: 12),
+              RepaintBoundary(
+                key: _callUpCaptureKey,
+                child: _CallUpEditor(
+                  players: visiblePlayers,
+                  planteles: planteles,
+                  calledIds: _calledIds,
+                  excused: _excused,
+                  otherReasons: _otherReasons,
+                  shirtNumbers: _shirtNumbers,
+                  noteController: _callUpNoteController,
+                  onChanged: () => setState(() {}),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    onPressed: () => _saveCallUp(club, category),
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('Guardar citación'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _exportCallUpText(club, category, players),
+                    icon: const Icon(Icons.text_snippet_outlined),
+                    label: const Text('Exportar texto'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _exportCallUpImage(club, category),
+                    icon: const Icon(Icons.image_outlined),
+                    label: const Text('Exportar PNG'),
+                  ),
+                ],
+              ),
+            ] else if (!_editing) ...[
               if (planteles.isNotEmpty) ...[
                 Wrap(
                   spacing: 8,
@@ -564,18 +767,18 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
               ),
               Builder(
                 builder: (context) {
-                  final citedWithWarning = [
-                    ..._xi.whereType<String>(),
-                    ..._subs.whereType<String>(),
-                  ]
-                      .map((id) => playerById[id])
-                      .whereType<Player>()
-                      .where((player) => player.hasAvailabilityWarning)
-                      .toList();
+                  final citedWithWarning =
+                      [..._xi.whereType<String>(), ..._subs.whereType<String>()]
+                          .map((id) => playerById[id])
+                          .whereType<Player>()
+                          .where((player) => player.hasAvailabilityWarning)
+                          .toList();
                   if (citedWithWarning.isEmpty) return const SizedBox.shrink();
                   return Padding(
                     padding: const EdgeInsets.only(top: 10),
-                    child: _AvailabilityWarningBanner(players: citedWithWarning),
+                    child: _AvailabilityWarningBanner(
+                      players: citedWithWarning,
+                    ),
                   );
                 },
               ),
@@ -686,6 +889,143 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
 
 /// Read-only "qué falta" readout: never picks players on its own, just
 /// counts what the DT already placed on the pitch and the bench.
+class _CallUpEditor extends StatelessWidget {
+  final List<Player> players;
+  final List<Plantel> planteles;
+  final Set<String> calledIds;
+  final Map<String, CallUpReason> excused;
+  final Map<String, String> otherReasons;
+  final Map<String, int> shirtNumbers;
+  final TextEditingController noteController;
+  final VoidCallback onChanged;
+
+  const _CallUpEditor({
+    required this.players,
+    required this.planteles,
+    required this.calledIds,
+    required this.excused,
+    required this.otherReasons,
+    required this.shirtNumbers,
+    required this.noteController,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final plantelNames = {for (final p in planteles) p.id: p.name};
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: CX.panelDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const PremiumSectionHeader(
+            eyebrow: 'CITACIÓN',
+            title: 'Listado del partido',
+          ),
+          const SizedBox(height: 8),
+          for (final player in players)
+            Material(
+              type: MaterialType.transparency,
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Checkbox(
+                  value: calledIds.contains(player.id),
+                  onChanged: (value) {
+                    if (value ?? false) {
+                      calledIds.add(player.id);
+                      excused.remove(player.id);
+                      otherReasons.remove(player.id);
+                    } else {
+                      calledIds.remove(player.id);
+                      excused[player.id] = CallUpReason.decisionTecnica;
+                    }
+                    onChanged();
+                  },
+                ),
+                title: Text(
+                  player.fullName,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      [
+                        player.position,
+                        if (plantelNames[player.plantelId] != null)
+                          plantelNames[player.plantelId]!,
+                      ].where((e) => e.isNotEmpty).join(' · '),
+                    ),
+                    if (!calledIds.contains(player.id) &&
+                        excused[player.id] == CallUpReason.otro)
+                      SizedBox(
+                        width: 180,
+                        child: TextFormField(
+                          initialValue: otherReasons[player.id] ?? '',
+                          decoration: const InputDecoration(
+                            hintText: 'Especificá el motivo',
+                            isDense: true,
+                          ),
+                          onChanged: (value) =>
+                              otherReasons[player.id] = value.trim(),
+                        ),
+                      ),
+                  ],
+                ),
+                trailing: calledIds.contains(player.id)
+                    ? SizedBox(
+                        width: 64,
+                        child: TextFormField(
+                          initialValue:
+                              shirtNumbers[player.id]?.toString() ?? '',
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'N.º',
+                            isDense: true,
+                          ),
+                          onChanged: (value) {
+                            final number = int.tryParse(value);
+                            if (number == null) {
+                              shirtNumbers.remove(player.id);
+                            } else {
+                              shirtNumbers[player.id] = number;
+                            }
+                          },
+                        ),
+                      )
+                    : DropdownButton<CallUpReason>(
+                        value:
+                            excused[player.id] ?? CallUpReason.decisionTecnica,
+                        items: [
+                          for (final reason in CallUpReason.values)
+                            DropdownMenuItem(
+                              value: reason,
+                              child: Text(reason.label),
+                            ),
+                        ],
+                        onChanged: (reason) {
+                          if (reason != null) excused[player.id] = reason;
+                          onChanged();
+                        },
+                      ),
+              ),
+            ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: noteController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Notas del cuerpo técnico',
+              alignLabelWithHint: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LineupProgressStrip extends StatelessWidget {
   final int xiFilled;
   final int xiTotal;
@@ -745,12 +1085,20 @@ class _LineupProgressStrip extends StatelessWidget {
           const SizedBox(width: 7),
           Text(
             label,
-            style: const TextStyle(color: CX.muted, fontSize: 11.5, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              color: CX.muted,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const Spacer(),
           Text(
             value,
-            style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 13),
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
+            ),
           ),
         ],
       ),
@@ -963,23 +1311,29 @@ class _AlignmentStart extends StatelessWidget {
           EmptyStatePanel(
             icon: Icons.groups_2_outlined,
             title: 'Esta categoría todavía no tiene jugadores',
-            message: 'Sumá el plantel en Mi equipo para poder armar un XI '
+            message:
+                'Sumá el plantel en Mi equipo para poder armar un XI '
                 'y citar jugadores.',
             primaryLabel: 'Ir a Mi equipo',
-            onPrimary: () => ShellActions.maybeOf(context)
-                ?.openSection(ShellSection.myTeam),
+            onPrimary: () =>
+                ShellActions.maybeOf(context)?.openSection(ShellSection.myTeam),
           )
         else if (saved.isEmpty)
           EmptyStatePanel(
             icon: Icons.bookmark_border,
             title: 'Todavía no guardaste ninguna alineación',
-            message: 'Armá el XI, el banco y guardala: la vas a tener acá '
+            message:
+                'Armá el XI, el banco y guardala: la vas a tener acá '
                 'lista para reabrir y ajustar antes del próximo partido.',
             primaryLabel: 'Crear alineación',
             onPrimary: onCreate,
           )
         else
-          _SavedAlignmentsList(saved: saved, onOpen: onOpen, onDelete: onDelete),
+          _SavedAlignmentsList(
+            saved: saved,
+            onOpen: onOpen,
+            onDelete: onDelete,
+          ),
       ],
     );
   }
@@ -1352,7 +1706,9 @@ class _PlayerDisc extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    player == null || name.isEmpty ? '+' : name[0].toUpperCase(),
+                    player == null || name.isEmpty
+                        ? '+'
+                        : name[0].toUpperCase(),
                     style: const TextStyle(
                       color: Colors.black,
                       fontWeight: FontWeight.w900,
@@ -1522,38 +1878,41 @@ class _PlayerPickerSheetState extends State<_PlayerPickerSheet> {
                     child: Material(
                       type: MaterialType.transparency,
                       child: ListView(
-                      shrinkWrap: true,
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.remove_circle_outline),
-                          title: const Text('Vaciar puesto'),
-                          onTap: () => Navigator.pop(context, null),
-                        ),
-                        if (filtered.isEmpty)
-                          const ListTile(
-                            title: Text('No quedan jugadores disponibles.'),
+                        shrinkWrap: true,
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.remove_circle_outline),
+                            title: const Text('Vaciar puesto'),
+                            onTap: () => Navigator.pop(context, null),
                           ),
-                        ...filtered.map(
-                          (player) => ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: CX.greenDark,
-                              child: Text(
-                                player.fullName.isEmpty
-                                    ? '?'
-                                    : player.fullName[0].toUpperCase(),
-                              ),
+                          if (filtered.isEmpty)
+                            const ListTile(
+                              title: Text('No quedan jugadores disponibles.'),
                             ),
-                            title: Text(player.fullName),
-                            subtitle: player.position.trim().isEmpty
-                                ? null
-                                : Text(player.position),
-                            trailing: player.hasAvailabilityWarning
-                                ? AvailabilityChip(player.availability, compact: true)
-                                : null,
-                            onTap: () => Navigator.pop(context, player.id),
+                          ...filtered.map(
+                            (player) => ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: CX.greenDark,
+                                child: Text(
+                                  player.fullName.isEmpty
+                                      ? '?'
+                                      : player.fullName[0].toUpperCase(),
+                                ),
+                              ),
+                              title: Text(player.fullName),
+                              subtitle: player.position.trim().isEmpty
+                                  ? null
+                                  : Text(player.position),
+                              trailing: player.hasAvailabilityWarning
+                                  ? AvailabilityChip(
+                                      player.availability,
+                                      compact: true,
+                                    )
+                                  : null,
+                              onTap: () => Navigator.pop(context, player.id),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
                       ),
                     ),
                   ),
@@ -1578,14 +1937,15 @@ class _SavedAlignmentsList extends StatelessWidget {
     required this.onDelete,
   });
 
-  Future<void> _confirmDelete(BuildContext context, _SavedAlignment item) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    _SavedAlignment item,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Borrar alineación'),
-        content: Text(
-          'Vas a borrar "${item.title}". No se puede deshacer.',
-        ),
+        content: Text('Vas a borrar "${item.title}". No se puede deshacer.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1609,42 +1969,46 @@ class _SavedAlignmentsList extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Alineaciones guardadas',
-            style: TextStyle(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 8),
-          ...saved.map(
-            (item) => ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.bookmark_added_outlined),
-              title: Text(item.title),
-              subtitle: Text(
-                [
-                  item.date,
-                  item.rival,
-                  item.formation,
-                ].where((value) => value.trim().isNotEmpty).join(' / '),
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: 'Borrar alineación',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _confirmDelete(context, item),
-                    icon: const Icon(Icons.delete_outline, color: CX.red, size: 20),
-                  ),
-                  const Icon(Icons.chevron_right),
-                ],
-              ),
-              onTap: () => onOpen(item),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Alineaciones guardadas',
+              style: TextStyle(fontWeight: FontWeight.w900),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            ...saved.map(
+              (item) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.bookmark_added_outlined),
+                title: Text(item.title),
+                subtitle: Text(
+                  [
+                    item.date,
+                    item.rival,
+                    item.formation,
+                  ].where((value) => value.trim().isNotEmpty).join(' / '),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Borrar alineación',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => _confirmDelete(context, item),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: CX.red,
+                        size: 20,
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
+                onTap: () => onOpen(item),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1779,14 +2143,23 @@ class _AvailabilityWarningBanner extends StatelessWidget {
                   players.length == 1
                       ? 'Hay un citado con estado a confirmar'
                       : 'Hay ${players.length} citados con estado a confirmar',
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   players
-                      .map((p) => '${p.fullName.trim()} (${p.availability.label})')
+                      .map(
+                        (p) => '${p.fullName.trim()} (${p.availability.label})',
+                      )
                       .join(' · '),
-                  style: const TextStyle(color: CX.muted, fontSize: 11, height: 1.3),
+                  style: const TextStyle(
+                    color: CX.muted,
+                    fontSize: 11,
+                    height: 1.3,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 const Text(

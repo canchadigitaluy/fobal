@@ -4,10 +4,23 @@
 library;
 
 const Map<String, String> _diacritics = {
-  'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
-  'à': 'a', 'è': 'e', 'ì': 'i', 'ò': 'o', 'ù': 'u',
-  'ä': 'a', 'ë': 'e', 'ï': 'i', 'ö': 'o', 'ü': 'u',
-  'ñ': 'n', 'ç': 'c',
+  'á': 'a',
+  'é': 'e',
+  'í': 'i',
+  'ó': 'o',
+  'ú': 'u',
+  'à': 'a',
+  'è': 'e',
+  'ì': 'i',
+  'ò': 'o',
+  'ù': 'u',
+  'ä': 'a',
+  'ë': 'e',
+  'ï': 'i',
+  'ö': 'o',
+  'ü': 'u',
+  'ñ': 'n',
+  'ç': 'c',
 };
 
 /// Lowercase, dash-separated, filesystem-safe fragment. Never empty. Common
@@ -34,7 +47,8 @@ String buildExportFileName({
   DateTime? when,
 }) {
   final date = when ?? DateTime.now();
-  final stamp = '${date.year}-${date.month.toString().padLeft(2, '0')}-'
+  final stamp =
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-'
       '${date.day.toString().padLeft(2, '0')}';
   final parts = [
     sanitizeFileNamePart(club),
@@ -60,10 +74,12 @@ String formatCitationText({
   required List<String> titulares,
   required List<String> suplentes,
   String notes = '',
+
   /// Prudent, non-diagnostic heads-up lines — e.g. "Juan Pérez: tocado,
   /// confirmar antes del partido" — for citados whose availability isn't
   /// plain "disponible". Never a medical claim, just a reminder to check.
   List<String> availabilityNotes = const [],
+  List<String> noConvocados = const [],
 }) {
   final lines = <String>[
     'CITACIÓN — ${title.trim().isEmpty ? 'Próximo partido' : title.trim()}',
@@ -88,6 +104,11 @@ String formatCitationText({
       '',
       'A CONFIRMAR ANTES DEL PARTIDO',
       for (final note in availabilityNotes) '- $note',
+    ],
+    if (noConvocados.isNotEmpty) ...[
+      '',
+      'NO CONVOCADOS',
+      for (final item in noConvocados) '- $item',
     ],
     if (notes.trim().isNotEmpty) ...['', 'NOTAS', notes.trim()],
     '',
@@ -221,11 +242,7 @@ String formatMatchPreparationText({
     if (date.trim().isNotEmpty) 'Fecha: ${date.trim()}',
     if (time.trim().isNotEmpty) 'Hora: ${time.trim()}',
     if (venueLabel.isNotEmpty) 'Condición: $venueLabel',
-    if (opponentNotes.trim().isNotEmpty) ...[
-      '',
-      'RIVAL',
-      opponentNotes.trim(),
-    ],
+    if (opponentNotes.trim().isNotEmpty) ...['', 'RIVAL', opponentNotes.trim()],
     if (planObjective.trim().isNotEmpty || planIdea.trim().isNotEmpty) ...[
       '',
       'PLAN DE JUEGO',
@@ -291,6 +308,7 @@ String formatPlayerProfileText({
   String availabilityNote = '',
   String expectedReturnDate = '',
   bool hasLeagueStats = false,
+
   /// True for a No-LUD player with real matches/goals from "Cargar
   /// resultado" (see hasManualMatchStats). Rendered in its own section,
   /// distinct from [hasLeagueStats], so the export never labels a manually
@@ -384,7 +402,8 @@ String formatSquadReportText({
   String staffNote = '',
 }) {
   final when = generatedAt ?? DateTime.now();
-  final dateLabel = '${when.day.toString().padLeft(2, '0')}/'
+  final dateLabel =
+      '${when.day.toString().padLeft(2, '0')}/'
       '${when.month.toString().padLeft(2, '0')}/${when.year}';
   final lines = <String>[
     'REPORTE DEL PLANTEL — ${clubName.trim().isEmpty ? 'Club' : clubName.trim()}',
@@ -418,11 +437,7 @@ String formatSquadReportText({
         for (final line in topScorerLines) '- $line',
       ],
     ],
-    if (staffNote.trim().isNotEmpty) ...[
-      '',
-      'NOTAS',
-      staffNote.trim(),
-    ],
+    if (staffNote.trim().isNotEmpty) ...['', 'NOTAS', staffNote.trim()],
   ];
   return lines.join('\n');
 }

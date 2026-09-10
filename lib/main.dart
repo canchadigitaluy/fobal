@@ -2290,6 +2290,11 @@ class _DesktopSidebar extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10),
                 child: _BrandMark(compact: false),
@@ -2357,7 +2362,12 @@ class _DesktopSidebar extends StatelessWidget {
                   ),
                 );
               }),
-              const Spacer(),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: onInstallPwa,
                 icon: const Icon(Icons.install_mobile, size: 17),

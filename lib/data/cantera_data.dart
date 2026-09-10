@@ -2283,11 +2283,68 @@ class TrainingReport {
   }
 }
 
+/// How a player showed up (or not) at one training session. `tarde` still
+/// counts as having attended; `lesionado` and `permiso` are neither an
+/// attendance nor a miss — they drop out of the denominator entirely.
+enum AttendanceStatus {
+  presente,
+  tarde,
+  ausenteAvisado,
+  ausenteSinAviso,
+  lesionado,
+  permiso,
+}
+
+extension AttendanceStatusX on AttendanceStatus {
+  String get label => switch (this) {
+    AttendanceStatus.presente => 'Presente',
+    AttendanceStatus.tarde => 'Llegó tarde',
+    AttendanceStatus.ausenteAvisado => 'Ausente con aviso',
+    AttendanceStatus.ausenteSinAviso => 'Ausente sin aviso',
+    AttendanceStatus.lesionado => 'Lesionado',
+    AttendanceStatus.permiso => 'Permiso',
+  };
+
+  String get shortLabel => switch (this) {
+    AttendanceStatus.presente => 'Presente',
+    AttendanceStatus.tarde => 'Tarde',
+    AttendanceStatus.ausenteAvisado => 'C/ aviso',
+    AttendanceStatus.ausenteSinAviso => 'S/ aviso',
+    AttendanceStatus.lesionado => 'Lesión',
+    AttendanceStatus.permiso => 'Permiso',
+  };
+
+  /// Counts toward the numerator of the attendance rate.
+  bool get attended =>
+      this == AttendanceStatus.presente || this == AttendanceStatus.tarde;
+
+  /// Counts toward the denominator (the player was expected). Injuries and
+  /// granted leave never penalise a rate.
+  bool get expected =>
+      this != AttendanceStatus.lesionado && this != AttendanceStatus.permiso;
+}
+
+AttendanceStatus attendanceStatusFromName(String? name) {
+  for (final status in AttendanceStatus.values) {
+    if (status.name == name) return status;
+  }
+  return AttendanceStatus.ausenteSinAviso;
+}
+
 class AttendanceRecord {
   final String categoryId;
   final String date;
+
+  /// Legacy mirror kept for backward compatibility: the ids that "attended"
+  /// (present or late). New code should read [effectiveStatus].
   final List<String> presentIds;
   final List<String> rosterIds;
+
+  /// player id -> status. Empty on records saved before rich statuses
+  /// existed; [effectiveStatus] falls back to [presentIds] in that case.
+  final Map<String, AttendanceStatus> statusByPlayer;
+
+  /// One general free-text comment for the whole session.
   final String note;
 
   const AttendanceRecord({
@@ -2295,18 +2352,39 @@ class AttendanceRecord {
     required this.date,
     required this.presentIds,
     required this.rosterIds,
+    this.statusByPlayer = const {},
     this.note = '',
   });
+
+  /// The status for [id]: the explicit one if present, else derived from the
+  /// legacy [presentIds] list (in → present, otherwise absent-no-notice).
+  AttendanceStatus effectiveStatus(String id) {
+    final explicit = statusByPlayer[id];
+    if (explicit != null) return explicit;
+    return presentIds.contains(id)
+        ? AttendanceStatus.presente
+        : AttendanceStatus.ausenteSinAviso;
+  }
 
   Map<String, dynamic> toJson() => {
     'categoryId': categoryId,
     'date': date,
     'presentIds': presentIds,
     'rosterIds': rosterIds,
+    'statusByPlayer': {
+      for (final entry in statusByPlayer.entries) entry.key: entry.value.name,
+    },
     'note': note,
   };
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
+    final rawStatus = json['statusByPlayer'];
+    final statusByPlayer = <String, AttendanceStatus>{};
+    if (rawStatus is Map) {
+      rawStatus.forEach((key, value) {
+        statusByPlayer['$key'] = attendanceStatusFromName(value as String?);
+      });
+    }
     return AttendanceRecord(
       categoryId: json['categoryId'] as String? ?? '',
       date: json['date'] as String? ?? '',
@@ -2318,6 +2396,7 @@ class AttendanceRecord {
             json['presentIds'] as List<dynamic>? ??
             const [],
       ),
+      statusByPlayer: statusByPlayer,
       note: json['note'] as String? ?? '',
     );
   }

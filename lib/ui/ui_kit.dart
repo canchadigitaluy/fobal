@@ -289,6 +289,26 @@ class MetaTag extends StatelessWidget {
   }
 }
 
+/// Shared colour + icon for an [AttendanceStatus], so the pass-list, the
+/// history and the player profile all speak the same visual language.
+Color attendanceStatusColor(AttendanceStatus status) => switch (status) {
+  AttendanceStatus.presente => CX.green,
+  AttendanceStatus.tarde => CX.blue,
+  AttendanceStatus.ausenteAvisado => CX.amber,
+  AttendanceStatus.ausenteSinAviso => CX.red,
+  AttendanceStatus.lesionado => CX.amber,
+  AttendanceStatus.permiso => CX.faint,
+};
+
+IconData attendanceStatusIcon(AttendanceStatus status) => switch (status) {
+  AttendanceStatus.presente => Icons.check_circle,
+  AttendanceStatus.tarde => Icons.schedule,
+  AttendanceStatus.ausenteAvisado => Icons.event_busy_outlined,
+  AttendanceStatus.ausenteSinAviso => Icons.cancel_outlined,
+  AttendanceStatus.lesionado => Icons.healing_outlined,
+  AttendanceStatus.permiso => Icons.beach_access_outlined,
+};
+
 enum Confidence { alta, media, baja }
 
 class ConfidenceBadge extends StatelessWidget {

@@ -328,14 +328,17 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
               b.date,
             ).compareTo(attendanceRecordDate(a.date)),
           );
-    final playerAttendance = attendanceRecords.isEmpty
-        ? null
-        : attendanceRecords
-                  .where(
-                    (record) => record.presentIds.contains(resolvedPlayer.id),
-                  )
-                  .length /
-              attendanceRecords.length;
+    double? playerAttendance;
+    if (attendanceRecords.isNotEmpty) {
+      var attended = 0;
+      var expected = 0;
+      for (final record in attendanceRecords) {
+        final status = record.effectiveStatus(resolvedPlayer.id);
+        if (status.expected) expected++;
+        if (status.attended) attended++;
+      }
+      playerAttendance = expected == 0 ? null : attended / expected;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -464,20 +467,23 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                     runSpacing: 6,
                     children: [
                       for (final record in attendanceRecords.take(8))
-                        Tooltip(
-                          message:
-                              '${record.date}: ${record.presentIds.contains(resolvedPlayer.id) ? 'presente' : 'ausente'}',
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color:
-                                  record.presentIds.contains(resolvedPlayer.id)
-                                  ? CX.green
-                                  : CX.red,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
+                        Builder(
+                          builder: (context) {
+                            final status = record.effectiveStatus(
+                              resolvedPlayer.id,
+                            );
+                            return Tooltip(
+                              message: '${record.date}: ${status.label}',
+                              child: Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: attendanceStatusColor(status),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                     ],
                   ),

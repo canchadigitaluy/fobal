@@ -27,7 +27,8 @@ class AsistenciaScreen extends StatefulWidget {
 
 class _AsistenciaScreenState extends State<AsistenciaScreen> {
   final _scheduleController = TextEditingController();
-  final Set<String> _presentIds = {};
+  final _noteController = TextEditingController();
+  final Map<String, AttendanceStatus> _statusById = {};
   String? _loadedKey;
   String _search = '';
   final Set<String> _migrationChecked = {};
@@ -35,8 +36,12 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   @override
   void dispose() {
     _scheduleController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
+
+  AttendanceStatus _statusOf(String id) =>
+      _statusById[id] ?? AttendanceStatus.ausenteSinAviso;
 
   String _key(CanteraClub club, CategorySquad category) {
     final day = DateTime.now().toIso8601String().substring(0, 10);
@@ -48,9 +53,13 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     if (_loadedKey == key) return;
     _loadedKey = key;
     _scheduleController.text = category.practiceSchedule;
-    _presentIds
+    _noteController.text = '';
+    // Default: everyone present until the coach says otherwise.
+    _statusById
       ..clear()
-      ..addAll(players.map((player) => player.id));
+      ..addEntries(
+        players.map((p) => MapEntry(p.id, AttendanceStatus.presente)),
+      );
     final day = DateTime.now().toIso8601String().substring(0, 10);
     AttendanceRecord? stored;
     for (final record in club.attendanceRecords) {
@@ -60,18 +69,24 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       }
     }
     if (stored != null) {
-      _presentIds
-        ..clear()
-        ..addAll(stored.presentIds);
+      _noteController.text = stored.note;
+      for (final player in players) {
+        _statusById[player.id] = stored.effectiveStatus(player.id);
+      }
       return;
     }
     final raw = html.window.localStorage[key];
     if (raw == null || raw.isEmpty) return;
     try {
       final data = jsonDecode(raw) as Map<String, dynamic>;
-      _presentIds
-        ..clear()
-        ..addAll(List<String>.from(data['presentIds'] as List<dynamic>? ?? []));
+      final present = List<String>.from(
+        data['presentIds'] as List<dynamic>? ?? [],
+      ).toSet();
+      for (final player in players) {
+        _statusById[player.id] = present.contains(player.id)
+            ? AttendanceStatus.presente
+            : AttendanceStatus.ausenteSinAviso;
+      }
     } catch (_) {
       html.window.localStorage.remove(key);
     }
@@ -98,11 +113,19 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
         .where((player) => player.categoryId == category.id)
         .map((player) => player.id)
         .toList();
+    final statusByPlayer = {
+      for (final id in rosterIds) id: _statusOf(id),
+    };
+    final presentIds = [
+      for (final id in rosterIds) if (_statusOf(id).attended) id,
+    ];
     final record = AttendanceRecord(
       categoryId: category.id,
       date: day,
-      presentIds: _presentIds.where(rosterIds.contains).toList(),
+      presentIds: presentIds,
       rosterIds: rosterIds,
+      statusByPlayer: statusByPlayer,
+      note: _noteController.text.trim(),
     );
     final records = [
       for (final existing in club.attendanceRecords)
@@ -113,7 +136,9 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final payload = {
       'date': day,
       'presentIds': record.presentIds,
-      'absentIds': rosterIds.where((id) => !_presentIds.contains(id)).toList(),
+      'absentIds': rosterIds
+          .where((id) => !_statusOf(id).attended)
+          .toList(),
     };
     unawaited(
       OfflineMutationService.instance.saveTacticalDataOfflineFirst(
@@ -134,18 +159,15 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     CategorySquad category,
     List<AttendanceRecord> records,
   ) {
-    final sessions = records
+    final categoryRecords = records
         .where((record) => record.categoryId == category.id)
-        .map(
-          (record) => AttendanceSession(presentIds: record.presentIds.toSet()),
-        )
         .toList();
     final categoryPlayerIds = club.players
         .where((player) => player.categoryId == category.id)
         .map((player) => player.id)
         .toList();
-    final rates = computeAttendanceRates(
-      sessions: sessions,
+    final rates = computeAttendanceRatesFromRecords(
+      records: categoryRecords,
       playerIds: categoryPlayerIds,
     );
     AppScope.of(context).updateClub(
@@ -217,9 +239,11 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final present = <String>[];
     final absent = <String>[];
     for (final player in players) {
-      (_presentIds.contains(player.id) ? present : absent).add(
-        player.fullName.trim(),
-      );
+      final status = _statusOf(player.id);
+      final name = status == AttendanceStatus.presente
+          ? player.fullName.trim()
+          : '${player.fullName.trim()} (${status.shortLabel})';
+      (status.attended ? present : absent).add(name);
     }
     final today = DateTime.now();
     final dateLabel =
@@ -321,7 +345,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     AppScope.of(context).updateClub(
       club.copyWith(players: nextPlayers, categories: nextCategories),
     );
-    setState(() => _presentIds.add(player.id));
+    setState(() => _statusById[player.id] = AttendanceStatus.presente);
   }
 
   @override
@@ -359,7 +383,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     _migrateLegacy(club, category);
     _load(club, category, players);
     final present = players
-        .where((player) => _presentIds.contains(player.id))
+        .where((player) => _statusOf(player.id).attended)
         .length;
 
     return Scaffold(
@@ -407,18 +431,23 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                     OutlinedButton.icon(
                       onPressed: present == players.length
                           ? null
-                          : () => setState(
-                              () => _presentIds
-                                ..clear()
-                                ..addAll(players.map((p) => p.id)),
-                            ),
+                          : () => setState(() {
+                              for (final p in players) {
+                                _statusById[p.id] = AttendanceStatus.presente;
+                              }
+                            }),
                       icon: const Icon(Icons.done_all, size: 17),
                       label: const Text('Todos presentes'),
                     ),
                     OutlinedButton.icon(
                       onPressed: present == 0
                           ? null
-                          : () => setState(_presentIds.clear),
+                          : () => setState(() {
+                              for (final p in players) {
+                                _statusById[p.id] =
+                                    AttendanceStatus.ausenteSinAviso;
+                              }
+                            }),
                       icon: const Icon(Icons.remove_done, size: 17),
                       label: const Text('Todos ausentes'),
                     ),
@@ -491,20 +520,28 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                             for (final player in visible)
                               _AttendanceRow(
                                 player: player,
-                                present: _presentIds.contains(player.id),
-                                onChanged: (v) => setState(() {
-                                  if (v) {
-                                    _presentIds.add(player.id);
-                                  } else {
-                                    _presentIds.remove(player.id);
-                                  }
-                                }),
+                                status: _statusOf(player.id),
+                                onChanged: (status) => setState(
+                                  () => _statusById[player.id] = status,
+                                ),
                               ),
                           ],
                         ),
                       ),
                     );
                   },
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _noteController,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Comentario de la práctica (opcional)',
+                    hintText:
+                        'Ej: sesión de fuerza, faltaron los del turno tarde…',
+                    alignLabelWithHint: true,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
@@ -634,28 +671,76 @@ class _AttendanceSummary extends StatelessWidget {
 
 class _AttendanceRow extends StatelessWidget {
   final Player player;
-  final bool present;
-  final ValueChanged<bool> onChanged;
+  final AttendanceStatus status;
+  final ValueChanged<AttendanceStatus> onChanged;
   const _AttendanceRow({
     required this.player,
-    required this.present,
+    required this.status,
     required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     final availability = player.availability;
+    final color = attendanceStatusColor(status);
     return InkWell(
-      onTap: () => onChanged(!present),
+      onTap: () => onChanged(
+        status.attended
+            ? AttendanceStatus.ausenteSinAviso
+            : AttendanceStatus.presente,
+      ),
       child: Container(
-        color: present ? null : CX.red.withValues(alpha: .05),
+        color: status.attended ? null : color.withValues(alpha: .05),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Row(
           children: [
-            Icon(
-              present ? Icons.check_circle : Icons.circle_outlined,
-              color: present ? CX.green : CX.faint,
-              size: 22,
+            PopupMenuButton<AttendanceStatus>(
+              tooltip: 'Cambiar estado',
+              onSelected: onChanged,
+              itemBuilder: (context) => [
+                for (final option in AttendanceStatus.values)
+                  PopupMenuItem(
+                    value: option,
+                    child: Row(
+                      children: [
+                        Icon(
+                          attendanceStatusIcon(option),
+                          size: 16,
+                          color: attendanceStatusColor(option),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(option.label),
+                      ],
+                    ),
+                  ),
+              ],
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: color.withValues(alpha: .30)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(attendanceStatusIcon(status), size: 13, color: color),
+                    const SizedBox(width: 5),
+                    Text(
+                      status.shortLabel,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -697,18 +782,6 @@ class _AttendanceRow extends StatelessWidget {
               ),
               const SizedBox(width: 8),
             ],
-            if (!present)
-              const Padding(
-                padding: EdgeInsets.only(right: 6),
-                child: Text(
-                  'Falta',
-                  style: TextStyle(
-                    color: CX.red,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
             IconButton(
               tooltip: 'Ver perfil',
               visualDensity: VisualDensity.compact,
@@ -865,30 +938,7 @@ class _AttendanceHistoryDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   for (final record in records)
-                    ExpansionTile(
-                      title: Text(_attendanceDateLabel(record.date)),
-                      subtitle: Text(
-                        '${record.presentIds.length}/${record.rosterIds.length} presentes · '
-                        '${attendanceRecordRate(record) == null ? 'Sin base' : '${(attendanceRecordRate(record)! * 100).round()}%'}',
-                      ),
-                      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      children: [
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Presentes: ${record.presentIds.map((id) => names[id] ?? 'Jugador no disponible').join(', ')}',
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Ausentes: ${record.rosterIds.where((id) => !record.presentIds.contains(id)).map((id) => names[id] ?? 'Jugador no disponible').join(', ')}',
-                            style: const TextStyle(color: CX.muted),
-                          ),
-                        ),
-                      ],
-                    ),
+                    _AttendanceHistoryTile(record: record, names: names),
                 ],
               ),
       ),
@@ -907,4 +957,81 @@ String _attendanceDateLabel(String value) {
   if (date.millisecondsSinceEpoch == 0) return 'Fecha desconocida';
   return '${date.day.toString().padLeft(2, '0')}/'
       '${date.month.toString().padLeft(2, '0')}/${date.year}';
+}
+
+class _AttendanceHistoryTile extends StatelessWidget {
+  final AttendanceRecord record;
+  final Map<String, String> names;
+  const _AttendanceHistoryTile({required this.record, required this.names});
+
+  @override
+  Widget build(BuildContext context) {
+    final rate = attendanceRecordRate(record);
+    final breakdown = attendanceStatusBreakdown(record);
+    final attended = record.rosterIds
+        .where((id) => record.effectiveStatus(id).attended)
+        .length;
+    final grouped = <AttendanceStatus, List<String>>{};
+    for (final id in record.rosterIds) {
+      grouped
+          .putIfAbsent(record.effectiveStatus(id), () => [])
+          .add(names[id] ?? 'Jugador no disponible');
+    }
+    return ExpansionTile(
+      title: Text(_attendanceDateLabel(record.date)),
+      subtitle: Text(
+        '$attended/${record.rosterIds.length} asistieron · '
+        '${rate == null ? 'Sin base' : '${(rate * 100).round()}%'}'
+        '${record.note.trim().isEmpty ? '' : ' · con comentario'}',
+      ),
+      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      children: [
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final status in AttendanceStatus.values)
+              if ((breakdown[status] ?? 0) > 0)
+                StatusPill(
+                  '${status.shortLabel} ${breakdown[status]}',
+                  attendanceStatusColor(status),
+                  compact: true,
+                ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        for (final status in AttendanceStatus.values)
+          if (grouped[status] != null && grouped[status]!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${status.label}: ${grouped[status]!.join(', ')}',
+                  style: TextStyle(
+                    color: status.attended ? CX.white : CX.muted,
+                    fontSize: 12.5,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ),
+        if (record.note.trim().isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Comentario: ${record.note.trim()}',
+              style: const TextStyle(
+                color: CX.muted,
+                fontSize: 12.5,
+                height: 1.4,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }

@@ -33,10 +33,53 @@ DateTime attendanceRecordDate(String value) =>
     DateTime.tryParse(value)?.toLocal() ??
     DateTime.fromMillisecondsSinceEpoch(0);
 
+/// Attendance rate for one session: (present + late) / (players expected).
+/// Injured players and granted leave drop out of the denominator, so they
+/// never drag a rate down. Null when nobody was expected or there is no
+/// roster snapshot.
 double? attendanceRecordRate(AttendanceRecord record) {
   if (record.rosterIds.isEmpty) return null;
-  return record.presentIds.where(record.rosterIds.contains).length /
-      record.rosterIds.length;
+  var attended = 0;
+  var expected = 0;
+  for (final id in record.rosterIds) {
+    final status = record.effectiveStatus(id);
+    if (status.expected) expected++;
+    if (status.attended) attended++;
+  }
+  if (expected == 0) return null;
+  return attended / expected;
+}
+
+/// Count of each [AttendanceStatus] across the roster snapshot of [record].
+Map<AttendanceStatus, int> attendanceStatusBreakdown(AttendanceRecord record) {
+  final counts = <AttendanceStatus, int>{};
+  for (final id in record.rosterIds) {
+    final status = record.effectiveStatus(id);
+    counts[status] = (counts[status] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/// player id -> rate (0..1) across [records], status-aware. Empty map when
+/// there are no records — never invents a 0%.
+Map<String, double> computeAttendanceRatesFromRecords({
+  required List<AttendanceRecord> records,
+  required List<String> playerIds,
+}) {
+  if (records.isEmpty) return {};
+  final result = <String, double>{};
+  for (final id in playerIds) {
+    var attended = 0;
+    var expected = 0;
+    for (final record in records) {
+      if (!record.rosterIds.contains(id)) continue;
+      final status = record.effectiveStatus(id);
+      if (status.expected) expected++;
+      if (status.attended) attended++;
+    }
+    result[id] = expected == 0 ? 0 : attended / expected;
+  }
+  return result;
 }
 
 class AttendanceSummary {

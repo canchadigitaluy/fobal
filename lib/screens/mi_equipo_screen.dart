@@ -9,6 +9,7 @@ import '../main.dart';
 import '../services/export_download_service.dart';
 import '../services/export_text_service.dart';
 import '../services/player_profile_service.dart';
+import '../services/plantel_service.dart';
 import '../services/squad_report_service.dart';
 import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
@@ -27,6 +28,7 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
   String? _teamPhoto;
   final _searchController = TextEditingController();
   String _search = '';
+  String _plantelFilter = '';
 
   String get _photoKey => 'cantera_team_photo_${AppScope.of(context).fullClub.id}';
 
@@ -134,6 +136,7 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
       existingNames: normalizedPlayerNames(
         scope.fullClub.players.where((p) => p.categoryId == categoryId),
       ),
+      planteles: plantelesForCategory(scope.fullClub, categoryId),
     );
     if (player == null || !mounted) return;
     final nextPlayers = [...scope.fullClub.players, player];
@@ -155,12 +158,42 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
     final club = scope.fullClub;
-    final players = scope.club.players;
+    final categoryId = scope.selectedCategoryId ??
+        (scope.club.categories.isEmpty ? '' : scope.club.categories.first.id);
+    final planteles = club.isManualClub
+        ? plantelesForCategory(club, categoryId)
+        : const <Plantel>[];
+    if (_plantelFilter.isNotEmpty &&
+        !planteles.any((item) => item.id == _plantelFilter)) {
+      _plantelFilter = '';
+    }
+    final players = playersForPlantel(scope.club.players, _plantelFilter);
     return Scaffold(
       appBar: AppBar(title: const Text('Mi equipo')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 36),
         children: [
+          if (planteles.isNotEmpty) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Todos'),
+                  selected: _plantelFilter.isEmpty,
+                  onSelected: (_) => setState(() => _plantelFilter = ''),
+                ),
+                for (final plantel in planteles)
+                  ChoiceChip(
+                    label: Text(plantel.name),
+                    selected: _plantelFilter == plantel.id,
+                    onSelected: (_) =>
+                        setState(() => _plantelFilter = plantel.id),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
           Container(
             padding: const EdgeInsets.all(14),
             decoration: CX.panelDecoration(),

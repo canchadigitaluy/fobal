@@ -406,6 +406,9 @@ class _CanteraAppState extends State<CanteraApp> {
     );
     return _club.copyWith(
       categories: [category],
+      planteles: _club.planteles
+          .where((plantel) => plantel.categoryId == categoryId)
+          .toList(),
       players: _club.players
           .where((player) => player.categoryId == categoryId)
           .toList(),
@@ -464,6 +467,12 @@ class _CanteraAppState extends State<CanteraApp> {
                 : category,
           )
           .toList(),
+      planteles: [
+        ..._club.planteles.where((plantel) => plantel.categoryId != categoryId),
+        ...scopedClub.planteles.where(
+          (plantel) => plantel.categoryId == categoryId,
+        ),
+      ],
       players: [
         ..._club.players.where((player) => player.categoryId != categoryId),
         ...scopedClub.players.where(

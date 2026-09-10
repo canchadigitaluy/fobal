@@ -3,6 +3,7 @@ import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
 import '../services/club_backup_service.dart';
+import '../services/plantel_service.dart';
 import '../services/supabase_auth_service.dart';
 import '../ui/ui_kit.dart';
 import 'add_player_dialog.dart';
@@ -202,8 +203,8 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
     if (categoryId == null || firstName.isEmpty) return;
 
     final scope = AppScope.of(context);
-    final nameKey =
-        '${firstName.toLowerCase()} ${lastName.toLowerCase()}'.trim();
+    final nameKey = '${firstName.toLowerCase()} ${lastName.toLowerCase()}'
+        .trim();
     final existing = normalizedPlayerNames(
       scope.club.players.where((p) => p.categoryId == categoryId),
     );
@@ -293,7 +294,10 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
                 (category) => category.id == removed!.categoryId
                     ? category.copyWith(
                         playerCount: nextPlayers
-                            .where((candidate) => candidate.categoryId == removed!.categoryId)
+                            .where(
+                              (candidate) =>
+                                  candidate.categoryId == removed!.categoryId,
+                            )
                             .length,
                       )
                     : category,
@@ -310,9 +314,63 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
     scope.updateClub(
       scope.club.copyWith(
         categories: scope.club.categories.where((c) => c.id != id).toList(),
+        planteles: scope.club.planteles
+            .where((plantel) => plantel.categoryId != id)
+            .toList(),
         players: scope.club.players.where((p) => p.categoryId != id).toList(),
       ),
     );
+  }
+
+  Future<void> _addPlantel(CategorySquad category) async {
+    if (isLudCategoryId(category.id)) return;
+    final name = await promptForText(
+      context,
+      title: 'Nuevo plantel',
+      labelText: 'Nombre',
+      hintText: 'Ej. A, B o Arqueros',
+    );
+    if (name == null || name.trim().isEmpty || !mounted) return;
+    final scope = AppScope.of(context);
+    scope.updateClub(
+      scope.club.copyWith(
+        planteles: [
+          ...scope.club.planteles,
+          Plantel(
+            id: 'plantel-${DateTime.now().microsecondsSinceEpoch}',
+            categoryId: category.id,
+            name: name.trim(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _renamePlantel(Plantel plantel) async {
+    final name = await promptForText(
+      context,
+      title: 'Renombrar plantel',
+      labelText: 'Nombre',
+      initialValue: plantel.name,
+    );
+    if (name == null || name.trim().isEmpty || !mounted) return;
+    final scope = AppScope.of(context);
+    scope.updateClub(
+      scope.club.copyWith(
+        planteles: [
+          for (final item in scope.club.planteles)
+            if (item.id == plantel.id)
+              item.copyWith(name: name.trim())
+            else
+              item,
+        ],
+      ),
+    );
+  }
+
+  void _deletePlantel(String id) {
+    final scope = AppScope.of(context);
+    scope.updateClub(removePlantel(scope.club, id));
   }
 
   List<String> _lines(String value) {
@@ -503,9 +561,9 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
       );
     } on ClubAccessException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 
@@ -596,6 +654,63 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
                     : () => _deleteCategory(category.id),
               ),
             ),
+          if (club.isManualClub && club.categories.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            const PremiumSectionHeader(
+              eyebrow: 'SUBGRUPOS',
+              title: 'Planteles por categoría',
+            ),
+            ...club.categories.where((c) => !isLudCategoryId(c.id)).map((
+              category,
+            ) {
+              final planteles = plantelesForCategory(club, category.id);
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              category.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Crear plantel',
+                            onPressed: () => _addPlantel(category),
+                            icon: const Icon(Icons.add_circle_outline),
+                          ),
+                        ],
+                      ),
+                      if (planteles.isEmpty)
+                        const Text(
+                          'Sin planteles. La categoría trabaja como un único grupo.',
+                          style: TextStyle(color: CX.muted),
+                        )
+                      else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final plantel in planteles)
+                              InputChip(
+                                label: Text(plantel.name),
+                                onPressed: () => _renamePlantel(plantel),
+                                onDeleted: () => _deletePlantel(plantel.id),
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
           const SizedBox(height: 18),
           _PlayerForm(
             categories: club.categories,
@@ -691,8 +806,9 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
                 ),
                 const SizedBox(height: 16),
                 _ClubDataCard(
-                  onExport: () =>
-                      ClubBackupService.downloadJson(AppScope.of(context).fullClub),
+                  onExport: () => ClubBackupService.downloadJson(
+                    AppScope.of(context).fullClub,
+                  ),
                   onImport: () => importClubFromFile(context),
                 ),
               ],
@@ -779,11 +895,7 @@ class _BasicDataForm extends StatelessWidget {
               ];
               if (compact) {
                 return Column(
-                  children: [
-                    fields[0],
-                    const SizedBox(height: 10),
-                    fields[1],
-                  ],
+                  children: [fields[0], const SizedBox(height: 10), fields[1]],
                 );
               }
               return Row(
@@ -1289,60 +1401,58 @@ class _RealClubAccessPanel extends StatelessWidget {
           child: Material(
             type: MaterialType.transparency,
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.admin_panel_settings_outlined,
-                    color: CX.green,
-                  ),
-                  const SizedBox(width: 9),
-                  const Expanded(
-                    child: Text(
-                      'Accesos reales del club',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.admin_panel_settings_outlined,
+                      color: CX.green,
+                    ),
+                    const SizedBox(width: 9),
+                    const Expanded(
+                      child: Text(
+                        'Accesos reales del club',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Actualizar accesos',
-                    onPressed: onRefresh,
-                    icon: const Icon(Icons.refresh),
+                    IconButton(
+                      tooltip: 'Actualizar accesos',
+                      onPressed: onRefresh,
+                      icon: const Icon(Icons.refresh),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Estos son los accesos reales al club. Crear una tarjeta local no concede acceso.',
+                  style: TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
+                ),
+                const SizedBox(height: 14),
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const LinearProgressIndicator(minHeight: 2)
+                else if (snapshot.hasError)
+                  const _EmptyCard(
+                    'No pudimos cargar los accesos. Probá de nuevo.',
+                  )
+                else if (members.isEmpty)
+                  const _EmptyCard('No hay miembros con acceso a este club.')
+                else ...[
+                  _AccessHealthStrip(members: members),
+                  const SizedBox(height: 10),
+                  ...members.map(
+                    (member) => _RealMemberTile(
+                      member,
+                      onReview: (approve) => onReview(member, approve),
+                      onManage: () => onManage(member),
+                    ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Estos son los accesos reales al club. Crear una tarjeta local no concede acceso.',
-                style: TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
-              ),
-              const SizedBox(height: 14),
-              if (snapshot.connectionState == ConnectionState.waiting)
-                const LinearProgressIndicator(minHeight: 2)
-              else if (snapshot.hasError)
-                const _EmptyCard(
-                  'No pudimos cargar los accesos. Probá de nuevo.',
-                )
-              else if (members.isEmpty)
-                const _EmptyCard(
-                  'No hay miembros con acceso a este club.',
-                )
-              else ...[
-                _AccessHealthStrip(members: members),
-                const SizedBox(height: 10),
-                ...members.map(
-                  (member) => _RealMemberTile(
-                    member,
-                    onReview: (approve) => onReview(member, approve),
-                    onManage: () => onManage(member),
-                  ),
-                ),
               ],
-            ],
-          ),
+            ),
           ),
         );
       },

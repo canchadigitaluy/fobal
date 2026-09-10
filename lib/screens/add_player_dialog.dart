@@ -21,20 +21,27 @@ Future<Player?> showAddPlayerDialog(
   BuildContext context, {
   required String categoryId,
   Set<String> existingNames = const {},
+  List<Plantel> planteles = const [],
 }) {
   return showDialog<Player>(
     context: context,
     builder: (context) =>
-        _AddPlayerDialog(categoryId: categoryId, existingNames: existingNames),
+        _AddPlayerDialog(
+          categoryId: categoryId,
+          existingNames: existingNames,
+          planteles: planteles,
+        ),
   );
 }
 
 class _AddPlayerDialog extends StatefulWidget {
   final String categoryId;
   final Set<String> existingNames;
+  final List<Plantel> planteles;
   const _AddPlayerDialog({
     required this.categoryId,
     this.existingNames = const {},
+    this.planteles = const [],
   });
 
   @override
@@ -49,6 +56,7 @@ class _AddPlayerDialogState extends State<_AddPlayerDialog> {
   final _secondary = TextEditingController();
   final _foot = TextEditingController();
   bool _showError = false;
+  String _plantelId = '';
 
   @override
   void dispose() {
@@ -98,6 +106,7 @@ class _AddPlayerDialogState extends State<_AddPlayerDialog> {
       Player(
         id: 'player-${DateTime.now().microsecondsSinceEpoch}',
         categoryId: widget.categoryId,
+        plantelId: _plantelId,
         firstName: firstName,
         lastName: lastName,
         age: int.tryParse(_age.text.trim()) ?? 0,
@@ -187,6 +196,22 @@ class _AddPlayerDialogState extends State<_AddPlayerDialog> {
               controller: _secondary,
               decoration: const InputDecoration(labelText: 'Posiciones secundarias'),
             ),
+            if (widget.planteles.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                initialValue: _plantelId,
+                decoration: const InputDecoration(labelText: 'Plantel'),
+                items: [
+                  const DropdownMenuItem(value: '', child: Text('Sin asignar')),
+                  for (final plantel in widget.planteles)
+                    DropdownMenuItem(
+                      value: plantel.id,
+                      child: Text(plantel.name),
+                    ),
+                ],
+                onChanged: (value) => setState(() => _plantelId = value ?? ''),
+              ),
+            ],
           ],
         ),
       ),

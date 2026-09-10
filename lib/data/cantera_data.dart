@@ -90,6 +90,7 @@ class CanteraClub {
   final Color secondaryColor;
   final Methodology methodology;
   final List<CategorySquad> categories;
+  final List<Plantel> planteles;
   final List<Player> players;
   final List<TrainingSession> sessions;
   final List<TrainingReport> trainingReports;
@@ -123,6 +124,7 @@ class CanteraClub {
     required this.secondaryColor,
     required this.methodology,
     required this.categories,
+    this.planteles = const [],
     required this.players,
     required this.sessions,
     required this.trainingReports,
@@ -150,6 +152,7 @@ class CanteraClub {
     Color? secondaryColor,
     Methodology? methodology,
     List<CategorySquad>? categories,
+    List<Plantel>? planteles,
     List<Player>? players,
     List<TrainingSession>? sessions,
     List<TrainingReport>? trainingReports,
@@ -176,6 +179,7 @@ class CanteraClub {
       secondaryColor: secondaryColor ?? this.secondaryColor,
       methodology: methodology ?? this.methodology,
       categories: categories ?? this.categories,
+      planteles: planteles ?? this.planteles,
       players: players ?? this.players,
       sessions: sessions ?? this.sessions,
       trainingReports: trainingReports ?? this.trainingReports,
@@ -205,6 +209,7 @@ class CanteraClub {
       'secondaryColor': secondaryColor.toARGB32(),
       'methodology': methodology.toJson(),
       'categories': categories.map((c) => c.toJson()).toList(),
+      'planteles': planteles.map((p) => p.toJson()).toList(),
       'players': players.map((p) => p.toJson()).toList(),
       'sessions': sessions.map((s) => s.toJson()).toList(),
       'trainingReports': trainingReports.map((r) => r.toJson()).toList(),
@@ -235,6 +240,10 @@ class CanteraClub {
       ),
       categories: (json['categories'] as List<dynamic>? ?? [])
           .map((item) => CategorySquad.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      planteles: (json['planteles'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((item) => Plantel.fromJson(Map<String, dynamic>.from(item)))
           .toList(),
       players: (json['players'] as List<dynamic>? ?? [])
           .map((item) => Player.fromJson(item as Map<String, dynamic>))
@@ -269,6 +278,41 @@ class CanteraClub {
           .toList(),
     );
   }
+}
+
+class Plantel {
+  final String id;
+  final String categoryId;
+  final String name;
+  final String note;
+
+  const Plantel({
+    required this.id,
+    required this.categoryId,
+    required this.name,
+    this.note = '',
+  });
+
+  Plantel copyWith({String? name, String? note}) => Plantel(
+    id: id,
+    categoryId: categoryId,
+    name: name ?? this.name,
+    note: note ?? this.note,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'categoryId': categoryId,
+    'name': name,
+    'note': note,
+  };
+
+  factory Plantel.fromJson(Map<String, dynamic> json) => Plantel(
+    id: json['id'] as String? ?? '',
+    categoryId: json['categoryId'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    note: json['note'] as String? ?? '',
+  );
 }
 
 class CategorySquad {
@@ -363,6 +407,7 @@ class CategorySquad {
 class Player {
   final String id;
   final String categoryId;
+  final String plantelId;
   final String firstName;
   final String lastName;
   final int age;
@@ -400,6 +445,7 @@ class Player {
   const Player({
     required this.id,
     required this.categoryId,
+    this.plantelId = '',
     required this.firstName,
     required this.lastName,
     required this.age,
@@ -460,6 +506,7 @@ class Player {
 
   Player copyWith({
     String? categoryId,
+    String? plantelId,
     String? firstName,
     String? lastName,
     int? age,
@@ -484,6 +531,7 @@ class Player {
     return Player(
       id: id,
       categoryId: categoryId ?? this.categoryId,
+      plantelId: plantelId ?? this.plantelId,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       age: age ?? this.age,
@@ -511,6 +559,7 @@ class Player {
     return {
       'id': id,
       'categoryId': categoryId,
+      'plantelId': plantelId,
       'firstName': firstName,
       'lastName': lastName,
       'age': age,
@@ -540,6 +589,7 @@ class Player {
           json['id'] as String? ??
           'player-${DateTime.now().millisecondsSinceEpoch}',
       categoryId: json['categoryId'] as String? ?? '',
+      plantelId: json['plantelId'] as String? ?? '',
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
       age: json['age'] as int? ?? 0,
@@ -2334,6 +2384,7 @@ AttendanceStatus attendanceStatusFromName(String? name) {
 class AttendanceRecord {
   final String categoryId;
   final String date;
+  final List<String> plantelIds;
 
   /// Legacy mirror kept for backward compatibility: the ids that "attended"
   /// (present or late). New code should read [effectiveStatus].
@@ -2350,6 +2401,7 @@ class AttendanceRecord {
   const AttendanceRecord({
     required this.categoryId,
     required this.date,
+    this.plantelIds = const [],
     required this.presentIds,
     required this.rosterIds,
     this.statusByPlayer = const {},
@@ -2369,6 +2421,7 @@ class AttendanceRecord {
   Map<String, dynamic> toJson() => {
     'categoryId': categoryId,
     'date': date,
+    'plantelIds': plantelIds,
     'presentIds': presentIds,
     'rosterIds': rosterIds,
     'statusByPlayer': {
@@ -2388,6 +2441,9 @@ class AttendanceRecord {
     return AttendanceRecord(
       categoryId: json['categoryId'] as String? ?? '',
       date: json['date'] as String? ?? '',
+      plantelIds: List<String>.from(
+        json['plantelIds'] as List<dynamic>? ?? const [],
+      ),
       presentIds: List<String>.from(
         json['presentIds'] as List<dynamic>? ?? const [],
       ),

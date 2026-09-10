@@ -13,6 +13,7 @@ import '../main.dart';
 import '../services/export_download_service.dart';
 import '../services/export_text_service.dart';
 import '../services/offline_mutation_service.dart';
+import '../services/plantel_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
@@ -39,6 +40,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
   String? _categoryId;
   String _formation = '4-4-2';
   bool _editing = false;
+  String _plantelFilter = '';
 
   static const _formations = <String, List<_Spot>>{
     '4-4-2': [
@@ -146,6 +148,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
             : club.categories.first.id;
     if (_categoryId == next) return;
     _categoryId = next;
+    _plantelFilter = '';
     _editing = false;
     if (next != null) {
       _load(club, club.categories.firstWhere((c) => c.id == next));
@@ -456,6 +459,12 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
         ? <Player>[]
         : club.players.where((p) => p.categoryId == category.id).toList();
     final playerById = {for (final player in players) player.id: player};
+    final planteles = category == null || !club.isManualClub
+        ? const <Plantel>[]
+        : plantelesForCategory(club, category.id);
+    final visiblePlayers = _plantelFilter.isEmpty
+        ? players
+        : players.where((p) => p.plantelId == _plantelFilter).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -496,10 +505,31 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                     'la alineación y la citación.',
               )
             else if (!_editing) ...[
+              if (planteles.isNotEmpty) ...[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Toda la categoría'),
+                      selected: _plantelFilter.isEmpty,
+                      onSelected: (_) => setState(() => _plantelFilter = ''),
+                    ),
+                    for (final plantel in planteles)
+                      ChoiceChip(
+                        label: Text(plantel.name),
+                        selected: _plantelFilter == plantel.id,
+                        onSelected: (_) =>
+                            setState(() => _plantelFilter = plantel.id),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
               _AlignmentStart(
                 categories: club.categories,
                 categoryId: category.id,
-                players: players,
+                players: visiblePlayers,
                 saved: _savedAlignments,
                 onCategory: (value) => setState(() => _categoryId = value),
                 onCreate: _createNew,

@@ -12,6 +12,7 @@ import '../services/attendance_stats_service.dart';
 import '../services/export_download_service.dart';
 import '../services/export_text_service.dart';
 import '../services/offline_mutation_service.dart';
+import '../services/plantel_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
@@ -32,6 +33,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   String? _loadedKey;
   String _search = '';
   final Set<String> _migrationChecked = {};
+  final Set<String> _selectedPlantelIds = {};
 
   @override
   void dispose() {
@@ -69,6 +71,9 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       }
     }
     if (stored != null) {
+      _selectedPlantelIds
+        ..clear()
+        ..addAll(stored.plantelIds);
       _noteController.text = stored.note;
       for (final player in players) {
         _statusById[player.id] = stored.effectiveStatus(player.id);
@@ -110,7 +115,12 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   void _saveAttendance(CanteraClub club, CategorySquad category) {
     final day = DateTime.now().toIso8601String().substring(0, 10);
     final rosterIds = club.players
-        .where((player) => player.categoryId == category.id)
+        .where(
+          (player) =>
+              player.categoryId == category.id &&
+              (_selectedPlantelIds.isEmpty ||
+                  _selectedPlantelIds.contains(player.plantelId)),
+        )
         .map((player) => player.id)
         .toList();
     final statusByPlayer = {
@@ -122,6 +132,9 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final record = AttendanceRecord(
       categoryId: category.id,
       date: day,
+      plantelIds: isLudCategoryId(category.id)
+          ? const []
+          : _selectedPlantelIds.toList(),
       presentIds: presentIds,
       rosterIds: rosterIds,
       statusByPlayer: statusByPlayer,
@@ -328,6 +341,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       existingNames: normalizedPlayerNames(
         club.players.where((p) => p.categoryId == category.id),
       ),
+      planteles: plantelesForCategory(club, category.id),
     );
     if (player == null) return;
     final nextPlayers = [...club.players, player];
@@ -377,11 +391,21 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
         ),
       );
     }
-    final players = club.players
+    final categoryPlayers = club.players
         .where((player) => player.categoryId == category.id)
         .toList();
+    final planteles = club.isManualClub
+        ? plantelesForCategory(club, category.id)
+        : const <Plantel>[];
     _migrateLegacy(club, category);
-    _load(club, category, players);
+    _load(club, category, categoryPlayers);
+    _selectedPlantelIds.removeWhere(
+      (id) => !planteles.any((plantel) => plantel.id == id),
+    );
+    final players = rosterForSelectedPlanteles(
+      categoryPlayers: categoryPlayers,
+      selectedPlantelIds: _selectedPlantelIds,
+    ).map((id) => categoryPlayers.firstWhere((p) => p.id == id)).toList();
     final present = players
         .where((player) => _statusOf(player.id).attended)
         .length;
@@ -399,7 +423,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
           ],
         ),
       ),
-      body: players.isEmpty
+      body: categoryPlayers.isEmpty
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -422,6 +446,36 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(18, 10, 18, 30),
               children: [
+                if (planteles.isNotEmpty) ...[
+                  const PremiumSectionHeader(
+                    eyebrow: 'GRUPO DE HOY',
+                    title: 'Planteles convocados',
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilterChip(
+                        label: const Text('Toda la categoría'),
+                        selected: _selectedPlantelIds.isEmpty,
+                        onSelected: (_) => setState(_selectedPlantelIds.clear),
+                      ),
+                      for (final plantel in planteles)
+                        FilterChip(
+                          label: Text(plantel.name),
+                          selected: _selectedPlantelIds.contains(plantel.id),
+                          onSelected: (selected) => setState(() {
+                            if (selected) {
+                              _selectedPlantelIds.add(plantel.id);
+                            } else {
+                              _selectedPlantelIds.remove(plantel.id);
+                            }
+                          }),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 _AttendanceSummary(present: present, total: players.length),
                 const SizedBox(height: 12),
                 Wrap(

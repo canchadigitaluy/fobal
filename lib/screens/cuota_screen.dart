@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
+import '../services/plantel_service.dart';
 import '../services/training_note_parser.dart';
 import '../state/section_handoff.dart';
 import '../ui/exercise_animation_preview.dart';
@@ -163,7 +164,12 @@ class _CuotaScreenState extends State<CuotaScreen> {
     final scope = AppScope.of(context);
     final updated = await showDialog<Player>(
       context: context,
-      builder: (context) => _PlayerEditDialog(player: player),
+      builder: (context) => _PlayerEditDialog(
+        player: player,
+        planteles: club.isManualClub
+            ? plantelesForCategory(club, player.categoryId)
+            : const [],
+      ),
     );
     if (updated == null) return;
 
@@ -2735,14 +2741,16 @@ class _PlayerTile extends StatelessWidget {
 
 class _PlayerEditDialog extends StatefulWidget {
   final Player player;
+  final List<Plantel> planteles;
 
-  const _PlayerEditDialog({required this.player});
+  const _PlayerEditDialog({required this.player, required this.planteles});
 
   @override
   State<_PlayerEditDialog> createState() => _PlayerEditDialogState();
 }
 
 class _PlayerEditDialogState extends State<_PlayerEditDialog> {
+  late String _plantelId = widget.player.plantelId;
   late final TextEditingController _position = TextEditingController(
     text: widget.player.position,
   );
@@ -2839,6 +2847,27 @@ class _PlayerEditDialogState extends State<_PlayerEditDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (widget.planteles.isNotEmpty) ...[
+                DropdownButtonFormField<String>(
+                  initialValue: widget.planteles.any((p) => p.id == _plantelId)
+                      ? _plantelId
+                      : '',
+                  decoration: const InputDecoration(labelText: 'Plantel'),
+                  items: [
+                    const DropdownMenuItem(
+                      value: '',
+                      child: Text('Sin plantel específico'),
+                    ),
+                    for (final plantel in widget.planteles)
+                      DropdownMenuItem(
+                        value: plantel.id,
+                        child: Text(plantel.name),
+                      ),
+                  ],
+                  onChanged: (value) => setState(() => _plantelId = value ?? ''),
+                ),
+                const SizedBox(height: 12),
+              ],
               _PositionPresetRow(
                 onSelected: (value) => setState(() => _position.text = value),
               ),
@@ -2940,6 +2969,7 @@ class _PlayerEditDialogState extends State<_PlayerEditDialog> {
             Navigator.pop(
               context,
               widget.player.copyWith(
+                plantelId: _plantelId,
                 position: _position.text.trim(),
                 secondaryPositions: _secondary.text.trim(),
                 dominantFoot: _foot.text.trim(),

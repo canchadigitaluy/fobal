@@ -156,6 +156,47 @@ void main() {
     expect(restored.attendanceRecords.single.note, 'Lluvia');
   });
 
+  test('planteles and their roster scope survive the club round-trip', () {
+    final scoped = club.copyWith(
+      planteles: const [
+        Plantel(id: 'pl-1', categoryId: 'cat-1', name: 'Competencia'),
+      ],
+      players: const [
+        Player(
+          id: 'p1',
+          categoryId: 'cat-1',
+          plantelId: 'pl-1',
+          firstName: 'Ana',
+          lastName: 'Pérez',
+          age: 15,
+          position: 'Volante',
+          secondaryPositions: '',
+          dominantFoot: 'Derecho',
+          status: 'Activo',
+          attendanceRate: 1,
+          trend: '',
+          note: '',
+        ),
+      ],
+      attendanceRecords: const [
+        AttendanceRecord(
+          categoryId: 'cat-1',
+          date: '2026-09-09',
+          plantelIds: ['pl-1'],
+          presentIds: ['p1'],
+          rosterIds: ['p1'],
+        ),
+      ],
+    );
+
+    final restored = ClubBackupCodec.parseClubJson(
+      ClubBackupCodec.exportJson(scoped),
+    )!;
+    expect(restored.planteles.single.name, 'Competencia');
+    expect(restored.players.single.plantelId, 'pl-1');
+    expect(restored.attendanceRecords.single.plantelIds, ['pl-1']);
+  });
+
   test('MatchStats computes standings-style numbers from manual results', () {
     final results = [
       res('2026-08-30', 'A', 3, 1), // G

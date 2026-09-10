@@ -1,0 +1,357 @@
+import 'package:flutter/material.dart';
+
+import '../data/cantera_data.dart';
+import '../main.dart';
+import '../services/attendance_stats_service.dart';
+import '../services/plantel_service.dart';
+import '../services/week_view_service.dart';
+import '../ui/ui_kit.dart';
+
+class WeekScreen extends StatefulWidget {
+  const WeekScreen({super.key});
+
+  @override
+  State<WeekScreen> createState() => _WeekScreenState();
+}
+
+class _WeekScreenState extends State<WeekScreen> {
+  DateTime _week = weekStart(DateTime.now());
+  bool _byPlayer = false;
+  String _plantelId = '';
+
+  String _day(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final club = AppScope.of(context).club;
+    final selectedId = AppScope.of(context).selectedCategoryId;
+    CategorySquad? category;
+    for (final item in club.categories) {
+      if (item.id == selectedId) {
+        category = item;
+        break;
+      }
+    }
+    if (category == null) {
+      return const Scaffold(
+        body: Center(
+          child: EmptyStatePanel(
+            icon: Icons.date_range_outlined,
+            title: 'Primero elegí una categoría',
+            message: 'La semana se organiza dentro de la categoría activa.',
+          ),
+        ),
+      );
+    }
+    final activeCategory = category;
+    final planteles = club.isManualClub
+        ? plantelesForCategory(club, activeCategory.id)
+        : const <Plantel>[];
+    final players = club.players
+        .where(
+          (p) =>
+              p.categoryId == activeCategory.id &&
+              (_plantelId.isEmpty || p.plantelId == _plantelId),
+        )
+        .toList();
+    final playerIds = players.map((p) => p.id).toSet();
+    final attendance =
+        attendanceForWeek(
+          club.attendanceRecords,
+          _week,
+          categoryId: activeCategory.id,
+        ).where((record) {
+          if (_plantelId.isEmpty) return true;
+          return record.rosterIds.any(playerIds.contains);
+        }).toList();
+    final matches = matchesForWeek(
+      club.matchResults,
+      _week,
+      categoryId: activeCategory.id,
+    );
+    final rates = attendance.map(attendanceRecordRate).whereType<double>();
+    final average = rates.isEmpty
+        ? null
+        : rates.reduce((a, b) => a + b) / rates.length;
+    final minutes = minutesForWeek(matches);
+    final days = daysOfWeek(_week);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Semana'),
+            Text(
+              'Carga, asistencia y competencia',
+              style: TextStyle(fontSize: 10, color: CX.faint),
+            ),
+          ],
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 30),
+        children: [
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Semana anterior',
+                onPressed: () => setState(
+                  () => _week = _week.subtract(const Duration(days: 7)),
+                ),
+                icon: const Icon(Icons.chevron_left),
+              ),
+              Expanded(
+                child: Text(
+                  '${_day(days.first)} al ${_day(days.last)}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () =>
+                    setState(() => _week = weekStart(DateTime.now())),
+                child: const Text('Hoy'),
+              ),
+              IconButton(
+                tooltip: 'Semana siguiente',
+                onPressed: () =>
+                    setState(() => _week = _week.add(const Duration(days: 7))),
+                icon: const Icon(Icons.chevron_right),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(
+                value: false,
+                icon: Icon(Icons.view_agenda_outlined),
+                label: Text('Agenda'),
+              ),
+              ButtonSegment(
+                value: true,
+                icon: Icon(Icons.people_outline),
+                label: Text('Por jugador'),
+              ),
+            ],
+            selected: {_byPlayer},
+            onSelectionChanged: (value) =>
+                setState(() => _byPlayer = value.first),
+          ),
+          if (planteles.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Todos'),
+                  selected: _plantelId.isEmpty,
+                  onSelected: (_) => setState(() => _plantelId = ''),
+                ),
+                for (final plantel in planteles)
+                  ChoiceChip(
+                    label: Text(plantel.name),
+                    selected: _plantelId == plantel.id,
+                    onSelected: (_) => setState(() => _plantelId = plantel.id),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 18),
+          MetricGrid(
+            tiles: [
+              MetricTile(
+                icon: Icons.fitness_center,
+                value: '${attendance.length}',
+                label: 'Prácticas',
+                context: 'registradas esta semana',
+                accent: CX.green,
+              ),
+              MetricTile(
+                icon: Icons.how_to_reg,
+                value: average == null ? '—' : '${(average * 100).round()}%',
+                label: 'Asistencia',
+                context: average == null ? 'sin registros' : 'promedio semanal',
+                accent: CX.blue,
+              ),
+              MetricTile(
+                icon: Icons.sports_soccer,
+                value: '${matches.length}',
+                label: 'Partidos',
+                context: 'registrados esta semana',
+                accent: CX.amber,
+              ),
+              MetricTile(
+                icon: Icons.timer_outlined,
+                value: minutes == null ? '—' : '$minutes',
+                label: 'Minutos',
+                context: minutes == null ? 'sin carga' : 'acumulados',
+                accent: CX.red,
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (attendance.isEmpty && matches.isEmpty)
+            const EmptyStatePanel(
+              icon: Icons.event_available_outlined,
+              title: 'Semana sin actividad registrada',
+              message:
+                  'Las prácticas y los partidos aparecerán acá cuando los registres.',
+            )
+          else if (_byPlayer)
+            _PlayerMatrix(
+              players: players,
+              days: days,
+              attendance: attendance,
+              matches: matches,
+            )
+          else
+            _Agenda(attendance: attendance, matches: matches),
+        ],
+      ),
+    );
+  }
+}
+
+class _Agenda extends StatelessWidget {
+  final List<AttendanceRecord> attendance;
+  final List<MatchResult> matches;
+  const _Agenda({required this.attendance, required this.matches});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <({String date, Widget child})>[
+      for (final record in attendance)
+        (
+          date: record.date,
+          child: ListTile(
+            leading: const Icon(Icons.fitness_center),
+            title: const Text('Práctica'),
+            subtitle: Text(
+              '${record.rosterIds.where((id) => record.effectiveStatus(id).attended).length}/${record.rosterIds.where((id) => record.effectiveStatus(id).expected).length} asistieron',
+            ),
+            trailing: Text(record.date),
+          ),
+        ),
+      for (final match in matches)
+        (
+          date: match.date,
+          child: ListTile(
+            leading: const Icon(Icons.sports_soccer),
+            title: Text('vs ${match.opponent}'),
+            subtitle: Text(
+              '${match.goalsFor}-${match.goalsAgainst} · ${match.venueLabel}',
+            ),
+            trailing: Text(
+              match.minutesByPlayer.isEmpty
+                  ? '— min'
+                  : '${match.minutesByPlayer.values.fold(0, (a, b) => a + b)} min',
+            ),
+          ),
+        ),
+    ]..sort((a, b) => a.date.compareTo(b.date));
+    return Material(
+      type: MaterialType.transparency,
+      child: Container(
+        decoration: CX.panelDecoration(),
+        child: Column(children: [for (final item in items) item.child]),
+      ),
+    );
+  }
+}
+
+class _PlayerMatrix extends StatelessWidget {
+  final List<Player> players;
+  final List<DateTime> days;
+  final List<AttendanceRecord> attendance;
+  final List<MatchResult> matches;
+  const _PlayerMatrix({
+    required this.players,
+    required this.days,
+    required this.attendance,
+    required this.matches,
+  });
+
+  String _key(DateTime date) => date.toIso8601String().split('T').first;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        columns: [
+          const DataColumn(label: Text('Jugador')),
+          for (final day in days)
+            DataColumn(label: Text('${day.day}/${day.month}')),
+        ],
+        rows: [
+          for (final player in players)
+            DataRow(
+              cells: [
+                DataCell(
+                  Text(
+                    player.fullName,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                for (final day in days)
+                  DataCell(
+                    _DayCell(
+                      playerId: player.id,
+                      date: _key(day),
+                      attendance: attendance,
+                      matches: matches,
+                    ),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DayCell extends StatelessWidget {
+  final String playerId;
+  final String date;
+  final List<AttendanceRecord> attendance;
+  final List<MatchResult> matches;
+  const _DayCell({
+    required this.playerId,
+    required this.date,
+    required this.attendance,
+    required this.matches,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    for (final record in attendance) {
+      if (record.date == date && record.rosterIds.contains(playerId)) {
+        final status = record.effectiveStatus(playerId);
+        return Tooltip(
+          message: status.label,
+          child: Icon(
+            attendanceStatusIcon(status),
+            color: attendanceStatusColor(status),
+            size: 18,
+          ),
+        );
+      }
+    }
+    for (final match in matches) {
+      if (match.date == date && match.lineupIds.contains(playerId)) {
+        final minutes = match.minutesByPlayer[playerId];
+        return Text(
+          minutes == null ? 'J' : '$minutes′',
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        );
+      }
+    }
+    return const Text('—', style: TextStyle(color: CX.faint));
+  }
+}

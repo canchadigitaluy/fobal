@@ -61,7 +61,7 @@ class LineupHint {
 /// Plain shortcuts the dashboard can jump to. The shell resolves each to the
 /// right section for the current layout (LUD vs No-LUD), so no screen hardcodes
 /// a navigation index.
-enum ShellSection { myTeam, planner, calendar, attendance, stats, lineup }
+enum ShellSection { myTeam, planner, calendar, attendance, stats, week, lineup }
 
 /// Turns a performance read into one concrete training focus. Deterministic;
 /// never invents numbers. Returns null when nothing is clearly off — in that

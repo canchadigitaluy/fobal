@@ -21,6 +21,7 @@ import 'screens/calendario_screen.dart';
 import 'screens/mi_equipo_screen.dart';
 import 'screens/tactica_screen.dart';
 import 'screens/estadisticas_screen.dart';
+import 'screens/week_screen.dart';
 import 'services/club_access_service.dart';
 import 'services/account_identity_service.dart';
 import 'services/club_backup_service.dart';
@@ -1913,6 +1914,8 @@ class _MainShellState extends State<MainShell> {
         }
       case ShellSection.stats:
         _setIndex(_indexOfScreen<EstadisticasScreen>());
+      case ShellSection.week:
+        _setIndex(_indexOfScreen<WeekScreen>());
       case ShellSection.lineup:
         _setIndex(_indexOfScreen<AlineacionScreen>());
     }
@@ -1953,6 +1956,7 @@ class _MainShellState extends State<MainShell> {
       Icons.view_module,
       'Alineación & citaciones',
     ),
+    _ShellItem(Icons.date_range_outlined, Icons.date_range, 'Semana'),
   ];
 
   void _goTo(int index) {
@@ -2061,6 +2065,7 @@ class _MainShellState extends State<MainShell> {
       'Calendario',
       'Asistencia',
       'Estadísticas',
+      'Semana',
       'Alineación & citaciones',
     ];
     return fallback;
@@ -2073,6 +2078,7 @@ class _MainShellState extends State<MainShell> {
     'Calendario' => const CalendarioScreen(),
     'Asistencia' => const AsistenciaScreen(),
     'Estadísticas' => const EstadisticasScreen(),
+    'Semana' => const WeekScreen(),
     'Alineación & citaciones' => AlineacionScreen(onBack: () => _goTo(0)),
     _ => const MiEquipoScreen(),
   };
@@ -2082,6 +2088,7 @@ class _MainShellState extends State<MainShell> {
     TacticaScreen(key: _tacticaKey),
     if (external) const CalendarioScreen(),
     if (!external) const EstadisticasScreen(),
+    const WeekScreen(),
     if (!external && role == UserRole.coordinator)
       const ConfiguracionClubScreen(),
     if (role != UserRole.viewer) AlineacionScreen(onBack: () => _goTo(0)),
@@ -2105,20 +2112,28 @@ class _MainShellState extends State<MainShell> {
             _allItems[3],
             _allItems[4],
             _allItems[5],
+            _allItems[8],
             _allItems[7],
           ].where((item) => externalLabels.contains(item.label)).toList()
         : switch (role) {
-            UserRole.viewer => [_allItems[0], _allItems[2], _allItems[5]],
+            UserRole.viewer => [
+              _allItems[0],
+              _allItems[2],
+              _allItems[5],
+              _allItems[8],
+            ],
             UserRole.coach => [
               _allItems[0],
               _allItems[2],
               _allItems[5],
+              _allItems[8],
               _allItems[7],
             ],
             UserRole.coordinator => [
               _allItems[0],
               _allItems[2],
               _allItems[5],
+              _allItems[8],
               _allItems[6],
               _allItems[7],
             ],

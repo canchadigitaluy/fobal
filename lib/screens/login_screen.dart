@@ -466,8 +466,10 @@ class _ModernLoginView extends StatelessWidget {
     );
     return Scaffold(
       backgroundColor: const Color(0xFF07110D),
-      body: desktop
-          ? Stack(
+      body: Stack(
+        children: [
+          if (desktop)
+            Stack(
               children: [
                 const Positioned.fill(child: _ProductStory()),
                 Positioned(
@@ -513,7 +515,28 @@ class _ModernLoginView extends StatelessWidget {
                 ),
               ],
             )
-          : Center(child: form),
+          else
+            Center(child: form),
+          // Deliberately unlabeled — the real door is /api/admin-accounts,
+          // which re-checks platform_admins server-side either way.
+          Positioned(
+            right: 10,
+            bottom: 10,
+            child: InkWell(
+              onTap: () => Navigator.pushNamed(context, '/admin'),
+              customBorder: const CircleBorder(),
+              child: Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: .05),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

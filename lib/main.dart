@@ -11,6 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'data/cantera_data.dart';
 import 'screens/access_gate_screen.dart';
+import 'screens/admin_pin_screen.dart';
 import 'screens/alineacion_screen.dart';
 import 'screens/asistencia_screen.dart';
 import 'screens/configuracion_club_screen.dart';
@@ -992,6 +993,7 @@ class _CanteraAppState extends State<CanteraApp> {
           '/auth-lud': (context) => const _PostAuthRedirect(localMode: false),
           '/auth-local': (context) => const _PostAuthRedirect(localMode: true),
           '/access': (context) => const AccessGateScreen(),
+          '/admin': (context) => const AdminPinScreen(),
           '/local-entry': (context) => const _LocalEntryRoute(),
           '/local-setup': (context) => const LocalCoachSetupScreen(),
           '/local-home': (context) => const _LocalHomeRoute(),

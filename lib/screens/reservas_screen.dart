@@ -60,8 +60,10 @@ class _ReservasScreenState extends State<ReservasScreen> {
   String? _opponentError;
   String _fixtureContext = '';
   List<LudFixtureMatch> _fixtureMatches = const [];
+  List<TrainingSession> _matchPlans = const [];
   final Map<String, _FixtureMemory> _fixtureMemoryByCategory = {};
   final Set<String> _draftHydratedKeys = {};
+  String? _hydratedClubId;
 
   final TextEditingController _transcriptController = TextEditingController(
     text: '',
@@ -75,6 +77,11 @@ class _ReservasScreenState extends State<ReservasScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final clubId = AppScope.of(context).club.id;
+    if (_hydratedClubId != clubId) {
+      _hydratedClubId = clubId;
+      Future<void>.microtask(_loadMatchPlans);
+    }
     if (_handoffApplied) return;
     final actions = ShellActions.maybeOf(context);
     if (actions == null) return;
@@ -97,6 +104,29 @@ class _ReservasScreenState extends State<ReservasScreen> {
       _handoffOrigin = prep.origin.isEmpty ? 'Estadísticas' : prep.origin;
       _handoffContext = prep.rivalContext.trim();
       _handoffCalendarEventId = prep.calendarEventId;
+    }
+  }
+
+  Future<void> _loadMatchPlans() async {
+    try {
+      final records = await ClubAccessService.loadTacticalData(limit: 100);
+      if (!mounted) return;
+      final plans = <TrainingSession>[];
+      for (final record in records) {
+        if (record.type != 'match_plan') continue;
+        try {
+          final plan = TrainingSession.fromJson(record.content);
+          if (plan.id.isNotEmpty && plan.categoryId.isNotEmpty) {
+            plans.add(plan);
+          }
+        } catch (_) {
+          // One malformed remote plan should not hide the local planner.
+        }
+      }
+      setState(() => _matchPlans = plans);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _matchPlans = const []);
     }
   }
 
@@ -299,6 +329,10 @@ class _ReservasScreenState extends State<ReservasScreen> {
       setState(() {
         _generatedTactic = tactic;
         _generatingTactic = false;
+        _matchPlans = [
+          tactic,
+          ..._matchPlans.where((item) => item.id != tactic.id),
+        ];
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -367,6 +401,36 @@ class _ReservasScreenState extends State<ReservasScreen> {
       automatic: suggestedSquadProfile,
     );
     final activeFixtureContext = _fixtureContextFor(category);
+    final sessions = club.sessions
+        .where((item) => item.categoryId == category.id)
+        .toList();
+    final plannedSessions = sessions
+        .where((session) => session.status != 'completed')
+        .toList();
+    final completedSessions = sessions
+        .where((session) => session.status == 'completed')
+        .toList();
+    final matchPlans = _matchPlans
+        .where((item) => item.categoryId == category.id)
+        .toList();
+    final matchPreparations = club.matchPreparations
+        .where((item) => item.categoryId == category.id)
+        .toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    MatchPreparation? nextPreparation;
+    for (final item in matchPreparations) {
+      if (item.date.isEmpty || item.date.compareTo(today) >= 0) {
+        nextPreparation = item;
+        break;
+      }
+    }
+    nextPreparation ??= matchPreparations.isEmpty ? null : matchPreparations.last;
+    final reports = club.trainingReports
+        .where((item) => item.categoryId == category.id)
+        .toList()
+      ..sort((a, b) =>
+          trainingReportDate(b.date).compareTo(trainingReportDate(a.date)));
     _ensureFixtureLoaded(category);
 
     return Scaffold(
@@ -424,6 +488,55 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   ),
                 ],
                 const SizedBox(height: 16),
+                if (matchPlans.isNotEmpty) ...[
+                  const _SectionTitle('Plan de partido guardado'),
+                  const SizedBox(height: 10),
+                  _MatchPlanPanel(plans: matchPlans),
+                  const SizedBox(height: 16),
+                ] else if (nextPreparation != null) ...[
+                  const _SectionTitle('Proximo partido guardado'),
+                  const SizedBox(height: 10),
+                  _MatchPreparationSummaryPanel(prep: nextPreparation),
+                  const SizedBox(height: 16),
+                ],
+                const _SectionTitle('Proximas sesiones'),
+                const SizedBox(height: 10),
+                if (plannedSessions.isEmpty)
+                  const _PlanningEmptyPanel(
+                    icon: Icons.event_note_outlined,
+                    title: 'Sin sesiones planificadas',
+                    message:
+                        'Arma una sesion con el generador o desde el builder manual.',
+                  )
+                else
+                  _SessionTimeline(
+                    sessions: plannedSessions,
+                    canEdit: canGenerate,
+                    onChanged: (session) => _updateSession(club, session),
+                  ),
+                if (completedSessions.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const _SectionTitle('Sesiones completadas'),
+                  const SizedBox(height: 10),
+                  _CompletedSessionsList(
+                    sessions: completedSessions,
+                    canEdit: canGenerate,
+                    onReopen: (session) => _updateSession(
+                      club,
+                      session.copyWith(status: 'planned'),
+                    ),
+                  ),
+                ],
+                if (reports.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const _SectionTitle('Ultima lectura de campo'),
+                  const SizedBox(height: 10),
+                  for (final report in reports.take(2)) ...[
+                    _ReportCard(report: report),
+                    const SizedBox(height: 10),
+                  ],
+                ],
+                const SizedBox(height: 18),
                 Row(
                   children: [
                     const Expanded(child: _SectionTitle('Próximo partido')),
@@ -1043,6 +1156,1138 @@ class _ReservasScreenState extends State<ReservasScreen> {
     );
   }
 
+  Future<void> _updateSession(CanteraClub club, TrainingSession session) async {
+    final updated = club.sessions
+        .map((item) => item.id == session.id ? session : item)
+        .toList();
+    AppScope.of(context).updateClub(club.copyWith(sessions: updated));
+    var synced = false;
+    try {
+      synced = await ClubAccessService.updateSession(session);
+    } catch (_) {
+      synced = false;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          synced
+              ? 'Planificacion actualizada para el club.'
+              : 'Planificacion actualizada en este dispositivo.',
+        ),
+      ),
+    );
+  }
+
+}
+
+class _SessionTimeline extends StatelessWidget {
+  final List<TrainingSession> sessions;
+  final bool canEdit;
+  final ValueChanged<TrainingSession> onChanged;
+
+  const _SessionTimeline({
+    required this.sessions,
+    required this.canEdit,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ordered = [...sessions]
+      ..sort((a, b) {
+        final aDate = DateTime.tryParse(a.scheduledDate);
+        final bDate = DateTime.tryParse(b.scheduledDate);
+        if (aDate == null && bDate == null) return 0;
+        if (aDate == null) return 1;
+        if (bDate == null) return -1;
+        return aDate.compareTo(bDate);
+      });
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: CX.greenDark.withValues(alpha: .45),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.green.withValues(alpha: .24)),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
+        children: ordered
+            .take(3)
+            .map(
+              (session) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _SessionTimelineItem(
+                  session: session,
+                  overdue: _isOverdue(session),
+                  formattedDate: _formatDate(session.scheduledDate),
+                  canEdit: canEdit,
+                  onChanged: onChanged,
+                ),
+              ),
+            )
+            .toList(),
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(String value) {
+    final date = DateTime.tryParse(value);
+    if (date == null) return value;
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  bool _isOverdue(TrainingSession session) {
+    final date = DateTime.tryParse(session.scheduledDate);
+    if (date == null) return false;
+    final today = DateTime.now();
+    final startOfToday = DateTime(today.year, today.month, today.day);
+    return date.isBefore(startOfToday);
+  }
+}
+
+class _PlanningEmptyPanel extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+
+  const _PlanningEmptyPanel({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return EmptyStatePanel(icon: icon, title: title, message: message);
+  }
+}
+
+class _ReportCard extends StatelessWidget {
+  final TrainingReport report;
+  const _ReportCard({required this.report});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(18),
+    decoration: CX.panelDecoration(),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${report.attendanceCount}/${report.totalPlayers} presentes  -  ${report.date}',
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        if (report.objectiveWorked.trim().isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            report.objectiveWorked,
+            style: const TextStyle(color: CX.muted, fontSize: 12),
+          ),
+        ],
+        if (report.whatWentWell.trim().isNotEmpty)
+          _reportLine('LO QUE FUNCIONO', report.whatWentWell, CX.green),
+        if (report.whatWentWrong.trim().isNotEmpty)
+          _reportLine('A CORREGIR', report.whatWentWrong, CX.amber),
+        if (report.highlightedPlayers.isNotEmpty)
+          _reportLine(
+            'DESTACADOS',
+            report.highlightedPlayers.join(', '),
+            CX.blue,
+          ),
+        if (report.injuries.isNotEmpty)
+          _reportLine('MOLESTIAS/LESIONES', report.injuries.join(', '), CX.red),
+        if (report.nextRecommendation.trim().isNotEmpty)
+          _reportLine('SIGUIENTE DECISION', report.nextRecommendation, CX.green),
+      ],
+    ),
+  );
+
+  static Widget _reportLine(String label, String value, Color color) => Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                  color: color, fontSize: 9, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            Text(value, style: const TextStyle(fontSize: 12.5, height: 1.4)),
+          ],
+        ),
+      );
+}
+
+class _SessionTimelineItem extends StatelessWidget {
+  final TrainingSession session;
+  final bool overdue;
+  final String formattedDate;
+  final bool canEdit;
+  final ValueChanged<TrainingSession> onChanged;
+
+  const _SessionTimelineItem({
+    required this.session,
+    required this.overdue,
+    required this.formattedDate,
+    required this.canEdit,
+    required this.onChanged,
+  });
+
+  void _showBlockAnimation(
+    BuildContext context,
+    TrainingSession session,
+    TrainingBlock block,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(20),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        block.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ExerciseAnimationPreview(
+                  scene: block.sceneOrFallback(
+                    space: session.space,
+                    playerCount: session.playerCount,
+                  ),
+                  title: '${session.title} ${block.name}',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          session.objective,
+          style: const TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
+        ),
+        const SizedBox(height: 13),
+        _SessionActionHint(session: session),
+        if (session.coachCues.isNotEmpty ||
+            session.successIndicators.isNotEmpty ||
+            session.limitations.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _SessionStaffBrief(session: session),
+        ],
+        const SizedBox(height: 13),
+        Wrap(
+          spacing: 7,
+          runSpacing: 7,
+          children: [
+            _Tag('${session.duration} min'),
+            _Tag(session.space),
+            _Tag('${session.playerCount} jugadores'),
+            if (session.scheduledDate.isNotEmpty) _Tag(formattedDate),
+            _Tag(overdue ? 'Pasada' : 'Planificada'),
+          ],
+        ),
+        if (session.blocks.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          ...session.blocks
+              .take(4)
+              .map(
+                (block) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 5,
+                        height: 5,
+                        margin: const EdgeInsets.only(top: 6),
+                        decoration: const BoxDecoration(
+                          color: CX.green,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          '${block.name}  -  ${block.duration}\n${block.description}',
+                          style: const TextStyle(fontSize: 11, height: 1.45),
+                        ),
+                      ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(0, 30),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        icon: const Icon(Icons.animation, size: 15),
+                        label: const Text(
+                          'Animación',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                        onPressed: () =>
+                            _showBlockAnimation(context, session, block),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+        ],
+      ],
+    );
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(top: 8),
+        initiallyExpanded: !overdue,
+        leading: const Icon(
+          Icons.event_note_outlined,
+          color: CX.green,
+          size: 18,
+        ),
+        title: Text(
+          session.title,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+        ),
+        subtitle: overdue
+            ? Text(
+                session.objective,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: CX.faint, fontSize: 11),
+              )
+            : null,
+        trailing: canEdit
+            ? PopupMenuButton<String>(
+                tooltip: 'Gestionar sesion',
+                icon: const Icon(Icons.more_vert, size: 20),
+                onSelected: (action) async {
+                  if (action == 'date') {
+                    final initial =
+                        DateTime.tryParse(session.scheduledDate) ??
+                        DateTime.now();
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: initial,
+                      firstDate: DateTime.now().subtract(
+                        const Duration(days: 30),
+                      ),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (picked != null) {
+                      onChanged(
+                        session.copyWith(
+                          scheduledDate: picked
+                              .toIso8601String()
+                              .split('T')
+                              .first,
+                          status: 'planned',
+                        ),
+                      );
+                    }
+                  } else if (action == 'complete') {
+                    onChanged(session.copyWith(status: 'completed'));
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'date', child: Text('Elegir fecha')),
+                  PopupMenuItem(
+                    value: 'complete',
+                    child: Text('Marcar completada'),
+                  ),
+                ],
+              )
+            : null,
+        children: [body],
+      ),
+    );
+  }
+}
+
+class _SessionStaffBrief extends StatelessWidget {
+  final TrainingSession session;
+
+  const _SessionStaffBrief({required this.session});
+
+  @override
+  Widget build(BuildContext context) {
+    final cue = session.coachCues.isEmpty ? '' : session.coachCues.first;
+    final indicator = session.successIndicators.isEmpty
+        ? ''
+        : session.successIndicators.first;
+    final limitation = session.limitations.isEmpty
+        ? ''
+        : session.limitations.first;
+    final items = [
+      if (cue.isNotEmpty)
+        _StaffBriefItem(Icons.record_voice_over_outlined, 'Decir', cue),
+      if (indicator.isNotEmpty)
+        _StaffBriefItem(Icons.track_changes_outlined, 'Mirar', indicator),
+      if (limitation.isNotEmpty)
+        _StaffBriefItem(Icons.warning_amber_outlined, 'Cuidar', limitation),
+    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: CX.panel2.withValues(alpha: .65),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.line),
+      ),
+      child: Column(
+        children: items
+            .map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(item.icon, color: CX.green, size: 15),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 44,
+                      child: Text(
+                        item.label,
+                        style: const TextStyle(
+                          color: CX.faint,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        item.text,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: CX.muted,
+                          fontSize: 10,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _StaffBriefItem {
+  final IconData icon;
+  final String label;
+  final String text;
+
+  const _StaffBriefItem(this.icon, this.label, this.text);
+}
+
+class _SessionActionHint extends StatelessWidget {
+  final TrainingSession session;
+
+  const _SessionActionHint({required this.session});
+
+  @override
+  Widget build(BuildContext context) {
+    final date = DateTime.tryParse(session.scheduledDate);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dateOnly = date == null
+        ? null
+        : DateTime(date.year, date.month, date.day);
+    final overdue = dateOnly != null && dateOnly.isBefore(today);
+    final todaySession = dateOnly != null && dateOnly.isAtSameMomentAs(today);
+    final missingDate = session.scheduledDate.trim().isEmpty || date == null;
+    final color = overdue || missingDate
+        ? CX.amber
+        : todaySession
+        ? CX.green
+        : CX.blue;
+    final icon = overdue
+        ? Icons.update_outlined
+        : missingDate
+        ? Icons.event_busy_outlined
+        : todaySession
+        ? Icons.play_circle_outline
+        : Icons.event_available_outlined;
+    final title = overdue
+        ? 'Reprogramar o cerrar'
+        : missingDate
+        ? 'Asignar fecha'
+        : todaySession
+        ? 'Ejecutar hoy'
+        : 'Preparada';
+    final detail = overdue
+        ? 'Esta sesion quedo vencida; conviene marcarla completada o elegir una nueva fecha.'
+        : missingDate
+        ? 'Sin fecha clara, la agenda no puede ordenar prioridades del cuerpo tecnico.'
+        : todaySession
+        ? 'Abrir consignas y checklist antes de salir a cancha.'
+        : 'La sesion esta ordenada para una fecha futura.';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: .2)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 17),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detail,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: CX.muted,
+                    fontSize: 10,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MatchPreparationSummaryPanel extends StatelessWidget {
+  final MatchPreparation prep;
+
+  const _MatchPreparationSummaryPanel({required this.prep});
+
+  @override
+  Widget build(BuildContext context) {
+    final rival = prep.rival.isEmpty ? 'Rival a definir' : prep.rival;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: CX.greenDark.withValues(alpha: .36),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.green.withValues(alpha: .24)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 18,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.assignment_outlined, color: CX.green, size: 20),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  'vs $rival',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (prep.planObjective.isNotEmpty) ...[
+            const SizedBox(height: 9),
+            Text(
+              prep.planObjective,
+              style: const TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [
+              if (prep.date.isNotEmpty) _Tag(prep.date),
+              if (prep.time.isNotEmpty) _Tag(prep.time),
+              if (prep.venue.isNotEmpty)
+                _Tag(prep.venue == 'local' ? 'Local' : 'Visitante'),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: () => openMatchPreparation(
+                context,
+                calendarEventId: prep.calendarEventId,
+                rival: prep.rival,
+                date: prep.date,
+                time: prep.time,
+              ),
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: const Text('Ver panel de partido'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MatchPlanPanel extends StatelessWidget {
+  final List<TrainingSession> plans;
+
+  const _MatchPlanPanel({required this.plans});
+
+  @override
+  Widget build(BuildContext context) {
+    final ordered = [...plans]
+      ..sort((a, b) {
+        final aDate = DateTime.tryParse(a.scheduledDate);
+        final bDate = DateTime.tryParse(b.scheduledDate);
+        if (aDate == null && bDate == null) return 0;
+        if (aDate == null) return 1;
+        if (bDate == null) return -1;
+        return aDate.compareTo(bDate);
+      });
+    final plan = ordered.first;
+    final keyBlocks = plan.blocks.take(4).toList();
+    final firstCue = plan.coachCues.isEmpty ? '' : plan.coachCues.first;
+    final firstIndicator = plan.successIndicators.isEmpty
+        ? ''
+        : plan.successIndicators.first;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: CX.greenDark.withValues(alpha: .36),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.green.withValues(alpha: .24)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 18,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.sports_soccer, color: CX.green, size: 20),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  plan.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (plans.length > 1) _Tag('${plans.length} planes'),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Text(
+            plan.objective,
+            style: const TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [
+              if (plan.scheduledDate.isNotEmpty)
+                _Tag(_formatDate(plan.scheduledDate)),
+              _Tag('${plan.playerCount} jugadores'),
+              if (plan.confidence.isNotEmpty)
+                _Tag(_confidenceLabel(plan.confidence)),
+              _Tag('${plan.operationalReadinessScore}% preparado'),
+              if (plan.limitations.isNotEmpty)
+                _Tag('${plan.limitations.length} alertas'),
+              if (plan.contextSources.isNotEmpty)
+                _Tag('${plan.contextSources.length} fuentes'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _PlanReadinessStrip(plan: plan),
+          const SizedBox(height: 8),
+          _PlanAuditTrail(plan: plan),
+          if (firstCue.isNotEmpty || firstIndicator.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _MatchDayMicroBrief(
+              cue: firstCue,
+              indicator: firstIndicator,
+              limitation: plan.limitations.isEmpty
+                  ? ''
+                  : plan.limitations.first,
+            ),
+          ],
+          if (keyBlocks.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            ...keyBlocks.map(
+              (block) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.only(top: 6),
+                      decoration: const BoxDecoration(
+                        color: CX.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            block.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            block.description,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: CX.muted,
+                              fontSize: 11,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (plan.contextSources.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _PlanSources(sources: plan.contextSources),
+          ],
+          if (plan.limitations.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _PlanLimitations(limitations: plan.limitations),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(String value) {
+    final date = DateTime.tryParse(value);
+    if (date == null) return value;
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  String _confidenceLabel(String value) => switch (value) {
+    'high' => 'Confianza alta',
+    'medium' => 'Confianza media',
+    _ => 'Confianza baja',
+  };
+}
+
+class _PlanAuditTrail extends StatelessWidget {
+  final TrainingSession plan;
+
+  const _PlanAuditTrail({required this.plan});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 7,
+      runSpacing: 7,
+      children: plan.operationalAuditItems
+          .take(5)
+          .map((item) => _MiniAuditPill(item))
+          .toList(),
+    );
+  }
+}
+
+class _MiniAuditPill extends StatelessWidget {
+  final String label;
+
+  const _MiniAuditPill(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: CX.panel2.withValues(alpha: .78),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: CX.line),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: CX.muted,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanReadinessStrip extends StatelessWidget {
+  final TrainingSession plan;
+
+  const _PlanReadinessStrip({required this.plan});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasSources = plan.contextSources.isNotEmpty;
+    final hasLimitations = plan.limitations.isNotEmpty;
+    final confidenceColor = switch (plan.confidence) {
+      'high' => CX.green,
+      'medium' => CX.amber,
+      'low' => CX.red,
+      _ => CX.blue,
+    };
+    final status = plan.confidence == 'high' && !hasLimitations
+        ? plan.operationalReadinessLabel
+        : hasSources
+        ? plan.operationalReadinessLabel
+        : 'Faltan datos del plantel';
+    final detail = [
+      '${plan.operationalReadinessScore}% preparado',
+      if (hasSources) '${plan.contextSources.length} fuentes verificables',
+      if (hasLimitations) '${plan.limitations.length} limitaciones',
+      if (!hasSources) 'sin fuentes declaradas',
+    ].join(' / ');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: confidenceColor.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: confidenceColor.withValues(alpha: .24)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.verified_user_outlined, color: confidenceColor, size: 17),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  status,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detail,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: CX.muted,
+                    fontSize: 10,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MatchDayMicroBrief extends StatelessWidget {
+  final String cue;
+  final String indicator;
+  final String limitation;
+
+  const _MatchDayMicroBrief({
+    required this.cue,
+    required this.indicator,
+    required this.limitation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      if (cue.isNotEmpty)
+        _MicroBriefItem(Icons.record_voice_over_outlined, 'Consigna', cue),
+      if (indicator.isNotEmpty)
+        _MicroBriefItem(Icons.track_changes_outlined, 'Medir', indicator),
+      if (limitation.isNotEmpty)
+        _MicroBriefItem(Icons.warning_amber_outlined, 'Cuidar', limitation),
+    ];
+    return Column(
+      children: items
+          .map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(item.icon, color: CX.green, size: 16),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 58,
+                    child: Text(
+                      item.label,
+                      style: const TextStyle(
+                        color: CX.faint,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      item.text,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: CX.muted,
+                        fontSize: 10,
+                        height: 1.3,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _MicroBriefItem {
+  final IconData icon;
+  final String label;
+  final String text;
+
+  const _MicroBriefItem(this.icon, this.label, this.text);
+}
+
+class _PlanSources extends StatelessWidget {
+  final List<String> sources;
+
+  const _PlanSources({required this.sources});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: CX.panel2.withValues(alpha: .72),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.fact_check_outlined, color: CX.green, size: 16),
+              SizedBox(width: 7),
+              Text(
+                'Datos usados',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          ...sources
+              .take(3)
+              .map(
+                (source) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    source,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: CX.muted,
+                      fontSize: 10,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanLimitations extends StatelessWidget {
+  final List<String> limitations;
+
+  const _PlanLimitations({required this.limitations});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: CX.amber.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.amber.withValues(alpha: .22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.warning_amber_outlined, color: CX.amber, size: 16),
+              SizedBox(width: 7),
+              Text(
+                'Revisar antes de ejecutar',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          ...limitations
+              .take(3)
+              .map(
+                (limitation) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    limitation,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: CX.muted,
+                      fontSize: 10,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompletedSessionsList extends StatelessWidget {
+  final List<TrainingSession> sessions;
+  final bool canEdit;
+  final ValueChanged<TrainingSession> onReopen;
+
+  const _CompletedSessionsList({
+    required this.sessions,
+    required this.canEdit,
+    required this.onReopen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ordered = [...sessions]
+      ..sort((a, b) => b.scheduledDate.compareTo(a.scheduledDate));
+    return Container(
+      decoration: CX.panelDecoration(),
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
+        children: ordered.take(4).map((session) {
+          final date = DateTime.tryParse(session.scheduledDate);
+          final dateLabel = date == null
+              ? 'Sin fecha registrada'
+              : '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+          return ListTile(
+            leading: const Icon(Icons.check_circle_outline, color: CX.green),
+            title: Text(
+              session.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              '$dateLabel / ${session.duration} min',
+              style: const TextStyle(color: CX.muted, fontSize: 11),
+            ),
+            trailing: canEdit
+                ? IconButton(
+                    tooltip: 'Reabrir sesion',
+                    onPressed: () => onReopen(session),
+                    icon: const Icon(Icons.replay_outlined, size: 20),
+                  )
+                : null,
+          );
+        }).toList(),
+        ),
+      ),
+    );
+  }
 }
 
 class _TacticalHistory extends StatefulWidget {
@@ -3995,6 +5240,15 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => PremiumSectionHeader(title: text);
+}
+
+class _Tag extends StatelessWidget {
+  final String text;
+
+  const _Tag(this.text);
+
+  @override
+  Widget build(BuildContext context) => MetaTag(text);
 }
 
 class _HandoffBanner extends StatelessWidget {

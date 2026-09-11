@@ -90,15 +90,24 @@ class AdminAccountsService {
 
   static String? get _token => SupabaseAuthService.currentSession?.accessToken;
 
+  // Shares /api/review-club-membership with the per-club membership review
+  // flow (distinguished by the "action" field) to stay under Vercel's
+  // Hobby-plan serverless function cap instead of shipping a new endpoint.
+  static const _endpoint = '/api/review-club-membership';
+
   static Future<List<AdminAccount>> listAccounts() async {
     final token = _token;
     if (token == null) {
       throw const AdminAccountsException('Tu sesion no esta disponible.');
     }
     final response = await http
-        .get(
-          Uri.base.resolve('/api/admin-accounts'),
-          headers: {'authorization': 'Bearer $token'},
+        .post(
+          Uri.base.resolve(_endpoint),
+          headers: {
+            'content-type': 'application/json',
+            'authorization': 'Bearer $token',
+          },
+          body: jsonEncode({'action': 'list_accounts'}),
         )
         .timeout(const Duration(seconds: 15));
     final data = _decode(response);
@@ -114,7 +123,7 @@ class AdminAccountsService {
     }
     final response = await http
         .post(
-          Uri.base.resolve('/api/admin-accounts'),
+          Uri.base.resolve(_endpoint),
           headers: {
             'content-type': 'application/json',
             'authorization': 'Bearer $token',

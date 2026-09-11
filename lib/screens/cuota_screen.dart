@@ -268,7 +268,7 @@ class _CuotaScreenState extends State<CuotaScreen> {
                           children: [
                             const Expanded(
                               child: _SectionTitle(
-                                'SituaciÃ³n del plantel',
+                                'Situación del plantel',
                                 'JUGADORES',
                               ),
                             ),
@@ -291,9 +291,9 @@ class _CuotaScreenState extends State<CuotaScreen> {
                             title: 'Plantel pendiente',
                             description: uncategorizedPlayers.isEmpty
                                 ? club.dataSource == 'manual'
-                                    ? 'AgregÃ¡ jugadores manualmente para usar asistencia, alineaciones y planificaciÃ³n.'
-                                    : 'La liga todavÃ­a no devolviÃ³ jugadores vinculados a esta categorÃ­a.'
-                                : 'Hay jugadores recibidos desde la liga pendientes de vincular a una categorÃ­a real.',
+                                    ? 'Agregá jugadores manualmente para usar asistencia, alineaciones y planificación.'
+                                    : 'La liga todavía no devolvió jugadores vinculados a esta categoría.'
+                                : 'Hay jugadores recibidos desde la liga pendientes de vincular a una categoría real.',
                             primaryLabel: club.dataSource == 'manual'
                                 ? 'Agregar jugador'
                                 : null,

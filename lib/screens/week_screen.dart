@@ -5,6 +5,7 @@ import '../main.dart';
 import '../services/attendance_stats_service.dart';
 import '../services/plantel_service.dart';
 import '../services/week_view_service.dart';
+import '../state/section_handoff.dart';
 import '../ui/ui_kit.dart';
 
 class WeekScreen extends StatefulWidget {
@@ -126,6 +127,29 @@ class _WeekScreenState extends State<WeekScreen> {
             ],
           ),
           const SizedBox(height: 10),
+          // Semana is a hub, not one more parallel screen — jump straight
+          // into the workflows that actually write the data shown here.
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              QuickChip(
+                label: 'Pasar lista',
+                icon: Icons.fact_check_outlined,
+                onTap: () => ShellActions.maybeOf(
+                  context,
+                )?.openSection(ShellSection.attendance),
+              ),
+              QuickChip(
+                label: 'Alineación y citación',
+                icon: Icons.view_module_outlined,
+                onTap: () => ShellActions.maybeOf(
+                  context,
+                )?.openSection(ShellSection.lineup),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           SegmentedButton<bool>(
             segments: const [
               ButtonSegment(
@@ -236,6 +260,9 @@ class _Agenda extends StatelessWidget {
               '${record.rosterIds.where((id) => record.effectiveStatus(id).attended).length}/${record.rosterIds.where((id) => record.effectiveStatus(id).expected).length} asistieron',
             ),
             trailing: Text(record.date),
+            onTap: () => ShellActions.maybeOf(
+              context,
+            )?.openSection(ShellSection.attendance),
           ),
         ),
       for (final match in matches)
@@ -252,6 +279,8 @@ class _Agenda extends StatelessWidget {
                   ? '— min'
                   : '${match.minutesByPlayer.values.fold(0, (a, b) => a + b)} min',
             ),
+            onTap: () =>
+                ShellActions.maybeOf(context)?.openSection(ShellSection.lineup),
           ),
         ),
     ]..sort((a, b) => a.date.compareTo(b.date));

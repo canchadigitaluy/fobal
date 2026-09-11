@@ -366,11 +366,7 @@ class _PreviewClubPickerState extends State<_PreviewClubPicker> {
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.shield_outlined,
-                            size: 19,
-                            color: active ? CX.green : CX.faint,
-                          ),
+                          ClubCrest(logoUrl: club.logoUrl, size: 28),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(

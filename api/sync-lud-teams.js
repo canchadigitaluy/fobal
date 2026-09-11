@@ -54,6 +54,7 @@ export default async function handler(req, res) {
   const canteraClubs = cleanTeams.map((team) => ({
     lud_team_id: team.lud_team_id,
     display_name: team.name,
+    logo_url: team.logo_url,
     status: "active",
   }));
 

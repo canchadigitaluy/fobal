@@ -65,11 +65,20 @@ async function loadCachedClubs() {
       process.env.SUPABASE_SERVICE_ROLE_KEY,
       { auth: { persistSession: false } },
     );
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("cantera_clubs")
-      .select("id, display_name, lud_team_id")
+      .select("id, display_name, lud_team_id, logo_url")
       .eq("status", "active")
       .order("display_name");
+    if (error) {
+      const fallback = await supabase
+        .from("cantera_clubs")
+        .select("id, display_name, lud_team_id")
+        .eq("status", "active")
+        .order("display_name");
+      data = fallback.data;
+      error = fallback.error;
+    }
     if (error || !Array.isArray(data)) return [];
     return data
       .filter((club) => club.id && club.display_name)
@@ -77,6 +86,7 @@ async function loadCachedClubs() {
         id: club.id,
         display_name: club.display_name,
         lud_team_id: club.lud_team_id,
+        logo_url: club.logo_url ?? null,
       }));
   } catch (_) {
     return [];
@@ -106,6 +116,7 @@ async function persistLeagueClubs(clubs) {
       clubs.map((club) => ({
         lud_team_id: club.lud_team_id,
         display_name: club.display_name,
+        logo_url: club.logo_url,
         status: "active",
       })),
       { onConflict: "lud_team_id" },

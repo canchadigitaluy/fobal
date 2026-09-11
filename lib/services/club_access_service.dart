@@ -104,14 +104,27 @@ class ClubAccessService {
 
   static Future<List<CanteraAccessClub>> listClubs() async {
     if (!SupabaseAuthService.isConfigured) return [];
-    final rows = await _client
-        .from('cantera_clubs')
-        .select('id, display_name, lud_team_id')
-        .eq('status', 'active')
-        .order('display_name')
-        .timeout(const Duration(seconds: 6), onTimeout: () => []);
+    dynamic rows;
+    try {
+      rows = await _client
+          .from('cantera_clubs')
+          .select('id, display_name, lud_team_id, logo_url')
+          .eq('status', 'active')
+          .order('display_name')
+          .timeout(const Duration(seconds: 6), onTimeout: () => []);
+    } catch (_) {
+      rows = await _client
+          .from('cantera_clubs')
+          .select('id, display_name, lud_team_id')
+          .eq('status', 'active')
+          .order('display_name')
+          .timeout(const Duration(seconds: 6), onTimeout: () => []);
+    }
 
-    return rows.map(CanteraAccessClub.fromJson).toList();
+    return (rows as List<dynamic>)
+        .whereType<Map<String, dynamic>>()
+        .map(CanteraAccessClub.fromJson)
+        .toList();
   }
 
   static Future<List<CanteraAccessClub>> listLigaClubs() async {
@@ -1088,11 +1101,13 @@ class CanteraAccessClub {
   final String id;
   final String name;
   final String? ludTeamId;
+  final String logoUrl;
 
   const CanteraAccessClub({
     required this.id,
     required this.name,
     required this.ludTeamId,
+    this.logoUrl = '',
   });
 
   factory CanteraAccessClub.fromJson(Map<String, dynamic> json) {
@@ -1100,6 +1115,7 @@ class CanteraAccessClub {
       id: json['id'] as String,
       name: json['display_name'] as String? ?? '',
       ludTeamId: json['lud_team_id']?.toString(),
+      logoUrl: json['logo_url'] as String? ?? '',
     );
   }
 }

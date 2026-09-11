@@ -328,17 +328,10 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
               b.date,
             ).compareTo(attendanceRecordDate(a.date)),
           );
-    double? playerAttendance;
-    if (attendanceRecords.isNotEmpty) {
-      var attended = 0;
-      var expected = 0;
-      for (final record in attendanceRecords) {
-        final status = record.effectiveStatus(resolvedPlayer.id);
-        if (status.expected) expected++;
-        if (status.attended) attended++;
-      }
-      playerAttendance = expected == 0 ? null : attended / expected;
-    }
+    final playerAttendance = computeAttendanceRatesFromRecords(
+      records: attendanceRecords,
+      playerIds: [resolvedPlayer.id],
+    )[resolvedPlayer.id];
 
     return Scaffold(
       appBar: AppBar(

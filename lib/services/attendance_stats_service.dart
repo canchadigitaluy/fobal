@@ -77,7 +77,9 @@ Map<String, double> computeAttendanceRatesFromRecords({
       if (status.expected) expected++;
       if (status.attended) attended++;
     }
-    result[id] = expected == 0 ? 0 : attended / expected;
+    // expected == 0 means every appearance was lesionado/permiso — never a
+    // real attendee. Omit the player rather than inventing a 0%.
+    if (expected > 0) result[id] = attended / expected;
   }
   return result;
 }

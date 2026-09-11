@@ -126,18 +126,35 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final statusByPlayer = {
       for (final id in rosterIds) id: _statusOf(id),
     };
-    final presentIds = [
-      for (final id in rosterIds) if (_statusOf(id).attended) id,
-    ];
+    // Merge into any existing same-day record for this category instead of
+    // replacing it wholesale — saving one plantel must not wipe another
+    // plantel's statuses already saved today for the same category.
+    AttendanceRecord? existingToday;
+    for (final existing in club.attendanceRecords) {
+      if (existing.categoryId == category.id && existing.date == day) {
+        existingToday = existing;
+        break;
+      }
+    }
+    final mergedStatus = {...?existingToday?.statusByPlayer, ...statusByPlayer};
+    final mergedRoster = {...?existingToday?.rosterIds, ...rosterIds}.toList();
+    final mergedPlantelIds = isLudCategoryId(category.id)
+        ? const <String>[]
+        : {
+            ...?existingToday?.plantelIds,
+            ..._selectedPlantelIds,
+          }.toList();
     final record = AttendanceRecord(
       categoryId: category.id,
       date: day,
-      plantelIds: isLudCategoryId(category.id)
-          ? const []
-          : _selectedPlantelIds.toList(),
-      presentIds: presentIds,
-      rosterIds: rosterIds,
-      statusByPlayer: statusByPlayer,
+      plantelIds: mergedPlantelIds,
+      presentIds: [
+        for (final id in mergedRoster)
+          if ((mergedStatus[id] ?? AttendanceStatus.ausenteSinAviso).attended)
+            id,
+      ],
+      rosterIds: mergedRoster,
+      statusByPlayer: mergedStatus,
       note: _noteController.text.trim(),
     );
     final records = [
@@ -320,15 +337,23 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
         .where(
           (record) => record.categoryId == category.id && record.date != today,
         )
-        .map(
-          (record) => _PastSession(
+        .map((record) {
+          final present = <String>{};
+          final absent = <String>{};
+          for (final id in record.rosterIds) {
+            final status = record.effectiveStatus(id);
+            if (status.attended) {
+              present.add(id);
+            } else if (status.expected) {
+              absent.add(id);
+            }
+          }
+          return _PastSession(
             date: attendanceRecordDate(record.date),
-            present: record.presentIds.toSet(),
-            absent: record.rosterIds
-                .where((id) => !record.presentIds.contains(id))
-                .toSet(),
-          ),
-        )
+            present: present,
+            absent: absent,
+          );
+        })
         .toList();
     sessions.sort((a, b) => b.date.compareTo(a.date));
     return sessions.take(12).toList();

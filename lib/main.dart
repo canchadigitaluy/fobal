@@ -1971,12 +1971,15 @@ class _MainShellState extends State<MainShell> {
     if (index >= 1 && index <= 3) {
       _tacticaKey.currentState?.selectSection(index - 1);
     }
+    // Semantic index -> screen index. Resolved by widget type (not a literal
+    // position) so inserting a screen into _screens() can't silently desync
+    // these targets again.
     if (role == UserRole.coordinator) {
       final target = switch (index) {
         0 => 0,
         >= 1 && <= 3 => 1,
-        4 => 3,
-        5 => 4,
+        4 => _indexOfScreen<ConfiguracionClubScreen>(),
+        5 => _indexOfScreen<AlineacionScreen>(),
         _ => null,
       };
       if (target != null) _setIndex(target);
@@ -1995,8 +1998,8 @@ class _MainShellState extends State<MainShell> {
             1 => 1,
             2 => 1,
             3 => 1,
-            4 => 3,
-            5 => 3,
+            4 => _indexOfScreen<AlineacionScreen>(),
+            5 => _indexOfScreen<AlineacionScreen>(),
             _ => null,
           };
     if (target != null) _setIndex(target);

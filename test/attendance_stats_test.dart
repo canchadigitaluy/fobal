@@ -173,6 +173,23 @@ void main() {
       expect(rates['a'], 0.5); // present once of two expected
       expect(rates['b'], 1.0); // one injury (ignored) + one present
     });
+
+    test('a player expected zero times is omitted, not forced to 0.0', () {
+      final records = [
+        AttendanceRecord(
+          categoryId: 'cat',
+          date: '2026-09-08',
+          presentIds: const [],
+          rosterIds: const ['a'],
+          statusByPlayer: const {'a': AttendanceStatus.lesionado},
+        ),
+      ];
+      final rates = computeAttendanceRatesFromRecords(
+        records: records,
+        playerIds: ['a'],
+      );
+      expect(rates.containsKey('a'), isFalse);
+    });
   });
 
   group('summarizeAttendance', () {

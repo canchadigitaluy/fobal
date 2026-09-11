@@ -49,12 +49,17 @@ class LineupHint {
   final String date;
   final String time;
 
+  /// Stable id of the calendar event this match came from, if any — lets the
+  /// call-up be keyed on that id instead of a fragile rival/date string.
+  final String calendarEventId;
+
   const LineupHint({
     this.reason = '',
     this.players = const [],
     this.rival = '',
     this.date = '',
     this.time = '',
+    this.calendarEventId = '',
   });
 }
 

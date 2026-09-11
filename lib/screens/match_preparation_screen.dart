@@ -316,6 +316,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
         rival: _rival.text.trim(),
         date: _date.text.trim(),
         time: _time.text.trim(),
+        calendarEventId: widget.calendarEventId,
       ),
     );
     Navigator.of(context).popUntil((route) => route.isFirst);

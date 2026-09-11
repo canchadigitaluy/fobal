@@ -345,6 +345,9 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
                               } else {
                                 _scorers[player.id] = goals;
                                 _lineup.add(player.id);
+                                if ((_minutes[player.id] ?? 0) == 0) {
+                                  _minutes[player.id] = 90;
+                                }
                               }
                             }),
                           ),

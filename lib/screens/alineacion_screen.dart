@@ -46,6 +46,9 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
   bool _listMode = false;
   final Set<String> _calledIds = {};
   final Map<String, CallUpReason> _excused = {};
+  // Bumped on every _loadCallUp so shirt-number/other-reason fields remount
+  // instead of keeping stale text from a previously loaded citación.
+  int _callUpReloadToken = 0;
   final Map<String, String> _otherReasons = {};
   final Map<String, int> _shirtNumbers = {};
 
@@ -117,6 +120,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
 
   LineupHint? _hint;
   bool _hintConsumed = false;
+  String _calendarEventId = '';
 
   @override
   void didChangeDependencies() {
@@ -138,6 +142,9 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
         }
         if (_timeController.text.trim().isEmpty && hint.time.isNotEmpty) {
           _timeController.text = hint.time;
+        }
+        if (_calendarEventId.isEmpty && hint.calendarEventId.isNotEmpty) {
+          _calendarEventId = hint.calendarEventId;
         }
       }
     }
@@ -285,17 +292,27 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     ).showSnackBar(SnackBar(content: Text('Guardada en Alineación: $title')));
   }
 
-  String _callUpKey(CategorySquad category) => [
+  // Fragile fallback for call-ups saved before calendarEventId existed, or
+  // for a citación with no linked calendar event — rival/date typos can
+  // silently miss, but it's the best we have without a stable id.
+  String _legacyCallUpKey(CategorySquad category) => [
     category.id,
     _dateController.text.trim(),
     _rivalController.text.trim().toLowerCase(),
   ].join('|');
 
+  String _callUpKey(CategorySquad category) => _calendarEventId.isNotEmpty
+      ? _calendarEventId
+      : _legacyCallUpKey(category);
+
   void _loadCallUp(CanteraClub club, CategorySquad category) {
     final key = _callUpKey(category);
+    final legacyKey = _legacyCallUpKey(category);
     CallUp? saved;
     for (final item in club.callUps) {
-      if (item.calendarKey == key) saved = item;
+      if (item.calendarKey == key || item.calendarKey == legacyKey) {
+        saved = item;
+      }
     }
     setState(() {
       _calledIds
@@ -312,11 +329,13 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
         ..addAll(saved?.otherReasons ?? const {});
       _callUpNoteController.text = saved?.staffNote ?? '';
       _listMode = true;
+      _callUpReloadToken++;
     });
   }
 
   void _saveCallUp(CanteraClub club, CategorySquad category) {
     final key = _callUpKey(category);
+    final legacyKey = _legacyCallUpKey(category);
     final item = CallUp(
       calendarKey: key,
       categoryId: category.id,
@@ -331,7 +350,8 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     );
     final next = [
       for (final existing in club.callUps)
-        if (existing.calendarKey != key) existing,
+        if (existing.calendarKey != key && existing.calendarKey != legacyKey)
+          existing,
       item,
     ];
     AppScope.of(context).updateClub(club.copyWith(callUps: next));
@@ -668,10 +688,45 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                 timeController: _timeController,
                 formation: _formation,
                 formations: _formations.keys.toList(),
-                onCategory: (value) => setState(() => _categoryId = value),
+                onCategory: (value) {
+                  if (value == null) return;
+                  // Listado keeps its own call-up state — switching category
+                  // here must reload it, or a save writes the new category's
+                  // id with the old category's called-up players.
+                  final next = club.categories.firstWhere(
+                    (c) => c.id == value,
+                    orElse: () => category,
+                  );
+                  setState(() => _categoryId = value);
+                  _loadCallUp(club, next);
+                },
                 onFormation: (_) {},
               ),
               const SizedBox(height: 12),
+              // Listado reuses the Cancha tab's plantel filter to scope
+              // who's citable — show the same chips here so that scope is
+              // visible and adjustable, not silently inherited.
+              if (planteles.isNotEmpty) ...[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Toda la categoría'),
+                      selected: _plantelFilter.isEmpty,
+                      onSelected: (_) => setState(() => _plantelFilter = ''),
+                    ),
+                    for (final plantel in planteles)
+                      ChoiceChip(
+                        label: Text(plantel.name),
+                        selected: _plantelFilter == plantel.id,
+                        onSelected: (_) =>
+                            setState(() => _plantelFilter = plantel.id),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
               RepaintBoundary(
                 key: _callUpCaptureKey,
                 child: _CallUpEditor(
@@ -682,6 +737,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                   otherReasons: _otherReasons,
                   shirtNumbers: _shirtNumbers,
                   noteController: _callUpNoteController,
+                  reloadToken: _callUpReloadToken,
                   onChanged: () => setState(() {}),
                 ),
               ),
@@ -897,6 +953,7 @@ class _CallUpEditor extends StatelessWidget {
   final Map<String, String> otherReasons;
   final Map<String, int> shirtNumbers;
   final TextEditingController noteController;
+  final int reloadToken;
   final VoidCallback onChanged;
 
   const _CallUpEditor({
@@ -907,6 +964,7 @@ class _CallUpEditor extends StatelessWidget {
     required this.otherReasons,
     required this.shirtNumbers,
     required this.noteController,
+    required this.reloadToken,
     required this.onChanged,
   });
 
@@ -962,6 +1020,7 @@ class _CallUpEditor extends StatelessWidget {
                       SizedBox(
                         width: 180,
                         child: TextFormField(
+                          key: ValueKey('${player.id}-reason-$reloadToken'),
                           initialValue: otherReasons[player.id] ?? '',
                           decoration: const InputDecoration(
                             hintText: 'Especificá el motivo',
@@ -977,6 +1036,7 @@ class _CallUpEditor extends StatelessWidget {
                     ? SizedBox(
                         width: 64,
                         child: TextFormField(
+                          key: ValueKey('${player.id}-shirt-$reloadToken'),
                           initialValue:
                               shirtNumbers[player.id]?.toString() ?? '',
                           keyboardType: TextInputType.number,

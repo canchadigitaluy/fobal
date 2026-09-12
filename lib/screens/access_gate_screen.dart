@@ -240,77 +240,274 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CX.bg,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, viewport) {
-            final cardHeight = (viewport.maxHeight - 44).clamp(
-              420.0,
-              double.infinity,
-            );
-            return Padding(
-              padding: const EdgeInsets.all(22),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: 920,
-                    maxHeight: cardHeight,
-                  ),
-                  child: SizedBox(
-                    height: cardHeight,
-                    child: FutureBuilder<_AccessState>(
-                      future: _state,
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return const Center(
-                            child: CircularProgressIndicator(color: CX.green),
-                          );
-                        }
+    return FutureBuilder<_AccessState>(
+      future: _state,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const _BrandedLoadingScreen();
+        }
 
-                        final state = snapshot.data!;
-                        if (state.localMode) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (!mounted) return;
-                            Navigator.pushReplacementNamed(
-                              context,
-                              '/local-setup',
-                            );
-                          });
-                          return const Center(
-                            child: CircularProgressIndicator(color: CX.green),
-                          );
-                        }
-                        if (_categoryMembership != null) {
-                          return _CategoryPicker(
-                            clubName: _categoryMembership!.clubName,
-                            clubLogoUrl: _categoryClubLogoUrl,
-                            categories: _categoryOptions,
-                            selectedCategoryId: _selectedCategoryId,
-                            loading: _loadingClubContext,
-                            onChanged: (value) =>
-                                setState(() => _selectedCategoryId = value),
-                            onEnter: _enterSelectedCategory,
-                            onBack: () => setState(() {
-                              _categoryMembership = null;
-                              _categoryRoute = null;
-                              _categoryOptions = const [];
-                              _selectedCategoryId = null;
-                            }),
-                          );
-                        }
-                        return _PreviewClubPicker(
-                          clubs: state.clubs,
-                          collaborations: state.collaborations,
-                          selectedClubId: _selectedClubId,
-                          loading: _loadingClubContext,
-                          onChanged: (value) =>
-                              setState(() => _selectedClubId = value),
-                          onEnterClub: _enterPreview,
-                          onEnterCollaboration: _enterCollaboration,
-                          onLeave: _leave,
-                        );
-                      },
+        final state = snapshot.data!;
+        if (state.localMode) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            Navigator.pushReplacementNamed(context, '/local-setup');
+          });
+          return const _BrandedLoadingScreen();
+        }
+
+        return Scaffold(
+          backgroundColor: CX.bg,
+          body: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, viewport) {
+                final cardHeight = (viewport.maxHeight - 44).clamp(
+                  420.0,
+                  double.infinity,
+                );
+                return Padding(
+                  padding: const EdgeInsets.all(22),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: 920,
+                        maxHeight: cardHeight,
+                      ),
+                      child: SizedBox(
+                        height: cardHeight,
+                        child: _categoryMembership != null
+                            ? _CategoryPicker(
+                                clubName: _categoryMembership!.clubName,
+                                clubLogoUrl: _categoryClubLogoUrl,
+                                categories: _categoryOptions,
+                                selectedCategoryId: _selectedCategoryId,
+                                loading: _loadingClubContext,
+                                onChanged: (value) => setState(
+                                  () => _selectedCategoryId = value,
+                                ),
+                                onEnter: _enterSelectedCategory,
+                                onBack: () => setState(() {
+                                  _categoryMembership = null;
+                                  _categoryRoute = null;
+                                  _categoryOptions = const [];
+                                  _selectedCategoryId = null;
+                                }),
+                              )
+                            : _PreviewClubPicker(
+                                clubs: state.clubs,
+                                collaborations: state.collaborations,
+                                selectedClubId: _selectedClubId,
+                                loading: _loadingClubContext,
+                                onChanged: (value) =>
+                                    setState(() => _selectedClubId = value),
+                                onEnterClub: _enterPreview,
+                                onEnterCollaboration: _enterCollaboration,
+                                onLeave: _leave,
+                              ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BrandedLoadingScreen extends StatefulWidget {
+  const _BrandedLoadingScreen();
+
+  @override
+  State<_BrandedLoadingScreen> createState() => _BrandedLoadingScreenState();
+}
+
+class _BrandedLoadingScreenState extends State<_BrandedLoadingScreen>
+    with TickerProviderStateMixin {
+  late final AnimationController _steps = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2200),
+  )..forward();
+  late final AnimationController _shimmer = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _steps.dispose();
+    _shimmer.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF16332A), Color(0xFF0C201A)],
+          ),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Opacity(
+                opacity: .09,
+                child: CustomPaint(painter: _PitchLinesPainter()),
+              ),
+            ),
+            Positioned(
+              right: -140,
+              bottom: -180,
+              child: Container(
+                width: 480,
+                height: 480,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [CX.green.withValues(alpha: .28), Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: -120,
+              top: -140,
+              child: Container(
+                width: 380,
+                height: 380,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [CX.green.withValues(alpha: .16), Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 68,
+                    height: 68,
+                    decoration: BoxDecoration(
+                      color: CX.green,
+                      borderRadius: BorderRadius.circular(19),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x59000000),
+                          blurRadius: 28,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'fobal',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Preparando tu plataforma',
+                    style: TextStyle(color: Color(0xDDE0F3EB), fontSize: 14.5),
+                  ),
+                  const SizedBox(height: 40),
+                  SizedBox(
+                    width: 340,
+                    child: Column(
+                      children: [
+                        _ShimmerTrack(animation: _shimmer),
+                        const SizedBox(height: 18),
+                        _LoadingStep(
+                          animation: _steps,
+                          start: 0.05,
+                          label: 'Verificando tu sesión',
+                        ),
+                        const SizedBox(height: 13),
+                        _LoadingStep(
+                          animation: _steps,
+                          start: 0.4,
+                          label: 'Cargando datos de tu club',
+                        ),
+                        const SizedBox(height: 13),
+                        _LoadingStep(
+                          animation: _steps,
+                          start: 0.75,
+                          label: 'Sincronizando categorías',
+                          isLast: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Positioned(
+              bottom: 28,
+              left: 0,
+              right: 0,
+              child: Text(
+                'Plataforma para cuerpos técnicos de fútbol',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Color(0x88E0F3EB), fontSize: 11.5),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ShimmerTrack extends StatelessWidget {
+  final Animation<double> animation;
+  const _ShimmerTrack({required this.animation});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        height: 4,
+        color: Colors.white.withValues(alpha: .12),
+        child: AnimatedBuilder(
+          animation: animation,
+          builder: (context, _) {
+            final slide = animation.value * 2.2 - 0.7;
+            return Align(
+              alignment: Alignment(slide * 2 - 1, 0),
+              child: FractionallySizedBox(
+                widthFactor: 0.45,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        Color(0xFF6EF2C7),
+                        Colors.transparent,
+                      ],
                     ),
                   ),
                 ),
@@ -319,6 +516,72 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
           },
         ),
       ),
+    );
+  }
+}
+
+class _LoadingStep extends StatelessWidget {
+  final Animation<double> animation;
+  final double start;
+  final String label;
+  final bool isLast;
+  const _LoadingStep({
+    required this.animation,
+    required this.start,
+    required this.label,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) {
+        final active = animation.value >= start;
+        final popT = ((animation.value - start) / 0.12).clamp(0.0, 1.0);
+        final scale = Curves.easeOutBack.transform(popT);
+        return Row(
+          children: [
+            if (isLast)
+              Opacity(
+                opacity: active ? 1 : 0,
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: const Color(0xFF6EF2C7),
+                    backgroundColor: Colors.white.withValues(alpha: .25),
+                  ),
+                ),
+              )
+            else
+              Transform.scale(
+                scale: scale,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: const BoxDecoration(
+                    color: CX.green,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check, size: 12, color: Colors.white),
+                ),
+              ),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                color: active
+                    ? (isLast ? Colors.white : const Color(0xDDE0F3EB))
+                    : const Color(0x66E0F3EB),
+                fontSize: 13.5,
+                fontWeight: isLast && active ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

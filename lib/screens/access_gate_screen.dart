@@ -189,12 +189,18 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
     return Scaffold(
       backgroundColor: CX.bg,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(22),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 920),
-              child: FutureBuilder<_AccessState>(
+        child: LayoutBuilder(
+          builder: (context, viewport) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(22),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: viewport.maxHeight - 44,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 920),
+                    child: FutureBuilder<_AccessState>(
                 future: _state,
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
@@ -245,10 +251,13 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
                     onEnterClub: _enterPreview,
                     onLeave: _leave,
                   );
-                },
+                    },
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );

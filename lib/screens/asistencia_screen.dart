@@ -30,6 +30,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   final _scheduleController = TextEditingController();
   final _noteController = TextEditingController();
   final Map<String, AttendanceStatus> _statusById = {};
+  DateTime _selectedDate = DateTime.now();
   String? _loadedKey;
   String _search = '';
   final Set<String> _migrationChecked = {};
@@ -45,8 +46,54 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   AttendanceStatus _statusOf(String id) =>
       _statusById[id] ?? AttendanceStatus.ausenteSinAviso;
 
+  DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+
+  String _isoDay(DateTime date) => _dateOnly(date).toIso8601String().substring(
+    0,
+    10,
+  );
+
+  bool get _selectedDateIsToday {
+    final today = _dateOnly(DateTime.now());
+    return !_dateOnly(_selectedDate).isBefore(today);
+  }
+
+  String _selectedDateLabel() {
+    const weekdays = [
+      'Lunes',
+      'Martes',
+      'Miercoles',
+      'Jueves',
+      'Viernes',
+      'Sabado',
+      'Domingo',
+    ];
+    final date = _dateOnly(_selectedDate);
+    final day =
+        '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
+    final label = '${weekdays[date.weekday - 1]} $day';
+    return _selectedDateIsToday ? 'Hoy · $label' : label;
+  }
+
+  void _moveSelectedDate(int days) {
+    final next = _dateOnly(_selectedDate).add(Duration(days: days));
+    final today = _dateOnly(DateTime.now());
+    if (next.isAfter(today)) return;
+    setState(() {
+      _selectedDate = next;
+      _loadedKey = null;
+    });
+  }
+
+  void _goToToday() {
+    setState(() {
+      _selectedDate = DateTime.now();
+      _loadedKey = null;
+    });
+  }
+
   String _key(CanteraClub club, CategorySquad category) {
-    final day = DateTime.now().toIso8601String().substring(0, 10);
+    final day = _isoDay(_selectedDate);
     return 'cantera_attendance_${club.id}_${category.id}_$day';
   }
 
@@ -62,7 +109,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       ..addEntries(
         players.map((p) => MapEntry(p.id, AttendanceStatus.presente)),
       );
-    final day = DateTime.now().toIso8601String().substring(0, 10);
+    final day = _isoDay(_selectedDate);
     AttendanceRecord? stored;
     for (final record in club.attendanceRecords) {
       if (record.categoryId == category.id && record.date == day) {
@@ -113,7 +160,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   }
 
   void _saveAttendance(CanteraClub club, CategorySquad category) {
-    final day = DateTime.now().toIso8601String().substring(0, 10);
+    final day = _isoDay(_selectedDate);
     final rosterIds = club.players
         .where(
           (player) =>
@@ -275,7 +322,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
           : '${player.fullName.trim()} (${status.shortLabel})';
       (status.attended ? present : absent).add(name);
     }
-    final today = DateTime.now();
+    final today = _selectedDate;
     final dateLabel =
         '${today.day.toString().padLeft(2, '0')}/'
         '${today.month.toString().padLeft(2, '0')}/${today.year}';
@@ -332,10 +379,14 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   /// Reads past saved attendance sessions from local storage for this club +
   /// category. Never fabricates: returns an empty list when nothing is stored.
   List<_PastSession> _history(CanteraClub club, CategorySquad category) {
-    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final selectedDay = _isoDay(_selectedDate);
+    final selectedDate = _dateOnly(_selectedDate);
     final sessions = club.attendanceRecords
         .where(
-          (record) => record.categoryId == category.id && record.date != today,
+          (record) =>
+              record.categoryId == category.id &&
+              record.date != selectedDay &&
+              attendanceRecordDate(record.date).isBefore(selectedDate),
         )
         .map((record) {
           final present = <String>{};
@@ -357,6 +408,25 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
         .toList();
     sessions.sort((a, b) => b.date.compareTo(a.date));
     return sessions.take(12).toList();
+  }
+
+  int _absenceStreak(
+    String playerId,
+    AttendanceStatus currentStatus,
+    List<_PastSession> history,
+  ) {
+    if (currentStatus.attended || !currentStatus.expected) return 0;
+    var streak = 1;
+    for (final session in history) {
+      if (session.absent.contains(playerId)) {
+        streak++;
+      } else if (session.present.contains(playerId)) {
+        break;
+      } else {
+        break;
+      }
+    }
+    return streak;
   }
 
   Future<void> _addPlayer(CanteraClub club, CategorySquad category) async {
@@ -434,6 +504,10 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final present = players
         .where((player) => _statusOf(player.id).attended)
         .length;
+    final history = _history(club, category);
+    final saveLabel = _selectedDateIsToday
+        ? 'Guardar asistencia de hoy'
+        : 'Guardar asistencia del ${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}';
 
     return Scaffold(
       appBar: AppBar(
@@ -448,6 +522,19 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: categoryPlayers.isEmpty
+          ? null
+          : SafeArea(
+              minimum: const EdgeInsets.fromLTRB(18, 8, 18, 14),
+              child: ElevatedButton.icon(
+                onPressed: () => _saveAttendance(club, category),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: const Icon(Icons.check_circle_outline),
+                label: Text(saveLabel),
+              ),
+            ),
       body: categoryPlayers.isEmpty
           ? Center(
               child: Padding(
@@ -469,8 +556,16 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
               ),
             )
           : ListView(
-              padding: const EdgeInsets.fromLTRB(18, 10, 18, 30),
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
               children: [
+                _DateSelector(
+                  label: _selectedDateLabel(),
+                  canGoForward: !_selectedDateIsToday,
+                  onPrevious: () => _moveSelectedDate(-1),
+                  onNext: () => _moveSelectedDate(1),
+                  onToday: _selectedDateIsToday ? null : _goToToday,
+                ),
+                const SizedBox(height: 12),
                 if (planteles.isNotEmpty) ...[
                   const PremiumSectionHeader(
                     eyebrow: 'GRUPO DE HOY',
@@ -501,7 +596,9 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                   ),
                   const SizedBox(height: 12),
                 ],
-                _AttendanceSummary(present: present, total: players.length),
+                _AttendanceSummary(
+                  statuses: [for (final player in players) _statusOf(player.id)],
+                ),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
@@ -600,6 +697,11 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                               _AttendanceRow(
                                 player: player,
                                 status: _statusOf(player.id),
+                                absenceStreak: _absenceStreak(
+                                  player.id,
+                                  _statusOf(player.id),
+                                  history,
+                                ),
                                 onChanged: (status) => setState(
                                   () => _statusById[player.id] = status,
                                 ),
@@ -622,21 +724,8 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                     alignLabelWithHint: true,
                   ),
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _saveAttendance(club, category),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Guardar asistencia de hoy'),
-                  ),
-                ),
                 Builder(
                   builder: (context) {
-                    final history = _history(club, category);
                     if (history.length < 2) return const SizedBox.shrink();
                     return Padding(
                       padding: const EdgeInsets.only(top: 20),
@@ -684,13 +773,73 @@ class _PastSession {
   });
 }
 
-class _AttendanceSummary extends StatelessWidget {
-  final int present;
-  final int total;
-  const _AttendanceSummary({required this.present, required this.total});
+class _DateSelector extends StatelessWidget {
+  final String label;
+  final bool canGoForward;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+  final VoidCallback? onToday;
+
+  const _DateSelector({
+    required this.label,
+    required this.canGoForward,
+    required this.onPrevious,
+    required this.onNext,
+    required this.onToday,
+  });
 
   @override
   Widget build(BuildContext context) {
+    return Container(
+      decoration: CX.panelDecoration(),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Dia anterior',
+            onPressed: onPrevious,
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Expanded(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+            ),
+          ),
+          TextButton(onPressed: onToday, child: const Text('Hoy')),
+          IconButton(
+            tooltip: 'Dia siguiente',
+            onPressed: canGoForward ? onNext : null,
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttendanceSummary extends StatelessWidget {
+  final List<AttendanceStatus> statuses;
+  const _AttendanceSummary({required this.statuses});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = statuses.length;
+    final present = statuses.where((status) => status.attended).length;
+    final green = statuses
+        .where((status) => status == AttendanceStatus.presente)
+        .length;
+    final amber = statuses
+        .where(
+          (status) =>
+              status == AttendanceStatus.tarde ||
+              status == AttendanceStatus.ausenteAvisado,
+        )
+        .length;
+    final red = statuses
+        .where((status) => status == AttendanceStatus.ausenteSinAviso)
+        .length;
     final absent = total - present;
     final pct = total == 0 ? 0 : (present / total * 100).round();
     final color = pct >= 80
@@ -698,30 +847,58 @@ class _AttendanceSummary extends StatelessWidget {
         : pct >= 55
         ? CX.amber
         : CX.red;
-    return Row(
-      children: [
-        Expanded(child: _cell('$present', 'Presentes', CX.green)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _cell(
-            '$absent',
-            'Ausentes',
-            absent == 0 ? CX.faint : CX.amber,
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: CX.panelDecoration(),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: SizedBox(
+              height: 8,
+              child: Row(
+                children: [
+                  _segment(green, total, CX.green),
+                  _segment(amber, total, CX.amber),
+                  _segment(red, total, CX.red),
+                  _segment(total - green - amber - red, total, CX.line),
+                ],
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(child: _cell('$pct%', 'Asistencia', color)),
-      ],
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: _cell('$present', 'Presentes', CX.green)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _cell(
+                  '$absent',
+                  'Ausentes',
+                  absent == 0 ? CX.faint : CX.amber,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: _cell('$pct%', 'Asistencia', color)),
+            ],
+          ),
+        ],
+      ),
     );
+  }
+
+  Widget _segment(int value, int total, Color color) {
+    if (total == 0 || value <= 0) return const SizedBox.shrink();
+    return Expanded(flex: value, child: ColoredBox(color: color));
   }
 
   Widget _cell(String value, String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
       decoration: BoxDecoration(
-        color: CX.panel,
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: CX.line),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Column(
         children: [
@@ -751,10 +928,12 @@ class _AttendanceSummary extends StatelessWidget {
 class _AttendanceRow extends StatelessWidget {
   final Player player;
   final AttendanceStatus status;
+  final int absenceStreak;
   final ValueChanged<AttendanceStatus> onChanged;
   const _AttendanceRow({
     required this.player,
     required this.status,
+    required this.absenceStreak,
     required this.onChanged,
   });
 
@@ -762,6 +941,11 @@ class _AttendanceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final availability = player.availability;
     final color = attendanceStatusColor(status);
+    final position = player.position.trim();
+    final subtitle = [
+      if (position.isNotEmpty) position,
+      if (absenceStreak >= 2) '$absenceStreakª falta seguida',
+    ].join(' · ');
     return InkWell(
       onTap: () => onChanged(
         status.attended
@@ -770,7 +954,7 @@ class _AttendanceRow extends StatelessWidget {
       ),
       child: Container(
         color: status.attended ? null : color.withValues(alpha: .05),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         child: Row(
           children: [
             PopupMenuButton<AttendanceStatus>(
@@ -794,31 +978,15 @@ class _AttendanceRow extends StatelessWidget {
                   ),
               ],
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 5,
-                ),
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: .14),
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: color.withValues(alpha: .30)),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(attendanceStatusIcon(status), size: 13, color: color),
-                    const SizedBox(width: 5),
-                    Text(
-                      status.shortLabel,
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: .2,
-                      ),
-                    ),
-                  ],
-                ),
+                child: Icon(attendanceStatusIcon(status), size: 20, color: color),
               ),
             ),
             const SizedBox(width: 12),
@@ -828,13 +996,15 @@ class _AttendanceRow extends StatelessWidget {
                 children: [
                   Text(
                     player.fullName.trim(),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
-                  if (player.position.trim().isNotEmpty)
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 2),
                     Text(
-                      player.position,
-                      style: const TextStyle(color: CX.faint, fontSize: 11),
+                      subtitle,
+                      style: const TextStyle(color: CX.muted, fontSize: 12.5),
                     ),
+                  ],
                 ],
               ),
             ),

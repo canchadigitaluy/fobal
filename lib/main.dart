@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:async';
+import 'dart:js' as js;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -33,8 +34,24 @@ import 'services/preview_access_service.dart';
 import 'services/supabase_auth_service.dart';
 import 'ui/sync_recovery_dialog.dart';
 
+/// Asks the browser not to evict IndexedDB under storage pressure — Safari/
+/// iOS otherwise applies "best-effort" eviction heuristics that can wipe an
+/// offline club's data if the site sits untouched for ~7 days. Best-effort:
+/// browsers may ignore it (usually not for an installed/bookmarked PWA), so
+/// this is a mitigation, not a guarantee — never awaited, never blocks boot.
+void _requestPersistentStorage() {
+  try {
+    final storage = js.context['navigator']['storage'];
+    storage?.callMethod('persist');
+  } catch (_) {
+    // Unsupported browser — nothing to fall back to, offline data just
+    // stays subject to the browser's default eviction policy.
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _requestPersistentStorage();
   await SupabaseAuthService.initialize();
   OfflineMutationService.instance.start();
   // Single source of truth for the active club: restore it before the first

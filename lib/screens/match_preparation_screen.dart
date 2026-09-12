@@ -963,7 +963,8 @@ class _AvailabilityWarningsPanel extends StatelessWidget {
               player: players[i],
               onTap: () => onTap(players[i]),
             ),
-            if (i < players.length - 1) const Divider(height: 1, color: CX.line),
+            if (i < players.length - 1)
+              const Divider(height: 1, color: CX.line),
           ],
         ],
       ),
@@ -975,10 +976,7 @@ class _AvailabilityWarningRow extends StatelessWidget {
   final Player player;
   final VoidCallback onTap;
 
-  const _AvailabilityWarningRow({
-    required this.player,
-    required this.onTap,
-  });
+  const _AvailabilityWarningRow({required this.player, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

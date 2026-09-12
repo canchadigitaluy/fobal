@@ -33,6 +33,7 @@ import 'services/offline_mutation_service.dart';
 import 'state/section_handoff.dart';
 import 'services/preview_access_service.dart';
 import 'services/supabase_auth_service.dart';
+import 'ui/branded_loading_screen.dart';
 import 'ui/sync_recovery_dialog.dart';
 
 /// Asks the browser not to evict IndexedDB under storage pressure — Safari/
@@ -1489,14 +1490,37 @@ class _AccessRedirect extends StatelessWidget {
   }
 }
 
+/// Full-bleed branded loading scaffold used for every brief hydration wait
+/// in the app (route guards, club/category rehydration, redirects) — same
+/// dark gradient + pitch-lines watermark as [BrandedLoadingScreen], but
+/// without its boot-specific checklist copy since this shows for generic,
+/// often sub-second waits scattered across many call sites.
 class _CalmLoadingScaffold extends StatelessWidget {
   const _CalmLoadingScaffold();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: CX.bg,
-      body: const Center(child: _MinimalAppLoader()),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF16332A), Color(0xFF0C201A)],
+          ),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Opacity(
+                opacity: .09,
+                child: CustomPaint(painter: PitchLinesPainter()),
+              ),
+            ),
+            const Center(child: _MinimalAppLoader()),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1516,57 +1540,44 @@ class _MinimalAppLoader extends StatelessWidget {
           child: Transform.scale(scale: value, child: child),
         );
       },
-      child: Container(
-        width: 260,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: CX.panel.withValues(alpha: .74),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: CX.line),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x120D1A14),
-              blurRadius: 28,
-              offset: Offset(0, 18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: CX.green.withValues(alpha: .5)),
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 58,
-              height: 58,
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: CX.green.withValues(alpha: .35)),
-              ),
-              child: const CustomPaint(painter: FobalMarkPainter()),
+            child: const CustomPaint(painter: FobalMarkPainter(color: Colors.white)),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'fobal',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w300,
+              letterSpacing: 0,
             ),
-            const SizedBox(height: 14),
-            const Text(
-              'fobal',
-              style: TextStyle(
-                color: CX.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w300,
-                letterSpacing: 0,
-              ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Cargando',
+            style: TextStyle(
+              color: Color(0xAAE0F3EB),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'Cargando',
-              style: TextStyle(
-                color: CX.muted,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 14),
-            TweenAnimationBuilder<double>(
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: 180,
+            child: TweenAnimationBuilder<double>(
               tween: Tween(begin: .08, end: 1),
-              duration: Duration(milliseconds: 1800),
+              duration: const Duration(milliseconds: 1800),
               curve: Curves.easeInOutCubic,
               builder: (context, value, _) {
                 return ClipRRect(
@@ -1574,14 +1585,14 @@ class _MinimalAppLoader extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: value,
                     minHeight: 2,
-                    color: CX.green,
-                    backgroundColor: CX.line,
+                    color: const Color(0xFF6EF2C7),
+                    backgroundColor: Colors.white.withValues(alpha: .15),
                   ),
                 );
               },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

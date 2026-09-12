@@ -97,7 +97,9 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
               ),
             );
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${result.name} guardado en la biblioteca.')),
+              SnackBar(
+                content: Text('${result.name} guardado en la biblioteca.'),
+              ),
             );
           },
         ),
@@ -113,9 +115,9 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
   void _removeBlock(int index) {
     final removed = _blocks[index];
     setState(() => _blocks.removeAt(index));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Bloque quitado: ${removed.name}')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Bloque quitado: ${removed.name}')));
   }
 
   void _reorder(int oldIndex, int newIndex) {
@@ -129,7 +131,9 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
   Future<void> _save(CanteraClub club, CategorySquad category) async {
     if (_blocks.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Agregá al menos un bloque antes de guardar.')),
+        const SnackBar(
+          content: Text('Agregá al menos un bloque antes de guardar.'),
+        ),
       );
       return;
     }
@@ -170,12 +174,13 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
         matchPreparations: matchPreparations,
       ),
     );
-    final writeResult = await OfflineMutationService.instance.saveTacticalDataOfflineFirst(
-      type: 'session',
-      title: session.title,
-      content: session.toJson(),
-      categoryId: category.id,
-    );
+    final writeResult = await OfflineMutationService.instance
+        .saveTacticalDataOfflineFirst(
+          type: 'session',
+          title: session.title,
+          content: session.toJson(),
+          categoryId: category.id,
+        );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -192,7 +197,9 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
   void _shareText(CanteraClub club, CategorySquad category) {
     if (_blocks.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Agregá al menos un bloque para compartir.')),
+        const SnackBar(
+          content: Text('Agregá al menos un bloque para compartir.'),
+        ),
       );
       return;
     }
@@ -208,7 +215,11 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
       objective: _objective.text.trim(),
       blocks: [
         for (final block in _blocks)
-          (name: block.name, duration: '${block.duration} min', description: block.description),
+          (
+            name: block.name,
+            duration: '${block.duration} min',
+            description: block.description,
+          ),
       ],
     );
     final fileName = buildExportFileName(
@@ -224,9 +235,9 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
       fileName: fileName,
       onDownload: (name, text) {
         ExportDownloadService.downloadText(name, text);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sesión descargada: $name')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Sesión descargada: $name')));
       },
     );
   }
@@ -244,7 +255,8 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
             child: EmptyStatePanel(
               icon: Icons.account_tree_outlined,
               title: 'Primero cargá una categoría',
-              message: 'Creá una categoría con jugadores para poder armar '
+              message:
+                  'Creá una categoría con jugadores para poder armar '
                   'una sesión manual.',
             ),
           ),
@@ -259,13 +271,13 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
         if (mounted) setState(() => _categoryId = selectedId);
       });
     }
-    final category = club.categories.firstWhere((item) => item.id == selectedId);
+    final category = club.categories.firstWhere(
+      (item) => item.id == selectedId,
+    );
     final totalDuration = totalMinutes(_blocks.map((block) => block.duration));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Constructor de sesión'),
-      ),
+      appBar: AppBar(title: const Text('Constructor de sesión')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
@@ -281,14 +293,19 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
                     decoration: const InputDecoration(labelText: 'Categoría'),
                     items: [
                       for (final item in club.categories)
-                        DropdownMenuItem(value: item.id, child: Text(item.name)),
+                        DropdownMenuItem(
+                          value: item.id,
+                          child: Text(item.name),
+                        ),
                     ],
                     onChanged: (value) => setState(() => _categoryId = value),
                   ),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _title,
-                    decoration: const InputDecoration(labelText: 'Título de la sesión'),
+                    decoration: const InputDecoration(
+                      labelText: 'Título de la sesión',
+                    ),
                   ),
                   const SizedBox(height: 10),
                   TextField(
@@ -302,16 +319,23 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
                       final selected = await showDatePicker(
                         context: context,
                         initialDate: _sessionDate,
-                        firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                        firstDate: DateTime.now().subtract(
+                          const Duration(days: 1),
+                        ),
                         lastDate: DateTime.now().add(const Duration(days: 365)),
                       );
-                      if (selected != null) setState(() => _sessionDate = selected);
+                      if (selected != null) {
+                        setState(() => _sessionDate = selected);
+                      }
                     },
                     child: InputDecorator(
                       decoration: const InputDecoration(
                         labelText: 'Fecha',
                         prefixIcon: Icon(Icons.calendar_month_outlined),
-                        suffixIcon: Icon(Icons.edit_calendar_outlined, size: 19),
+                        suffixIcon: Icon(
+                          Icons.edit_calendar_outlined,
+                          size: 19,
+                        ),
                       ),
                       child: Text(
                         '${_sessionDate.day.toString().padLeft(2, '0')}/'
@@ -327,7 +351,9 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
                       Expanded(
                         child: TextField(
                           controller: _space,
-                          decoration: const InputDecoration(labelText: 'Espacio'),
+                          decoration: const InputDecoration(
+                            labelText: 'Espacio',
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -335,9 +361,11 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
                         child: TextFormField(
                           initialValue: '$_playerCount',
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Jugadores'),
-                          onChanged: (value) =>
-                              _playerCount = int.tryParse(value) ?? _playerCount,
+                          decoration: const InputDecoration(
+                            labelText: 'Jugadores',
+                          ),
+                          onChanged: (value) => _playerCount =
+                              int.tryParse(value) ?? _playerCount,
                         ),
                       ),
                     ],
@@ -362,7 +390,8 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
               const EmptyStatePanel(
                 icon: Icons.view_agenda_outlined,
                 title: 'Armá la sesión bloque por bloque',
-                message: 'Sumá ejercicios guardados de tu biblioteca o creá '
+                message:
+                    'Sumá ejercicios guardados de tu biblioteca o creá '
                     'uno nuevo. La duración total se calcula sola.',
               )
             else
@@ -453,7 +482,6 @@ class _BuilderBlockTile extends StatelessWidget {
       decoration: CX.panelDecoration(),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () {},
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           child: Row(
@@ -470,11 +498,7 @@ class _BuilderBlockTile extends StatelessWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    const Icon(
-                      Icons.fitness_center,
-                      size: 19,
-                      color: accent,
-                    ),
+                    const Icon(Icons.fitness_center, size: 19, color: accent),
                     Positioned(
                       right: 0,
                       bottom: 0,
@@ -505,10 +529,7 @@ class _BuilderBlockTile extends StatelessWidget {
                         details,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: CX.muted,
-                          fontSize: 12.5,
-                        ),
+                        style: const TextStyle(color: CX.muted, fontSize: 12.5),
                       ),
                     ],
                     if (description.isNotEmpty) ...[

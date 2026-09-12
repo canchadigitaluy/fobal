@@ -260,6 +260,8 @@ class ClubSyncService {
         return ClubQueueOutcome.keep;
       case ClubPushOutcome.error:
         return ClubQueueOutcome.keep;
+      case ClubPushOutcome.invalidData:
+        return ClubQueueOutcome.drop;
     }
   }
 
@@ -270,6 +272,12 @@ class ClubSyncService {
     int baseVersion,
   ) async {
     if (!_canSync) return const ClubPushResult(ClubPushOutcome.skipped);
+    final validationError = validateClubDocumentData(club.toJson());
+    if (validationError != null) {
+      _setSyncError(clubId, validationError);
+      _events.add(ClubSyncEvent(ClubSyncEventType.statusChanged, clubId));
+      return const ClubPushResult(ClubPushOutcome.invalidData);
+    }
     try {
       final res = await SupabaseAuthService.client.rpc(
         'push_club_document',
@@ -294,6 +302,21 @@ class ClubSyncService {
       }
       return const ClubPushResult(ClubPushOutcome.error);
     }
+  }
+
+  static String? validateClubDocumentData(Object? data) {
+    if (data is! Map<String, dynamic>) {
+      return 'No se pudo sincronizar: los datos del club no tienen formato de objeto JSON.';
+    }
+    final id = data['id'];
+    final name = data['name'];
+    if (id is! String || id.trim().isEmpty) {
+      return 'No se pudo sincronizar: falta el identificador del club.';
+    }
+    if (name is! String || name.trim().isEmpty) {
+      return 'No se pudo sincronizar: falta el nombre del club.';
+    }
+    return null;
   }
 
   static Future<bool> restoreConflict(SyncConflictSnapshot snapshot) async {
@@ -325,7 +348,7 @@ class ClubDocument {
   const ClubDocument({required this.club, required this.version});
 }
 
-enum ClubPushOutcome { ok, conflict, tooLarge, error, skipped }
+enum ClubPushOutcome { ok, conflict, tooLarge, error, skipped, invalidData }
 
 class ClubPushResult {
   final ClubPushOutcome outcome;

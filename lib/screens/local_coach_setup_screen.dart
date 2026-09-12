@@ -170,7 +170,7 @@ class _LocalCoachSetupScreenState extends State<LocalCoachSetupScreen> {
     html.window.localStorage['fobal_panel_sections_${club.id}'] = jsonEncode(
       _panelSections.toList(),
     );
-    scope.selectRole(UserRole.coach);
+    scope.selectRole(UserRole.coordinator);
     scope.selectCategory(categoryId);
     Navigator.pushReplacementNamed(context, '/local-home');
   }

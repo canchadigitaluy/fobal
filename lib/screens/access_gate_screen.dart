@@ -7,7 +7,10 @@ import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../services/account_identity_service.dart';
 import '../services/club_access_service.dart';
+import '../services/club_collaborators_service.dart';
+import '../services/club_sync_service.dart';
 import '../services/preview_access_service.dart';
 import '../services/supabase_auth_service.dart';
 
@@ -55,7 +58,17 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
         SupabaseAuthService.currentSession == null) {
       return _AccessState(clubs: clubs, previewMode: true);
     }
-    return _AccessState(clubs: clubs, previewMode: true);
+    List<ClubCollaboration> collaborations = const [];
+    try {
+      collaborations = await ClubCollaboratorsService.myCollaborations();
+    } catch (_) {
+      collaborations = const [];
+    }
+    return _AccessState(
+      clubs: clubs,
+      collaborations: collaborations,
+      previewMode: true,
+    );
   }
 
   Future<List<CanteraAccessClub>> _previewClubs() async {
@@ -144,15 +157,56 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
     );
   }
 
+  Future<void> _enterCollaboration(ClubCollaboration collaboration) async {
+    if (_loadingClubContext) return;
+    setState(() => _loadingClubContext = true);
+    final membership = ClubMembership(
+      clubId: collaboration.clubId,
+      clubName: collaboration.clubName,
+      ludTeamId: null,
+      role: collaboration.role,
+      status: 'active',
+    );
+    ClubAccessService.selectActiveMembership(membership);
+    AccountIdentityService.writeActiveClubId(collaboration.clubId);
+    final scope = AppScope.of(context);
+    final document = await ClubSyncService.pull(collaboration.clubId);
+    if (!mounted) return;
+    if (document == null || document.club.id != collaboration.clubId) {
+      setState(() => _loadingClubContext = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No pudimos abrir ese club compartido.')),
+      );
+      return;
+    }
+    ClubSyncService.rememberVersion(document.club.id, document.version);
+    scope.adoptClub(document.club);
+    final categories = document.club.categories;
+    scope.selectRole(
+      collaboration.role == 'viewer' ? UserRole.viewer : UserRole.coach,
+    );
+    if (categories.length > 1) {
+      setState(() {
+        _loadingClubContext = false;
+        _categoryMembership = membership;
+        _categoryRoute = '/collaboration-home';
+        _categoryOptions = categories;
+        _selectedCategoryId = null;
+        _categoryClubLogoUrl = document.club.logoUrl;
+      });
+      return;
+    }
+    scope.selectCategory(categories.isEmpty ? null : categories.first.id);
+    Navigator.pushReplacementNamed(context, '/collaboration-home');
+  }
+
   Future<void> _enterSelectedCategory() async {
     final membership = _categoryMembership;
     final route = _categoryRoute;
-    final category = _categoryOptions
-        .cast<CategorySquad?>()
-        .firstWhere(
-          (item) => item?.id == _selectedCategoryId,
-          orElse: () => null,
-        );
+    final category = _categoryOptions.cast<CategorySquad?>().firstWhere(
+      (item) => item?.id == _selectedCategoryId,
+      orElse: () => null,
+    );
     if (membership == null || route == null || category == null) {
       return;
     }
@@ -194,64 +248,67 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
             return SingleChildScrollView(
               padding: const EdgeInsets.all(22),
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: viewport.maxHeight - 44,
-                ),
+                constraints: BoxConstraints(minHeight: viewport.maxHeight - 44),
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 920),
                     child: FutureBuilder<_AccessState>(
-                future: _state,
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const Center(
-                      child: CircularProgressIndicator(color: CX.green),
-                    );
-                  }
+                      future: _state,
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(
+                            child: CircularProgressIndicator(color: CX.green),
+                          );
+                        }
 
-                  final state = snapshot.data!;
-                  if (state.localMode) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) return;
-                      Navigator.pushReplacementNamed(context, '/local-setup');
-                    });
-                    return const Center(
-                      child: CircularProgressIndicator(color: CX.green),
-                    );
-                  }
-                  if (_categoryMembership != null) {
-                    return Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 920),
-                        child: _CategoryPicker(
-                          clubName: _categoryMembership!.clubName,
-                          clubLogoUrl: _categoryClubLogoUrl,
-                          categories: _categoryOptions,
-                          selectedCategoryId: _selectedCategoryId,
+                        final state = snapshot.data!;
+                        if (state.localMode) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            Navigator.pushReplacementNamed(
+                              context,
+                              '/local-setup',
+                            );
+                          });
+                          return const Center(
+                            child: CircularProgressIndicator(color: CX.green),
+                          );
+                        }
+                        if (_categoryMembership != null) {
+                          return Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 920),
+                              child: _CategoryPicker(
+                                clubName: _categoryMembership!.clubName,
+                                clubLogoUrl: _categoryClubLogoUrl,
+                                categories: _categoryOptions,
+                                selectedCategoryId: _selectedCategoryId,
+                                loading: _loadingClubContext,
+                                onChanged: (value) =>
+                                    setState(() => _selectedCategoryId = value),
+                                onEnter: _enterSelectedCategory,
+                                onBack: () => setState(() {
+                                  _categoryMembership = null;
+                                  _categoryRoute = null;
+                                  _categoryOptions = const [];
+                                  _selectedCategoryId = null;
+                                }),
+                              ),
+                            ),
+                          );
+                        }
+                        return _PreviewClubPicker(
+                          clubs: state.clubs,
+                          collaborations: state.collaborations,
+                          selectedClubId: _selectedClubId,
                           loading: _loadingClubContext,
                           onChanged: (value) =>
-                              setState(() => _selectedCategoryId = value),
-                          onEnter: _enterSelectedCategory,
-                          onBack: () => setState(() {
-                            _categoryMembership = null;
-                            _categoryRoute = null;
-                            _categoryOptions = const [];
-                            _selectedCategoryId = null;
-                          }),
-                        ),
-                      ),
-                    );
-                  }
-                  return _PreviewClubPicker(
-                    clubs: state.clubs,
-                    selectedClubId: _selectedClubId,
-                    loading: _loadingClubContext,
-                    onChanged: (value) =>
-                        setState(() => _selectedClubId = value),
-                    onEnterClub: _enterPreview,
-                    onLeave: _leave,
-                  );
-                    },
+                              setState(() => _selectedClubId = value),
+                          onEnterClub: _enterPreview,
+                          onEnterCollaboration: _enterCollaboration,
+                          onLeave: _leave,
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -266,18 +323,22 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
 
 class _PreviewClubPicker extends StatefulWidget {
   final List<CanteraAccessClub> clubs;
+  final List<ClubCollaboration> collaborations;
   final String? selectedClubId;
   final bool loading;
   final ValueChanged<String?> onChanged;
   final ValueChanged<CanteraAccessClub> onEnterClub;
+  final ValueChanged<ClubCollaboration> onEnterCollaboration;
   final Future<void> Function() onLeave;
 
   const _PreviewClubPicker({
     required this.clubs,
+    required this.collaborations,
     required this.selectedClubId,
     required this.loading,
     required this.onChanged,
     required this.onEnterClub,
+    required this.onEnterCollaboration,
     required this.onLeave,
   });
 
@@ -320,7 +381,11 @@ class _PreviewClubPickerState extends State<_PreviewClubPicker> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: CX.line),
         boxShadow: const [
-          BoxShadow(color: Color(0x1F0D1A14), blurRadius: 40, offset: Offset(0, 20)),
+          BoxShadow(
+            color: Color(0x1F0D1A14),
+            blurRadius: 40,
+            offset: Offset(0, 20),
+          ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
@@ -330,6 +395,7 @@ class _PreviewClubPickerState extends State<_PreviewClubPicker> {
           final brand = _ClubPickerBrandPanel(clubChosen: selectedClub != null);
           final picker = _ClubPickerListPanel(
             clubs: widget.clubs,
+            collaborations: widget.collaborations,
             visible: visible,
             totalFiltered: filtered.length,
             query: query,
@@ -341,6 +407,7 @@ class _PreviewClubPickerState extends State<_PreviewClubPicker> {
             onContinue: selectedClub == null
                 ? null
                 : () => widget.onEnterClub(selectedClub!),
+            onEnterCollaboration: widget.onEnterCollaboration,
             onLeave: widget.onLeave,
           );
           if (narrow) {
@@ -416,7 +483,11 @@ class _ClubPickerBrandPanel extends StatelessWidget {
                       color: CX.green,
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: const [
-                        BoxShadow(color: Color(0x40000000), blurRadius: 6, offset: Offset(0, 2)),
+                        BoxShadow(
+                          color: Color(0x40000000),
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
                       ],
                     ),
                     child: Center(
@@ -502,7 +573,12 @@ class _ClubPickerStepper extends StatelessWidget {
         ),
         Opacity(
           opacity: .55,
-          child: _StepDot(label: 'Categoría', done: false, active: false, number: '2'),
+          child: _StepDot(
+            label: 'Categoría',
+            done: false,
+            active: false,
+            number: '2',
+          ),
         ),
       ],
     );
@@ -539,7 +615,9 @@ class _StepDot extends StatelessWidget {
             shape: BoxShape.circle,
             color: isFilled ? CX.green : Colors.transparent,
             border: Border.all(
-              color: isFilled ? CX.green : Colors.white.withValues(alpha: active ? .9 : .6),
+              color: isFilled
+                  ? CX.green
+                  : Colors.white.withValues(alpha: active ? .9 : .6),
               width: 1.5,
             ),
           ),
@@ -581,9 +659,18 @@ class _PitchLinesPainter extends CustomPainter {
       ..strokeWidth = 1.2;
     final fill = Paint()..color = Colors.white;
     const inset = 8.0;
-    final rect = Rect.fromLTWH(inset, inset, size.width - inset * 2, size.height - inset * 2);
+    final rect = Rect.fromLTWH(
+      inset,
+      inset,
+      size.width - inset * 2,
+      size.height - inset * 2,
+    );
     canvas.drawRect(rect, stroke);
-    canvas.drawLine(Offset(inset, size.height / 2), Offset(size.width - inset, size.height / 2), stroke);
+    canvas.drawLine(
+      Offset(inset, size.height / 2),
+      Offset(size.width - inset, size.height / 2),
+      stroke,
+    );
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.shortestSide * .16;
     canvas.drawCircle(center, radius, stroke);
@@ -593,7 +680,12 @@ class _PitchLinesPainter extends CustomPainter {
     final boxLeft = (size.width - boxWidth) / 2;
     canvas.drawRect(Rect.fromLTWH(boxLeft, inset, boxWidth, boxHeight), stroke);
     canvas.drawRect(
-      Rect.fromLTWH(boxLeft, size.height - inset - boxHeight, boxWidth, boxHeight),
+      Rect.fromLTWH(
+        boxLeft,
+        size.height - inset - boxHeight,
+        boxWidth,
+        boxHeight,
+      ),
       stroke,
     );
     final arcRadius = size.shortestSide * .2;
@@ -605,7 +697,10 @@ class _PitchLinesPainter extends CustomPainter {
       stroke,
     );
     canvas.drawArc(
-      Rect.fromCircle(center: Offset(size.width / 2, size.height - inset), radius: arcRadius),
+      Rect.fromCircle(
+        center: Offset(size.width / 2, size.height - inset),
+        radius: arcRadius,
+      ),
       3.14 + 0.4,
       3.14 - 0.8,
       false,
@@ -621,6 +716,7 @@ class _PitchLinesPainter extends CustomPainter {
 /// actions. Everything here is real data — no invented city/division.
 class _ClubPickerListPanel extends StatelessWidget {
   final List<CanteraAccessClub> clubs;
+  final List<ClubCollaboration> collaborations;
   final List<CanteraAccessClub> visible;
   final int totalFiltered;
   final String query;
@@ -630,10 +726,12 @@ class _ClubPickerListPanel extends StatelessWidget {
   final VoidCallback onQueryChanged;
   final ValueChanged<String?> onSelect;
   final VoidCallback? onContinue;
+  final ValueChanged<ClubCollaboration> onEnterCollaboration;
   final Future<void> Function() onLeave;
 
   const _ClubPickerListPanel({
     required this.clubs,
+    required this.collaborations,
     required this.visible,
     required this.totalFiltered,
     required this.query,
@@ -643,6 +741,7 @@ class _ClubPickerListPanel extends StatelessWidget {
     required this.onQueryChanged,
     required this.onSelect,
     required this.onContinue,
+    required this.onEnterCollaboration,
     required this.onLeave,
   });
 
@@ -659,7 +758,11 @@ class _ClubPickerListPanel extends StatelessWidget {
               Expanded(
                 child: Text(
                   '${clubs.length} club${clubs.length == 1 ? '' : 'es'} disponibles',
-                  style: const TextStyle(color: CX.faint, fontSize: 12, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    color: CX.faint,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               Container(
@@ -682,13 +785,21 @@ class _ClubPickerListPanel extends StatelessWidget {
                       ),
                       child: const Text(
                         'DT',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: CX.green),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: CX.green,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     const Text(
                       'Mi cuenta',
-                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: CX.muted),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: CX.muted,
+                      ),
                     ),
                   ],
                 ),
@@ -722,10 +833,16 @@ class _ClubPickerListPanel extends StatelessWidget {
                 totalFiltered == 0
                     ? ''
                     : '$totalFiltered club${totalFiltered == 1 ? '' : 'es'}',
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: CX.muted),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: CX.muted,
+                ),
               ),
               Text(
-                selectedClub == null ? 'Ningún club seleccionado' : selectedClub!.name,
+                selectedClub == null
+                    ? 'Ningún club seleccionado'
+                    : selectedClub!.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 12, color: CX.faint),
@@ -768,6 +885,26 @@ class _ClubPickerListPanel extends StatelessWidget {
               style: const TextStyle(fontSize: 11.5, color: CX.faint),
             ),
           ],
+          if (collaborations.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            const Divider(height: 1, color: CX.line),
+            const SizedBox(height: 14),
+            const Text(
+              'También colaborás en estos clubes',
+              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 9),
+            ...collaborations.map(
+              (collaboration) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _CollaborationRow(
+                  collaboration: collaboration,
+                  loading: loading,
+                  onTap: () => onEnterCollaboration(collaboration),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -804,6 +941,83 @@ class _ClubPickerListPanel extends StatelessWidget {
   }
 }
 
+class _CollaborationRow extends StatelessWidget {
+  final ClubCollaboration collaboration;
+  final bool loading;
+  final VoidCallback onTap;
+
+  const _CollaborationRow({
+    required this.collaboration,
+    required this.loading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: loading ? null : onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: CX.panel2,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: CX.line),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: CX.greenDark,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(
+                Icons.handshake_outlined,
+                color: CX.green,
+                size: 19,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    collaboration.clubName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _collaborationRoleName(collaboration.role),
+                    style: const TextStyle(fontSize: 11.5, color: CX.faint),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.login, color: CX.green, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _collaborationRoleName(String role) => switch (role) {
+  'coach' => 'Director tecnico',
+  'assistant' => 'Ayudante tecnico',
+  'physical_trainer' => 'Preparador fisico',
+  'viewer' => 'Solo lectura',
+  _ => role,
+};
+
 class _ClubPickerEmptyResults extends StatelessWidget {
   final String query;
   final VoidCallback onClear;
@@ -819,7 +1033,10 @@ class _ClubPickerEmptyResults extends StatelessWidget {
           Container(
             width: 48,
             height: 48,
-            decoration: const BoxDecoration(color: CX.panel2, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: CX.panel2,
+              shape: BoxShape.circle,
+            ),
             child: const Icon(Icons.search_off, size: 22, color: CX.faint),
           ),
           const SizedBox(height: 12),
@@ -833,7 +1050,10 @@ class _ClubPickerEmptyResults extends StatelessWidget {
             style: const TextStyle(fontSize: 13, color: CX.muted),
           ),
           const SizedBox(height: 10),
-          OutlinedButton(onPressed: onClear, child: const Text('Limpiar búsqueda')),
+          OutlinedButton(
+            onPressed: onClear,
+            child: const Text('Limpiar búsqueda'),
+          ),
         ],
       ),
     );
@@ -873,7 +1093,8 @@ class _ClubRowState extends State<_ClubRow> {
           color: Color(0xFF3A2E05),
         ),
       ),
-      if (idx + query.length < name.length) TextSpan(text: name.substring(idx + query.length)),
+      if (idx + query.length < name.length)
+        TextSpan(text: name.substring(idx + query.length)),
     ];
   }
 
@@ -898,9 +1119,19 @@ class _ClubRowState extends State<_ClubRow> {
             decoration: BoxDecoration(
               color: active ? CX.greenDark : CX.panel,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: active ? CX.green : (_hover ? CX.green.withValues(alpha: .4) : CX.line)),
+              border: Border.all(
+                color: active
+                    ? CX.green
+                    : (_hover ? CX.green.withValues(alpha: .4) : CX.line),
+              ),
               boxShadow: _hover && !active
-                  ? [BoxShadow(color: CX.green.withValues(alpha: .18), blurRadius: 18, offset: const Offset(0, 8))]
+                  ? [
+                      BoxShadow(
+                        color: CX.green.withValues(alpha: .18),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
                   : null,
             ),
             child: Row(
@@ -956,8 +1187,15 @@ class _ClubRowState extends State<_ClubRow> {
                   child: Container(
                     width: 22,
                     height: 22,
-                    decoration: const BoxDecoration(color: CX.green, shape: BoxShape.circle),
-                    child: const Icon(Icons.check, size: 13, color: Colors.white),
+                    decoration: const BoxDecoration(
+                      color: CX.green,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      size: 13,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -992,26 +1230,31 @@ class _CategoryPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = categories
-        .cast<CategorySquad?>()
-        .firstWhere(
-          (category) => category?.id == selectedCategoryId,
-          orElse: () => null,
-        );
+    final selected = categories.cast<CategorySquad?>().firstWhere(
+      (category) => category?.id == selectedCategoryId,
+      orElse: () => null,
+    );
     return Container(
       decoration: BoxDecoration(
         color: CX.panel,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: CX.line),
         boxShadow: const [
-          BoxShadow(color: Color(0x1F0D1A14), blurRadius: 40, offset: Offset(0, 20)),
+          BoxShadow(
+            color: Color(0x1F0D1A14),
+            blurRadius: 40,
+            offset: Offset(0, 20),
+          ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final narrow = constraints.maxWidth < 700;
-          final brand = _CategoryBrandPanel(clubName: clubName, clubLogoUrl: clubLogoUrl);
+          final brand = _CategoryBrandPanel(
+            clubName: clubName,
+            clubLogoUrl: clubLogoUrl,
+          );
           final picker = _CategoryListPanel(
             categories: categories,
             selected: selected,
@@ -1021,7 +1264,10 @@ class _CategoryPicker extends StatelessWidget {
             onBack: onBack,
           );
           if (narrow) {
-            return Column(mainAxisSize: MainAxisSize.min, children: [brand, picker]);
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [brand, picker],
+            );
           }
           return IntrinsicHeight(
             child: Row(
@@ -1044,7 +1290,10 @@ class _CategoryPicker extends StatelessWidget {
 class _CategoryBrandPanel extends StatelessWidget {
   final String clubName;
   final String clubLogoUrl;
-  const _CategoryBrandPanel({required this.clubName, required this.clubLogoUrl});
+  const _CategoryBrandPanel({
+    required this.clubName,
+    required this.clubLogoUrl,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1060,7 +1309,10 @@ class _CategoryBrandPanel extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(
-            child: Opacity(opacity: .16, child: CustomPaint(painter: _PitchLinesPainter())),
+            child: Opacity(
+              opacity: .16,
+              child: CustomPaint(painter: _PitchLinesPainter()),
+            ),
           ),
           Positioned(
             right: -70,
@@ -1088,21 +1340,33 @@ class _CategoryBrandPanel extends StatelessWidget {
                       color: CX.green,
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: const [
-                        BoxShadow(color: Color(0x40000000), blurRadius: 6, offset: Offset(0, 2)),
+                        BoxShadow(
+                          color: Color(0x40000000),
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
                       ],
                     ),
                     child: Center(
                       child: Container(
                         width: 16,
                         height: 16,
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   const Text(
                     'fobal',
-                    style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -.3),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -.3,
+                    ),
                   ),
                 ],
               ),
@@ -1112,7 +1376,9 @@ class _CategoryBrandPanel extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: .08),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withValues(alpha: .14)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .14),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -1149,7 +1415,11 @@ class _CategoryBrandPanel extends StatelessWidget {
                             clubName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ],
                       ),
@@ -1171,7 +1441,11 @@ class _CategoryBrandPanel extends StatelessWidget {
               const SizedBox(height: 10),
               const Text(
                 'Cada categoría tiene su propio plantel, tabla, fixture y planificación de entrenamientos.',
-                style: TextStyle(color: Color(0xDDE0F3EB), fontSize: 14.5, height: 1.55),
+                style: TextStyle(
+                  color: Color(0xDDE0F3EB),
+                  fontSize: 14.5,
+                  height: 1.55,
+                ),
               ),
               const SizedBox(height: 40),
               Container(height: 1, color: Colors.white.withValues(alpha: .18)),
@@ -1182,10 +1456,19 @@ class _CategoryBrandPanel extends StatelessWidget {
                   const Expanded(
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: 10),
-                      child: SizedBox(height: 2, child: ColoredBox(color: CX.green)),
+                      child: SizedBox(
+                        height: 2,
+                        child: ColoredBox(color: CX.green),
+                      ),
                     ),
                   ),
-                  const _StepDot(label: 'Categoría', done: false, active: true, number: '2', filled: true),
+                  const _StepDot(
+                    label: 'Categoría',
+                    done: false,
+                    active: true,
+                    number: '2',
+                    filled: true,
+                  ),
                 ],
               ),
             ],
@@ -1226,7 +1509,11 @@ class _CategoryListPanel extends StatelessWidget {
               Expanded(
                 child: Text(
                   '${categories.length} categoría${categories.length == 1 ? '' : 's'} activas',
-                  style: const TextStyle(color: CX.faint, fontSize: 12, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    color: CX.faint,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               Container(
@@ -1243,11 +1530,28 @@ class _CategoryListPanel extends StatelessWidget {
                       width: 24,
                       height: 24,
                       alignment: Alignment.center,
-                      decoration: const BoxDecoration(color: CX.greenDark, shape: BoxShape.circle),
-                      child: const Text('DT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: CX.green)),
+                      decoration: const BoxDecoration(
+                        color: CX.greenDark,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Text(
+                        'DT',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: CX.green,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 8),
-                    const Text('Mi cuenta', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: CX.muted)),
+                    const Text(
+                      'Mi cuenta',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: CX.muted,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1292,7 +1596,11 @@ class _CategoryListPanel extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: loading || onEnter == null ? null : onEnter,
               icon: loading
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.login, size: 17),
               label: Text(loading ? 'Cargando categoría' : 'Entrar'),
             ),
@@ -1316,7 +1624,11 @@ class _CategoryRow extends StatefulWidget {
   final CategorySquad category;
   final bool active;
   final VoidCallback? onTap;
-  const _CategoryRow({required this.category, required this.active, required this.onTap});
+  const _CategoryRow({
+    required this.category,
+    required this.active,
+    required this.onTap,
+  });
 
   @override
   State<_CategoryRow> createState() => _CategoryRowState();
@@ -1346,9 +1658,19 @@ class _CategoryRowState extends State<_CategoryRow> {
             decoration: BoxDecoration(
               color: active ? CX.greenDark : CX.panel,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: active ? CX.green : (_hover ? CX.green.withValues(alpha: .4) : CX.line)),
+              border: Border.all(
+                color: active
+                    ? CX.green
+                    : (_hover ? CX.green.withValues(alpha: .4) : CX.line),
+              ),
               boxShadow: _hover && !active
-                  ? [BoxShadow(color: CX.green.withValues(alpha: .18), blurRadius: 18, offset: const Offset(0, 8))]
+                  ? [
+                      BoxShadow(
+                        color: CX.green.withValues(alpha: .18),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
                   : null,
             ),
             child: Row(
@@ -1377,11 +1699,17 @@ class _CategoryRowState extends State<_CategoryRow> {
                         category.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: CX.white),
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: CX.white,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        category.playerCount > 0 ? '${category.playerCount} jugadores' : 'Plantel por cargar',
+                        category.playerCount > 0
+                            ? '${category.playerCount} jugadores'
+                            : 'Plantel por cargar',
                         style: const TextStyle(fontSize: 12, color: CX.faint),
                       ),
                     ],
@@ -1394,8 +1722,15 @@ class _CategoryRowState extends State<_CategoryRow> {
                   child: Container(
                     width: 22,
                     height: 22,
-                    decoration: const BoxDecoration(color: CX.green, shape: BoxShape.circle),
-                    child: const Icon(Icons.check, size: 13, color: Colors.white),
+                    decoration: const BoxDecoration(
+                      color: CX.green,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      size: 13,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -1411,12 +1746,15 @@ class _AccessState {
   final List<ClubMembership> activeMemberships;
   final ClubMembership? pending;
   final List<CanteraAccessClub> clubs;
+  final List<ClubCollaboration> collaborations;
   final bool previewMode;
   final bool localMode;
 
   const _AccessState({
     this.clubs = const [],
+    this.collaborations = const [],
     this.previewMode = false,
     this.localMode = false,
-  }) : pending = null, activeMemberships = const [];
+  }) : pending = null,
+       activeMemberships = const [];
 }

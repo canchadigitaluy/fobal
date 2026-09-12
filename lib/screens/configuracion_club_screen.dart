@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../services/account_identity_service.dart';
 import '../services/club_access_service.dart';
 import '../services/club_backup_service.dart';
+import '../services/club_collaborators_service.dart';
 import '../services/plantel_service.dart';
 import '../services/supabase_auth_service.dart';
 import '../ui/ui_kit.dart';
@@ -45,6 +47,8 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
   String? _selectedPlayerCategoryId;
   int _sectionIndex = 0;
   late Future<List<ClubMemberAccess>> _membersFuture;
+  Future<List<ClubCollaborator>>? _collaboratorsFuture;
+  String? _collaboratorsClubId;
 
   @override
   void initState() {
@@ -402,6 +406,142 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
     });
   }
 
+  Future<List<ClubCollaborator>> _collaboratorsFor(String clubId) {
+    if (_collaboratorsClubId != clubId || _collaboratorsFuture == null) {
+      _collaboratorsClubId = clubId;
+      _collaboratorsFuture = ClubCollaboratorsService.list(clubId);
+    }
+    return _collaboratorsFuture!;
+  }
+
+  void _refreshCollaborators() {
+    final clubId = AppScope.of(context).fullClub.id;
+    setState(() {
+      _collaboratorsClubId = clubId;
+      _collaboratorsFuture = ClubCollaboratorsService.list(clubId);
+    });
+  }
+
+  Future<void> _inviteCollaborator() async {
+    final club = AppScope.of(context).fullClub;
+    final emailController = TextEditingController();
+    var role = clubCollaboratorRoles.first;
+    final result = await showDialog<({String email, String role})>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Invitar colaborador'),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: role,
+                  items: clubCollaboratorRoles
+                      .map(
+                        (value) => DropdownMenuItem(
+                          value: value,
+                          child: Text(_collaboratorRoleName(value)),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) setDialogState(() => role = value);
+                  },
+                  decoration: const InputDecoration(labelText: 'Rol'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final email = emailController.text.trim();
+                if (email.isEmpty) return;
+                Navigator.pop(context, (email: email, role: role));
+              },
+              child: const Text('Invitar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    emailController.dispose();
+    if (result == null || !mounted) return;
+    try {
+      await ClubCollaboratorsService.invite(
+        clubId: club.id,
+        email: result.email,
+        role: result.role,
+      );
+      if (!mounted) return;
+      _refreshCollaborators();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Colaborador invitado.')));
+    } on ClubCollaboratorsException catch (error) {
+      if (!mounted) return;
+      final message =
+          error.code == 'no_account' ||
+              error.message.toLowerCase().contains('no tiene una cuenta')
+          ? 'Esa persona todavía no tiene cuenta en fobal, pedile que se registre primero.'
+          : error.message;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _revokeCollaborator(ClubCollaborator collaborator) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Revocar acceso'),
+        content: Text(
+          'Se quitará el acceso de ${collaborator.email.isEmpty ? collaborator.fullName : collaborator.email}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Revocar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ClubCollaboratorsService.revoke(
+        clubId: AppScope.of(context).fullClub.id,
+        userId: collaborator.userId,
+      );
+      if (!mounted) return;
+      _refreshCollaborators();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Acceso revocado.')));
+    } on ClubCollaboratorsException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
   Future<void> _reviewMember(ClubMemberAccess member, bool approve) async {
     final categories = AppScope.of(context).fullClub.categories;
     final selected = member.categoryIds.toSet();
@@ -570,6 +710,10 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
   @override
   Widget build(BuildContext context) {
     final club = AppScope.of(context).club;
+    final fullClub = AppScope.of(context).fullClub;
+    final isManualOwner =
+        fullClub.isManualClub &&
+        AccountIdentityService.readLocalClubId() == fullClub.id;
     final categoryNames = {
       for (final category in club.categories) category.id: category.name,
     };
@@ -606,17 +750,18 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
           'Criterios de evaluacion',
         ],
       ),
-      _SetupStep(
-        title: 'Usuarios y permisos',
-        icon: Icons.admin_panel_settings_outlined,
-        completed: SupabaseAuthService.currentSession != null,
-        fields: const [
-          'Miembros del club',
-          'Roles operativos',
-          'Estados de acceso',
-          'Separacion por club',
-        ],
-      ),
+      if (club.isLudClub || isManualOwner)
+        _SetupStep(
+          title: 'Usuarios y permisos',
+          icon: Icons.admin_panel_settings_outlined,
+          completed: SupabaseAuthService.currentSession != null,
+          fields: const [
+            'Miembros del club',
+            'Roles operativos',
+            'Estados de acceso',
+            'Separacion por club',
+          ],
+        ),
     ];
 
     final completed = steps.where((s) => s.completed).length;
@@ -750,13 +895,23 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
         evaluationController: _evaluationController,
         onSave: _saveMethodology,
       ),
-      _RealClubAccessPanel(
-        future: _membersFuture,
-        onRefresh: _refreshMembers,
-        onReview: _reviewMember,
-        onManage: _manageMemberCategories,
-      ),
+      if (club.isLudClub)
+        _RealClubAccessPanel(
+          future: _membersFuture,
+          onRefresh: _refreshMembers,
+          onReview: _reviewMember,
+          onManage: _manageMemberCategories,
+        ),
+      if (isManualOwner)
+        _ManualCollaboratorsPanel(
+          future: _collaboratorsFor(fullClub.id),
+          onRefresh: _refreshCollaborators,
+          onInvite: _inviteCollaborator,
+          onRevoke: _revokeCollaborator,
+        ),
     ];
+
+    if (_sectionIndex >= sections.length) _sectionIndex = sections.length - 1;
 
     return Scaffold(
       appBar: AppBar(
@@ -1376,6 +1531,120 @@ class _MethodologyForm extends StatelessWidget {
   }
 }
 
+class _ManualCollaboratorsPanel extends StatelessWidget {
+  final Future<List<ClubCollaborator>> future;
+  final VoidCallback onRefresh;
+  final VoidCallback onInvite;
+  final ValueChanged<ClubCollaborator> onRevoke;
+
+  const _ManualCollaboratorsPanel({
+    required this.future,
+    required this.onRefresh,
+    required this.onInvite,
+    required this.onRevoke,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<ClubCollaborator>>(
+      future: future,
+      builder: (context, snapshot) {
+        final collaborators = snapshot.data ?? const <ClubCollaborator>[];
+        return Container(
+          padding: const EdgeInsets.all(15),
+          decoration: CX.panelDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.group_add_outlined, color: CX.green),
+                  const SizedBox(width: 9),
+                  const Expanded(
+                    child: Text(
+                      'Colaboradores',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Actualizar colaboradores',
+                    onPressed: onRefresh,
+                    icon: const Icon(Icons.refresh),
+                  ),
+                  const SizedBox(width: 6),
+                  OutlinedButton.icon(
+                    onPressed: onInvite,
+                    icon: const Icon(Icons.person_add_alt_1_outlined),
+                    label: const Text('Invitar'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Sumá usuarios registrados para trabajar sobre este club manual sin mezclarlo con clubes de Liga Universitaria.',
+                style: TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
+              ),
+              const SizedBox(height: 14),
+              if (snapshot.connectionState == ConnectionState.waiting)
+                const LinearProgressIndicator(minHeight: 2)
+              else if (snapshot.hasError)
+                const _EmptyCard(
+                  'No pudimos cargar colaboradores. Probá de nuevo.',
+                )
+              else if (collaborators.isEmpty)
+                const _EmptyCard('Todavía no invitaste colaboradores.')
+              else
+                ...collaborators.map(
+                  (collaborator) => _CollaboratorTile(
+                    collaborator: collaborator,
+                    onRevoke: () => onRevoke(collaborator),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CollaboratorTile extends StatelessWidget {
+  final ClubCollaborator collaborator;
+  final VoidCallback onRevoke;
+
+  const _CollaboratorTile({required this.collaborator, required this.onRevoke});
+
+  @override
+  Widget build(BuildContext context) {
+    final title = collaborator.fullName.trim().isNotEmpty
+        ? collaborator.fullName.trim()
+        : collaborator.email;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.person_outline, color: CX.green),
+      title: Text(
+        title.isEmpty ? 'Colaborador' : title,
+        style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+      subtitle: Text(
+        [
+          if (collaborator.email.trim().isNotEmpty) collaborator.email.trim(),
+          _collaboratorRoleName(collaborator.role),
+        ].join(' / '),
+        style: const TextStyle(color: CX.muted, fontSize: 12),
+      ),
+      trailing: IconButton(
+        tooltip: 'Revocar acceso',
+        onPressed: onRevoke,
+        icon: const Icon(Icons.person_remove_outlined, color: CX.red),
+      ),
+    );
+  }
+}
+
 class _RealClubAccessPanel extends StatelessWidget {
   final Future<List<ClubMemberAccess>> future;
   final VoidCallback onRefresh;
@@ -1459,6 +1728,14 @@ class _RealClubAccessPanel extends StatelessWidget {
     );
   }
 }
+
+String _collaboratorRoleName(String role) => switch (role) {
+  'coach' => 'Director tecnico',
+  'assistant' => 'Ayudante tecnico',
+  'physical_trainer' => 'Preparador fisico',
+  'viewer' => 'Solo lectura',
+  _ => role,
+};
 
 class _AccessHealthStrip extends StatelessWidget {
   final List<ClubMemberAccess> members;

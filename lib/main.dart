@@ -13,16 +13,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'data/cantera_data.dart';
 import 'screens/access_gate_screen.dart';
 import 'screens/admin_pin_screen.dart';
-import 'screens/alineacion_screen.dart';
+import 'screens/alineacion_screen.dart' deferred as alineacion_screen;
 import 'screens/asistencia_screen.dart';
+import 'screens/calendario_screen.dart' deferred as calendario_screen;
 import 'screens/configuracion_club_screen.dart';
+import 'screens/estadisticas_screen.dart' deferred as estadisticas_screen;
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/local_coach_setup_screen.dart';
-import 'screens/calendario_screen.dart';
 import 'screens/mi_equipo_screen.dart';
 import 'screens/tactica_screen.dart';
-import 'screens/estadisticas_screen.dart';
 import 'screens/week_screen.dart';
 import 'services/club_access_service.dart';
 import 'services/account_identity_service.dart';
@@ -1021,6 +1021,7 @@ class _CanteraAppState extends State<CanteraApp> {
           '/local-attendance': (context) =>
               const _LocalHomeRoute(initialIndex: 3),
           '/local-lineups': (context) => const _LocalHomeRoute(initialIndex: 4),
+          '/collaboration-home': (context) => const _CollaborationHomeRoute(),
           '/home': (context) => const _ProtectedHome(),
           '/preview-access': (context) => const _PreviewAccessRoute(),
           '/preview-home': (context) => const _PreviewHomeRoute(),
@@ -1149,6 +1150,19 @@ class _LocalHomeRoute extends StatelessWidget {
   }
 }
 
+class _CollaborationHomeRoute extends StatelessWidget {
+  const _CollaborationHomeRoute();
+
+  @override
+  Widget build(BuildContext context) {
+    if (SupabaseAuthService.isConfigured &&
+        SupabaseAuthService.currentSession == null) {
+      return const _AccessRedirect(route: '/login');
+    }
+    return const MainShell();
+  }
+}
+
 /// Ensures the club actually loaded into app state is the user's own manual
 /// club before rendering the No-LUD shell. Self-heals a stale
 /// `fobal_active_club_id` left over from a LUD session on the same browser
@@ -1187,6 +1201,11 @@ class _LocalHomeGuardState extends State<_LocalHomeGuard> {
       return const _CalmLoadingScaffold();
     }
     _switching = false;
+    if (scope.role != UserRole.coordinator) {
+      Future<void>.microtask(() {
+        if (mounted) scope.selectRole(UserRole.coordinator);
+      });
+    }
     return widget.child;
   }
 }
@@ -1862,6 +1881,59 @@ class _StaggeredRevealState extends State<_StaggeredReveal> {
   }
 }
 
+class _DeferredCalendarioScreen extends StatelessWidget {
+  const _DeferredCalendarioScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: calendario_screen.loadLibrary(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const _CalmLoadingScaffold();
+        }
+        return calendario_screen.CalendarioScreen();
+      },
+    );
+  }
+}
+
+class _DeferredEstadisticasScreen extends StatelessWidget {
+  const _DeferredEstadisticasScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: estadisticas_screen.loadLibrary(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const _CalmLoadingScaffold();
+        }
+        return estadisticas_screen.EstadisticasScreen();
+      },
+    );
+  }
+}
+
+class _DeferredAlineacionScreen extends StatelessWidget {
+  final VoidCallback onBack;
+
+  const _DeferredAlineacionScreen({required this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: alineacion_screen.loadLibrary(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const _CalmLoadingScaffold();
+        }
+        return alineacion_screen.AlineacionScreen(onBack: onBack);
+      },
+    );
+  }
+}
+
 class MainShell extends StatefulWidget {
   final int initialIndex;
 
@@ -1892,6 +1964,25 @@ class _MainShellState extends State<MainShell> {
     return index < 0 ? 0 : index;
   }
 
+  int _indexOfLabel(String label) {
+    final scope = AppScope.of(context);
+    if (_isExternalClub(scope.fullClub)) {
+      final labels = _enabledExternalLabels(scope.fullClub);
+      final index = labels.indexOf(label);
+      return index < 0 ? 0 : index;
+    }
+    final labels = [
+      'Inicio',
+      'Táctica',
+      'Estadísticas',
+      'Semana',
+      if (scope.role == UserRole.coordinator) 'Configurar',
+      if (scope.role != UserRole.viewer) 'Alineación & citaciones',
+    ];
+    final index = labels.indexOf(label);
+    return index < 0 ? 0 : index;
+  }
+
   /// Planificar sub-tab index inside TacticaScreen (Asistencia is hidden for
   /// external clubs, shifting the planner one slot left).
   int _plannerSubSection() =>
@@ -1916,7 +2007,7 @@ class _MainShellState extends State<MainShell> {
 
   void _openLineup([LineupHint? hint]) {
     _pendingLineupHint = hint;
-    _setIndex(_indexOfScreen<AlineacionScreen>());
+    _setIndex(_indexOfLabel('Alineación & citaciones'));
   }
 
   void _openSection(ShellSection section) {
@@ -1931,7 +2022,7 @@ class _MainShellState extends State<MainShell> {
       case ShellSection.planner:
         _openTacticaSub(_plannerSubSection());
       case ShellSection.calendar:
-        _setIndex(_indexOfScreen<CalendarioScreen>());
+        _setIndex(_indexOfLabel('Calendario'));
       case ShellSection.attendance:
         if (external) {
           _setIndex(_indexOfScreen<AsistenciaScreen>());
@@ -1939,11 +2030,11 @@ class _MainShellState extends State<MainShell> {
           _openTacticaSub(1); // Asistencia sub-tab
         }
       case ShellSection.stats:
-        _setIndex(_indexOfScreen<EstadisticasScreen>());
+        _setIndex(_indexOfLabel('Estadísticas'));
       case ShellSection.week:
         _setIndex(_indexOfScreen<WeekScreen>());
       case ShellSection.lineup:
-        _setIndex(_indexOfScreen<AlineacionScreen>());
+        _setIndex(_indexOfLabel('Alineación & citaciones'));
     }
   }
 
@@ -1998,7 +2089,7 @@ class _MainShellState extends State<MainShell> {
         0 => 0,
         >= 1 && <= 3 => 1,
         4 => _indexOfScreen<ConfiguracionClubScreen>(),
-        5 => _indexOfScreen<AlineacionScreen>(),
+        5 => _indexOfLabel('Alineación & citaciones'),
         _ => null,
       };
       if (target != null) _setIndex(target);
@@ -2017,15 +2108,15 @@ class _MainShellState extends State<MainShell> {
             1 => 1,
             2 => 1,
             3 => 1,
-            4 => _indexOfScreen<AlineacionScreen>(),
-            5 => _indexOfScreen<AlineacionScreen>(),
+            4 => _indexOfLabel('Alineación & citaciones'),
+            5 => _indexOfLabel('Alineación & citaciones'),
             _ => null,
           };
     if (target != null) _setIndex(target);
   }
 
   void _selectNavigation(int index) {
-    _setIndex(index);
+    unawaited(_setIndex(index));
   }
 
   void _installPwa() {
@@ -2037,18 +2128,43 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  void _setIndex(int index) {
+  Future<void> _setIndex(int index) async {
     final scope = AppScope.of(context);
     final external = _isExternalClub(scope.fullClub);
+    final labels = external ? _enabledExternalLabels(scope.fullClub) : null;
     final maxIndex = external
-        ? (_enabledExternalLabels(scope.fullClub).length - 1).clamp(0, 999)
+        ? (labels!.length - 1).clamp(0, 999)
         : (_screens(scope.role, false).length - 1).clamp(0, 999);
     final next = index.clamp(0, maxIndex).toInt();
     if (next == _currentIndex) return;
+    final label = external
+        ? labels![next]
+        : _labelForInternalIndex(scope.role, next);
+    await _loadDeferredScreen(label);
+    if (!mounted) return;
     setState(() {
       _currentIndex = next;
     });
   }
+
+  String _labelForInternalIndex(UserRole role, int index) {
+    final labels = [
+      'Inicio',
+      'Táctica',
+      'Estadísticas',
+      'Semana',
+      if (role == UserRole.coordinator) 'Configurar',
+      if (role != UserRole.viewer) 'Alineación & citaciones',
+    ];
+    return labels[index.clamp(0, labels.length - 1).toInt()];
+  }
+
+  Future<void> _loadDeferredScreen(String label) => switch (label) {
+    'Calendario' => calendario_screen.loadLibrary(),
+    'Estadísticas' => estadisticas_screen.loadLibrary(),
+    'Alineación & citaciones' => alineacion_screen.loadLibrary(),
+    _ => Future<void>.value(),
+  };
 
   void _switchClub() {
     final scope = AppScope.of(context);
@@ -2086,8 +2202,11 @@ class _MainShellState extends State<MainShell> {
 
   bool _isExternalClub(CanteraClub club) => club.isManualClub;
 
+  bool _isManualOwner(CanteraClub club) =>
+      club.isManualClub && AccountIdentityService.readLocalClubId() == club.id;
+
   List<String> _enabledExternalLabels(CanteraClub club) {
-    const fallback = [
+    return [
       'Inicio',
       'Mi equipo',
       'Táctica',
@@ -2095,32 +2214,36 @@ class _MainShellState extends State<MainShell> {
       'Asistencia',
       'Estadísticas',
       'Semana',
+      if (_isManualOwner(club)) 'Configurar',
       'Alineación & citaciones',
     ];
-    return fallback;
   }
 
   Widget _screenForLabel(String label) => switch (label) {
     'Inicio' => HomeScreen(onNavigate: _goTo),
     'Mi equipo' => const MiEquipoScreen(),
     'Táctica' => TacticaScreen(key: _tacticaKey),
-    'Calendario' => const CalendarioScreen(),
+    'Calendario' => const _DeferredCalendarioScreen(),
     'Asistencia' => const AsistenciaScreen(),
-    'Estadísticas' => const EstadisticasScreen(),
+    'Estadísticas' => const _DeferredEstadisticasScreen(),
     'Semana' => const WeekScreen(),
-    'Alineación & citaciones' => AlineacionScreen(onBack: () => _goTo(0)),
+    'Configurar' => const ConfiguracionClubScreen(),
+    'Alineación & citaciones' => _DeferredAlineacionScreen(
+      onBack: () => _goTo(0),
+    ),
     _ => const MiEquipoScreen(),
   };
 
   List<Widget> _screens(UserRole role, bool external) => [
     if (external) const MiEquipoScreen() else HomeScreen(onNavigate: _goTo),
     TacticaScreen(key: _tacticaKey),
-    if (external) const CalendarioScreen(),
-    if (!external) const EstadisticasScreen(),
+    if (external) const _DeferredCalendarioScreen(),
+    if (!external) const _DeferredEstadisticasScreen(),
     const WeekScreen(),
     if (!external && role == UserRole.coordinator)
       const ConfiguracionClubScreen(),
-    if (role != UserRole.viewer) AlineacionScreen(onBack: () => _goTo(0)),
+    if (role != UserRole.viewer)
+      _DeferredAlineacionScreen(onBack: () => _goTo(0)),
   ];
 
   @override
@@ -2142,6 +2265,7 @@ class _MainShellState extends State<MainShell> {
             _allItems[4],
             _allItems[5],
             _allItems[8],
+            _allItems[6],
             _allItems[7],
           ].where((item) => externalLabels.contains(item.label)).toList()
         : switch (role) {
@@ -2317,73 +2441,73 @@ class _DesktopSidebar extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: _BrandMark(compact: false),
-              ),
-              const SizedBox(height: 28),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Row(
-                  children: [
-                    ClubCrest(logoUrl: scope.club.logoUrl, size: 30),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: Text(
-                        clubName.toUpperCase(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: CX.faint,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0,
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: _BrandMark(compact: false),
+                      ),
+                      const SizedBox(height: 28),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Row(
+                          children: [
+                            ClubCrest(logoUrl: scope.club.logoUrl, size: 30),
+                            const SizedBox(width: 9),
+                            Expanded(
+                              child: Text(
+                                clubName.toUpperCase(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: CX.faint,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                            ),
+                            if (scope.role == UserRole.viewer)
+                              const Tooltip(
+                                message: 'Acceso de solo lectura',
+                                child: Icon(
+                                  Icons.visibility_outlined,
+                                  color: CX.blue,
+                                  size: 16,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                    ),
-                    if (scope.role == UserRole.viewer)
-                      const Tooltip(
-                        message: 'Acceso de solo lectura',
-                        child: Icon(
-                          Icons.visibility_outlined,
-                          color: CX.blue,
-                          size: 16,
-                        ),
+                      const SizedBox(height: 10),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: _DataStatusChip(),
                       ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: _DataStatusChip(),
-              ),
-              if (scope.role != UserRole.coordinator &&
-                  ClubAccessService.accessibleCategories(
-                    scope.fullClub.categories,
-                  ).isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _CategoryScopeSelector(
-                  categories: ClubAccessService.accessibleCategories(
-                    scope.fullClub.categories,
-                  ),
-                  selectedCategoryId: scope.selectedCategoryId,
-                  onChanged: scope.selectCategory,
-                ),
-              ],
-              const SizedBox(height: 8),
-              ...List.generate(items.length, (index) {
-                final item = items[index];
-                final selected = index == selectedIndex;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: _DesktopNavTile(
-                    item: item,
-                    selected: selected,
-                    onTap: () => onSelected(index),
-                  ),
-                );
-              }),
+                      if (scope.role != UserRole.coordinator &&
+                          ClubAccessService.accessibleCategories(
+                            scope.fullClub.categories,
+                          ).isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _CategoryScopeSelector(
+                          categories: ClubAccessService.accessibleCategories(
+                            scope.fullClub.categories,
+                          ),
+                          selectedCategoryId: scope.selectedCategoryId,
+                          onChanged: scope.selectCategory,
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      ...List.generate(items.length, (index) {
+                        final item = items[index];
+                        final selected = index == selectedIndex;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: _DesktopNavTile(
+                            item: item,
+                            selected: selected,
+                            onTap: () => onSelected(index),
+                          ),
+                        );
+                      }),
                       const SizedBox(height: 8),
                     ],
                   ),

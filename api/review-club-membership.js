@@ -1,11 +1,19 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Two admin surfaces share this one function to stay under Vercel's
+// Three admin surfaces share this one function to stay under Vercel's
 // Hobby-plan serverless function cap: per-club membership review
-// (approve/reject/update) and the platform-wide account panel
-// (list_accounts/ban/unban), gated separately below.
+// (approve/reject/update), the platform-wide account panel
+// (list_accounts/ban/unban), and manual-club collaborators
+// (invite/revoke/list_collaborators/list_my_collaborations), each gated
+// separately below.
 const CLUB_ACTIONS = new Set(["approve", "reject", "update"]);
 const PLATFORM_ACTIONS = new Set(["list_accounts", "ban", "unban"]);
+const COLLABORATOR_ACTIONS = new Set([
+  "invite_collaborator",
+  "revoke_collaborator",
+  "list_collaborators",
+  "list_my_collaborations",
+]);
 
 export default async function handler(req, res) {
   res.setHeader("access-control-allow-origin", "*");
@@ -35,6 +43,9 @@ export default async function handler(req, res) {
 
   if (PLATFORM_ACTIONS.has(action)) {
     return handlePlatformAction({ req, res, action, userClient, authData });
+  }
+  if (COLLABORATOR_ACTIONS.has(action)) {
+    return handleCollaboratorAction({ res, action, payload, authData });
   }
   if (!CLUB_ACTIONS.has(action)) {
     return res.status(400).json({ error: "invalid_request", message: "Accion invalida." });
@@ -197,4 +208,148 @@ async function listAllUsers(adminClient) {
     page += 1;
   }
   return users;
+}
+
+// --- manual-club collaborators ----------------------------------------------
+// Manual clubs have no row in cantera_clubs (that table is the LUD league
+// registry only), so club_memberships can't be reused here — a separate
+// club_collaborators table backs this, and club_documents' RLS was extended
+// to also allow an active collaborator, on top of the original owner-only
+// check, so every existing single-owner club keeps working unchanged.
+const COLLABORATOR_ROLES = new Set(["coach", "assistant", "physical_trainer", "viewer"]);
+
+async function handleCollaboratorAction({ res, action, payload, authData }) {
+  const adminClient = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false } },
+  );
+  const callerId = authData.user.id;
+
+  if (action === "list_my_collaborations") {
+    const { data, error } = await adminClient
+      .from("club_collaborators")
+      .select("club_id, role, status, owner_user_id")
+      .eq("user_id", callerId)
+      .eq("status", "active");
+    if (error) return res.status(500).json({ error: "list_failed", message: String(error.message) });
+    const clubIds = [...new Set((data || []).map((row) => row.club_id))];
+    let names = {};
+    if (clubIds.length > 0) {
+      const { data: docs } = await adminClient
+        .from("club_documents")
+        .select("club_id, data")
+        .in("club_id", clubIds);
+      names = Object.fromEntries((docs || []).map((d) => [d.club_id, d.data?.name || "Club"]));
+    }
+    return res.status(200).json({
+      collaborations: (data || []).map((row) => ({
+        clubId: row.club_id,
+        role: row.role,
+        clubName: names[row.club_id] || "Club",
+      })),
+    });
+  }
+
+  const clubId = String(payload?.clubId || "");
+  if (!clubId) return res.status(400).json({ error: "invalid_request", message: "Falta el club." });
+
+  const { data: ownerDoc, error: ownerError } = await adminClient
+    .from("club_documents")
+    .select("user_id")
+    .eq("club_id", clubId)
+    .maybeSingle();
+  if (ownerError || !ownerDoc) {
+    return res.status(404).json({ error: "club_not_found", message: "No se encontro el club." });
+  }
+  const isOwner = ownerDoc.user_id === callerId;
+
+  if (action === "list_collaborators") {
+    if (!isOwner) {
+      const { data: membership } = await adminClient
+        .from("club_collaborators")
+        .select("user_id")
+        .eq("club_id", clubId)
+        .eq("user_id", callerId)
+        .eq("status", "active")
+        .maybeSingle();
+      if (!membership) return res.status(403).json({ error: "not_a_member", message: "No tenes acceso a este club." });
+    }
+    const { data, error } = await adminClient
+      .from("club_collaborators")
+      .select("user_id, role, status, invited_email, created_at")
+      .eq("club_id", clubId)
+      .neq("status", "revoked");
+    if (error) return res.status(500).json({ error: "list_failed", message: String(error.message) });
+    const userIds = (data || []).map((row) => row.user_id);
+    let profiles = {};
+    if (userIds.length > 0) {
+      const { data: rows } = await adminClient
+        .from("user_profiles")
+        .select("id, email, full_name")
+        .in("id", userIds);
+      profiles = Object.fromEntries((rows || []).map((p) => [p.id, p]));
+    }
+    return res.status(200).json({
+      collaborators: (data || []).map((row) => ({
+        userId: row.user_id,
+        role: row.role,
+        email: profiles[row.user_id]?.email || row.invited_email || "",
+        fullName: profiles[row.user_id]?.full_name || "",
+      })),
+    });
+  }
+
+  // invite_collaborator / revoke_collaborator: owner-only.
+  if (!isOwner) {
+    return res.status(403).json({ error: "owner_required", message: "Solo el dueno del club puede gestionar colaboradores." });
+  }
+
+  if (action === "invite_collaborator") {
+    const email = String(payload?.email || "").trim().toLowerCase();
+    const role = COLLABORATOR_ROLES.has(payload?.role) ? payload.role : "coach";
+    if (!email) return res.status(400).json({ error: "invalid_request", message: "Falta el email." });
+    const { data: target } = await adminClient
+      .from("user_profiles")
+      .select("id")
+      .ilike("email", email)
+      .maybeSingle();
+    if (!target) {
+      return res.status(404).json({
+        error: "no_account",
+        message: "Esa persona todavia no tiene una cuenta en fobal. Pedile que se registre y volve a invitarla.",
+      });
+    }
+    if (target.id === callerId) {
+      return res.status(400).json({ error: "self_invite", message: "Ya sos el dueno de este club." });
+    }
+    const { error } = await adminClient.from("club_collaborators").upsert(
+      {
+        club_id: clubId,
+        owner_user_id: callerId,
+        user_id: target.id,
+        role,
+        status: "active",
+        invited_email: email,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "club_id,user_id" },
+    );
+    if (error) return res.status(500).json({ error: "invite_failed", message: String(error.message) });
+    return res.status(200).json({ ok: true });
+  }
+
+  if (action === "revoke_collaborator") {
+    const targetUserId = String(payload?.userId || "");
+    if (!targetUserId) return res.status(400).json({ error: "invalid_request", message: "Falta el usuario." });
+    const { error } = await adminClient
+      .from("club_collaborators")
+      .update({ status: "revoked", updated_at: new Date().toISOString() })
+      .eq("club_id", clubId)
+      .eq("user_id", targetUserId);
+    if (error) return res.status(500).json({ error: "revoke_failed", message: String(error.message) });
+    return res.status(200).json({ ok: true });
+  }
+
+  return res.status(400).json({ error: "invalid_request", message: "Accion invalida." });
 }

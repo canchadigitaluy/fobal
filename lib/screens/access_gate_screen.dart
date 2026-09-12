@@ -245,13 +245,20 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, viewport) {
-            return SingleChildScrollView(
+            final cardHeight = (viewport.maxHeight - 44).clamp(
+              420.0,
+              double.infinity,
+            );
+            return Padding(
               padding: const EdgeInsets.all(22),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: viewport.maxHeight - 44),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 920),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: 920,
+                    maxHeight: cardHeight,
+                  ),
+                  child: SizedBox(
+                    height: cardHeight,
                     child: FutureBuilder<_AccessState>(
                       future: _state,
                       builder: (context, snapshot) {
@@ -275,26 +282,21 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
                           );
                         }
                         if (_categoryMembership != null) {
-                          return Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 920),
-                              child: _CategoryPicker(
-                                clubName: _categoryMembership!.clubName,
-                                clubLogoUrl: _categoryClubLogoUrl,
-                                categories: _categoryOptions,
-                                selectedCategoryId: _selectedCategoryId,
-                                loading: _loadingClubContext,
-                                onChanged: (value) =>
-                                    setState(() => _selectedCategoryId = value),
-                                onEnter: _enterSelectedCategory,
-                                onBack: () => setState(() {
-                                  _categoryMembership = null;
-                                  _categoryRoute = null;
-                                  _categoryOptions = const [];
-                                  _selectedCategoryId = null;
-                                }),
-                              ),
-                            ),
+                          return _CategoryPicker(
+                            clubName: _categoryMembership!.clubName,
+                            clubLogoUrl: _categoryClubLogoUrl,
+                            categories: _categoryOptions,
+                            selectedCategoryId: _selectedCategoryId,
+                            loading: _loadingClubContext,
+                            onChanged: (value) =>
+                                setState(() => _selectedCategoryId = value),
+                            onEnter: _enterSelectedCategory,
+                            onBack: () => setState(() {
+                              _categoryMembership = null;
+                              _categoryRoute = null;
+                              _categoryOptions = const [];
+                              _selectedCategoryId = null;
+                            }),
                           );
                         }
                         return _PreviewClubPicker(
@@ -411,19 +413,19 @@ class _PreviewClubPickerState extends State<_PreviewClubPicker> {
             onLeave: widget.onLeave,
           );
           if (narrow) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [brand, picker],
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [brand, picker],
+              ),
             );
           }
-          return IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(flex: 3, child: brand),
-                Expanded(flex: 5, child: picker),
-              ],
-            ),
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 3, child: brand),
+              Expanded(flex: 5, child: picker),
+            ],
           );
         },
       ),
@@ -751,7 +753,6 @@ class _ClubPickerListPanel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(30, 30, 30, 26),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -851,18 +852,20 @@ class _ClubPickerListPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           if (totalFiltered == 0)
-            _ClubPickerEmptyResults(
-              query: query,
-              onClear: () {
-                searchController.clear();
-                onQueryChanged();
-              },
+            Expanded(
+              child: Center(
+                child: _ClubPickerEmptyResults(
+                  query: query,
+                  onClear: () {
+                    searchController.clear();
+                    onQueryChanged();
+                  },
+                ),
+              ),
             )
           else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 320),
+            Expanded(
               child: ListView.separated(
-                shrinkWrap: true,
                 itemCount: visible.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 9),
                 itemBuilder: (context, index) {
@@ -1264,19 +1267,19 @@ class _CategoryPicker extends StatelessWidget {
             onBack: onBack,
           );
           if (narrow) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [brand, picker],
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [brand, picker],
+              ),
             );
           }
-          return IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(flex: 3, child: brand),
-                Expanded(flex: 5, child: picker),
-              ],
-            ),
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 3, child: brand),
+              Expanded(flex: 5, child: picker),
+            ],
           );
         },
       ),
@@ -1502,7 +1505,6 @@ class _CategoryListPanel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(30, 30, 30, 26),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -1573,10 +1575,8 @@ class _CategoryListPanel extends StatelessWidget {
               ),
             )
           else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 340),
+            Expanded(
               child: ListView.separated(
-                shrinkWrap: true,
                 itemCount: categories.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 9),
                 itemBuilder: (context, index) {

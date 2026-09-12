@@ -191,7 +191,7 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(22),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
+              constraints: const BoxConstraints(maxWidth: 920),
               child: FutureBuilder<_AccessState>(
                 future: _state,
                 builder: (context, snapshot) {
@@ -212,20 +212,25 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
                     );
                   }
                   if (_categoryMembership != null) {
-                    return _CategoryPicker(
-                      clubName: _categoryMembership!.clubName,
-                      categories: _categoryOptions,
-                      selectedCategoryId: _selectedCategoryId,
-                      loading: _loadingClubContext,
-                      onChanged: (value) =>
-                          setState(() => _selectedCategoryId = value),
-                      onEnter: _enterSelectedCategory,
-                      onBack: () => setState(() {
-                        _categoryMembership = null;
-                        _categoryRoute = null;
-                        _categoryOptions = const [];
-                        _selectedCategoryId = null;
-                      }),
+                    return Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 560),
+                        child: _CategoryPicker(
+                          clubName: _categoryMembership!.clubName,
+                          categories: _categoryOptions,
+                          selectedCategoryId: _selectedCategoryId,
+                          loading: _loadingClubContext,
+                          onChanged: (value) =>
+                              setState(() => _selectedCategoryId = value),
+                          onEnter: _enterSelectedCategory,
+                          onBack: () => setState(() {
+                            _categoryMembership = null;
+                            _categoryRoute = null;
+                            _categoryOptions = const [];
+                            _selectedCategoryId = null;
+                          }),
+                        ),
+                      ),
                     );
                   }
                   return _PreviewClubPicker(
@@ -268,6 +273,8 @@ class _PreviewClubPicker extends StatefulWidget {
   State<_PreviewClubPicker> createState() => _PreviewClubPickerState();
 }
 
+const int _clubPickerVisibleCap = 60;
+
 class _PreviewClubPickerState extends State<_PreviewClubPicker> {
   final _searchController = TextEditingController();
 
@@ -293,123 +300,651 @@ class _PreviewClubPickerState extends State<_PreviewClubPicker> {
     } else if (filtered.isNotEmpty) {
       selectedClub = filtered.first;
     }
+    final visible = filtered.take(_clubPickerVisibleCap).toList();
 
     return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: CX.panelDecoration(),
+      decoration: BoxDecoration(
+        color: CX.panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: CX.line),
+        boxShadow: const [
+          BoxShadow(color: Color(0x1F0D1A14), blurRadius: 40, offset: Offset(0, 20)),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final narrow = constraints.maxWidth < 700;
+          final brand = _ClubPickerBrandPanel(clubChosen: selectedClub != null);
+          final picker = _ClubPickerListPanel(
+            clubs: widget.clubs,
+            visible: visible,
+            totalFiltered: filtered.length,
+            query: query,
+            selectedClub: selectedClub,
+            loading: widget.loading,
+            searchController: _searchController,
+            onQueryChanged: () => setState(() {}),
+            onSelect: widget.onChanged,
+            onContinue: selectedClub == null
+                ? null
+                : () => widget.onEnterClub(selectedClub!),
+            onLeave: widget.onLeave,
+          );
+          if (narrow) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [brand, picker],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 3, child: brand),
+              Expanded(flex: 5, child: picker),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Left panel: brand, copy, and the club→category step indicator. A faint
+/// pitch-lines overlay and a soft glow give it presence instead of a flat
+/// fill — purely decorative, no data.
+class _ClubPickerBrandPanel extends StatelessWidget {
+  final bool clubChosen;
+  const _ClubPickerBrandPanel({required this.clubChosen});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(30, 32, 30, 32),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF16332A), Color(0xFF0C201A)],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Opacity(
+              opacity: .16,
+              child: CustomPaint(painter: _PitchLinesPainter()),
+            ),
+          ),
+          Positioned(
+            right: -70,
+            bottom: -90,
+            child: Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [CX.green.withValues(alpha: .28), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: CX.green,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: const [
+                        BoxShadow(color: Color(0x40000000), blurRadius: 6, offset: Offset(0, 2)),
+                      ],
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'fobal',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -.3,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 26),
+              const Text(
+                'Elegí tu club',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.3,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Seleccioná el club que vas a dirigir. Vas a elegir la categoría a continuación.',
+                style: TextStyle(
+                  color: Color(0xDDE0F3EB),
+                  fontSize: 14.5,
+                  height: 1.55,
+                ),
+              ),
+              const SizedBox(height: 40),
+              Container(height: 1, color: Colors.white.withValues(alpha: .18)),
+              const SizedBox(height: 16),
+              _ClubPickerStepper(clubChosen: clubChosen),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClubPickerStepper extends StatelessWidget {
+  final bool clubChosen;
+  const _ClubPickerStepper({required this.clubChosen});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _StepDot(label: 'Club', done: clubChosen, active: true),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Stack(
+              children: [
+                Container(height: 2, color: Colors.white.withValues(alpha: .2)),
+                AnimatedContainer(
+                  duration: CX.motion,
+                  curve: CX.curve,
+                  height: 2,
+                  width: clubChosen ? double.infinity : 0,
+                  color: CX.green,
+                ),
+              ],
+            ),
+          ),
+        ),
+        Opacity(
+          opacity: .55,
+          child: _StepDot(label: 'Categoría', done: false, active: false, number: '2'),
+        ),
+      ],
+    );
+  }
+}
+
+class _StepDot extends StatelessWidget {
+  final String label;
+  final bool done;
+  final bool active;
+  final String number;
+  const _StepDot({
+    required this.label,
+    required this.done,
+    required this.active,
+    this.number = '1',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: CX.motionFast,
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: done ? CX.green : Colors.transparent,
+            border: Border.all(
+              color: done ? CX.green : Colors.white.withValues(alpha: active ? .9 : .6),
+              width: 1.5,
+            ),
+          ),
+          child: Center(
+            child: done
+                ? const Icon(Icons.check, size: 13, color: Colors.white)
+                : Text(
+                    number,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 13.5,
+            fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Faint schematic pitch — outline, halfway line, center circle, goal boxes
+/// and penalty arcs. Purely decorative texture for the brand panel.
+class _PitchLinesPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    final fill = Paint()..color = Colors.white;
+    const inset = 8.0;
+    final rect = Rect.fromLTWH(inset, inset, size.width - inset * 2, size.height - inset * 2);
+    canvas.drawRect(rect, stroke);
+    canvas.drawLine(Offset(inset, size.height / 2), Offset(size.width - inset, size.height / 2), stroke);
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide * .16;
+    canvas.drawCircle(center, radius, stroke);
+    canvas.drawCircle(center, 2.2, fill);
+    final boxWidth = size.width * .57;
+    final boxHeight = size.height * .14;
+    final boxLeft = (size.width - boxWidth) / 2;
+    canvas.drawRect(Rect.fromLTWH(boxLeft, inset, boxWidth, boxHeight), stroke);
+    canvas.drawRect(
+      Rect.fromLTWH(boxLeft, size.height - inset - boxHeight, boxWidth, boxHeight),
+      stroke,
+    );
+    final arcRadius = size.shortestSide * .2;
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset(size.width / 2, inset), radius: arcRadius),
+      0.4,
+      3.14 - 0.8,
+      false,
+      stroke,
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset(size.width / 2, size.height - inset), radius: arcRadius),
+      3.14 + 0.4,
+      3.14 - 0.8,
+      false,
+      stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PitchLinesPainter oldDelegate) => false;
+}
+
+/// Right panel: search, results, the club list, and the continue/back
+/// actions. Everything here is real data — no invented city/division.
+class _ClubPickerListPanel extends StatelessWidget {
+  final List<CanteraAccessClub> clubs;
+  final List<CanteraAccessClub> visible;
+  final int totalFiltered;
+  final String query;
+  final CanteraAccessClub? selectedClub;
+  final bool loading;
+  final TextEditingController searchController;
+  final VoidCallback onQueryChanged;
+  final ValueChanged<String?> onSelect;
+  final VoidCallback? onContinue;
+  final Future<void> Function() onLeave;
+
+  const _ClubPickerListPanel({
+    required this.clubs,
+    required this.visible,
+    required this.totalFiltered,
+    required this.query,
+    required this.selectedClub,
+    required this.loading,
+    required this.searchController,
+    required this.onQueryChanged,
+    required this.onSelect,
+    required this.onContinue,
+    required this.onLeave,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(30, 30, 30, 26),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const _AccessBrand(),
-          const SizedBox(height: 26),
-          const Text(
-            'Elegir club',
-            style: TextStyle(
-              fontSize: 25,
-              height: 1.1,
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${clubs.length} club${clubs.length == 1 ? '' : 'es'} disponibles',
+                  style: const TextStyle(color: CX.faint, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
+                decoration: BoxDecoration(
+                  color: CX.panel,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: CX.line),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: CX.greenDark,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Text(
+                        'DT',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: CX.green),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Mi cuenta',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: CX.muted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Selecciona tu club. Luego elegis la categoria que vas a dirigir.',
-            style: TextStyle(color: CX.muted, height: 1.45, fontSize: 13),
-          ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           TextField(
-            controller: _searchController,
-            enabled: !widget.loading,
-            decoration: const InputDecoration(
-              labelText: 'Buscar club',
-              prefixIcon: Icon(Icons.search, size: 19),
+            controller: searchController,
+            enabled: !loading,
+            decoration: InputDecoration(
+              hintText: 'Buscar club',
+              prefixIcon: const Icon(Icons.search, size: 18),
+              suffixIcon: query.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      onPressed: () {
+                        searchController.clear();
+                        onQueryChanged();
+                      },
+                    ),
             ),
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => onQueryChanged(),
           ),
           const SizedBox(height: 12),
-          if (filtered.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: CX.panel2,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: CX.line),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                totalFiltered == 0
+                    ? ''
+                    : '$totalFiltered club${totalFiltered == 1 ? '' : 'es'}',
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: CX.muted),
               ),
-              child: const Text(
-                'No hay clubes con ese nombre.',
-                style: TextStyle(color: CX.muted, fontSize: 13),
+              Text(
+                selectedClub == null ? 'Ningún club seleccionado' : selectedClub!.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: CX.faint),
               ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (totalFiltered == 0)
+            _ClubPickerEmptyResults(
+              query: query,
+              onClear: () {
+                searchController.clear();
+                onQueryChanged();
+              },
             )
           else
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 260),
+              constraints: const BoxConstraints(maxHeight: 320),
               child: ListView.separated(
                 shrinkWrap: true,
-                itemCount: filtered.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemCount: visible.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 9),
                 itemBuilder: (context, index) {
-                  final club = filtered[index];
+                  final club = visible[index];
                   final active = club.id == selectedClub?.id;
-                  return InkWell(
-                    onTap: widget.loading
-                        ? null
-                        : () => widget.onChanged(club.id),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: active ? CX.greenDark : CX.panel2,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: active ? CX.green : CX.line,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          ClubCrest(logoUrl: club.logoUrl, size: 28),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              club.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          if (active)
-                            const Icon(
-                              Icons.check_circle,
-                              color: CX.green,
-                              size: 18,
-                            ),
-                        ],
-                      ),
-                    ),
+                  return _ClubRow(
+                    club: club,
+                    active: active,
+                    query: query,
+                    onTap: loading ? null : () => onSelect(club.id),
                   );
                 },
               ),
             ),
+          if (totalFiltered > _clubPickerVisibleCap) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Mostrando ${visible.length} de $totalFiltered — seguí escribiendo para refinar la búsqueda.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11.5, color: CX.faint),
+            ),
+          ],
           const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: widget.loading || selectedClub == null
-                ? null
-                : () => widget.onEnterClub(selectedClub!),
-            icon: widget.loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.login, size: 18),
-            label: Text(widget.loading ? 'Cargando club' : 'Continuar'),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: loading || onContinue == null ? null : onContinue,
+              icon: loading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.arrow_forward, size: 17),
+              label: Text(loading ? 'Cargando club' : 'Continuar'),
+            ),
           ),
           const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: widget.loading ? null : widget.onLeave,
-            icon: const Icon(Icons.arrow_back, size: 18),
-            label: const Text('Volver'),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: loading ? null : onLeave,
+              icon: const Icon(Icons.arrow_back, size: 17),
+              label: const Text('Volver'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            '¿No encontrás tu club? Escribinos a soporte@fobal.com',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11.5, color: CX.faint),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ClubPickerEmptyResults extends StatelessWidget {
+  final String query;
+  final VoidCallback onClear;
+  const _ClubPickerEmptyResults({required this.query, required this.onClear});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
+      child: Column(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(color: CX.panel2, shape: BoxShape.circle),
+            child: const Icon(Icons.search_off, size: 22, color: CX.faint),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Sin resultados',
+            style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'No encontramos clubes para "$query".',
+            style: const TextStyle(fontSize: 13, color: CX.muted),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton(onPressed: onClear, child: const Text('Limpiar búsqueda')),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClubRow extends StatefulWidget {
+  final CanteraAccessClub club;
+  final bool active;
+  final String query;
+  final VoidCallback? onTap;
+  const _ClubRow({
+    required this.club,
+    required this.active,
+    required this.query,
+    required this.onTap,
+  });
+
+  @override
+  State<_ClubRow> createState() => _ClubRowState();
+}
+
+class _ClubRowState extends State<_ClubRow> {
+  bool _hover = false;
+
+  List<InlineSpan> _highlighted(String name, String query) {
+    if (query.isEmpty) return [TextSpan(text: name)];
+    final lower = name.toLowerCase();
+    final idx = lower.indexOf(query);
+    if (idx < 0) return [TextSpan(text: name)];
+    return [
+      if (idx > 0) TextSpan(text: name.substring(0, idx)),
+      TextSpan(
+        text: name.substring(idx, idx + query.length),
+        style: const TextStyle(
+          backgroundColor: Color(0x55E0C24A),
+          color: Color(0xFF3A2E05),
+        ),
+      ),
+      if (idx + query.length < name.length) TextSpan(text: name.substring(idx + query.length)),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final club = widget.club;
+    final active = widget.active;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      cursor: SystemMouseCursors.click,
+      child: AnimatedContainer(
+        duration: CX.motionFast,
+        curve: CX.curve,
+        transform: Matrix4.translationValues(0, _hover && !active ? -2 : 0, 0),
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: AnimatedContainer(
+            duration: CX.motionFast,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: active ? CX.greenDark : CX.panel,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: active ? CX.green : (_hover ? CX.green.withValues(alpha: .4) : CX.line)),
+              boxShadow: _hover && !active
+                  ? [BoxShadow(color: CX.green.withValues(alpha: .18), blurRadius: 18, offset: const Offset(0, 8))]
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: active
+                          ? [CX.green.withValues(alpha: .7), CX.green]
+                          : [CX.line, CX.panel2],
+                    ),
+                  ),
+                  child: ClubCrest(logoUrl: club.logoUrl, size: 39),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RichText(
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: CX.white,
+                          ),
+                          children: _highlighted(club.name, widget.query),
+                        ),
+                      ),
+                      if (club.ludTeamId != null) ...[
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Liga Universitaria',
+                          style: TextStyle(fontSize: 11, color: CX.faint),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                AnimatedScale(
+                  duration: CX.motionFast,
+                  curve: Curves.elasticOut,
+                  scale: active ? 1 : 0,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: const BoxDecoration(color: CX.green, shape: BoxShape.circle),
+                    child: const Icon(Icons.check, size: 13, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

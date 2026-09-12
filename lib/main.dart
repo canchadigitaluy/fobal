@@ -14,11 +14,12 @@ import 'data/cantera_data.dart';
 import 'screens/access_gate_screen.dart';
 import 'screens/admin_pin_screen.dart';
 import 'screens/alineacion_screen.dart' deferred as alineacion_screen;
-import 'screens/asistencia_screen.dart';
+import 'screens/asistencia_screen.dart' deferred as asistencia_screen;
 import 'screens/calendario_screen.dart' deferred as calendario_screen;
-import 'screens/configuracion_club_screen.dart';
+import 'screens/configuracion_club_screen.dart' deferred as configuracion_screen;
 import 'screens/estadisticas_screen.dart' deferred as estadisticas_screen;
 import 'screens/home_screen.dart';
+import 'screens/legal_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/local_coach_setup_screen.dart';
 import 'screens/mi_equipo_screen.dart';
@@ -1007,6 +1008,10 @@ class _CanteraAppState extends State<CanteraApp> {
           '/login': (context) => const LoginScreen(),
           '/login?mode=lud': (context) => const LoginScreen(),
           '/login?mode=local': (context) => const LoginScreen(),
+          '/legal/terminos': (context) =>
+              const LegalScreen(type: LegalDocumentType.terms),
+          '/legal/privacidad': (context) =>
+              const LegalScreen(type: LegalDocumentType.privacy),
           '/auth-lud': (context) => const _PostAuthRedirect(localMode: false),
           '/auth-local': (context) => const _PostAuthRedirect(localMode: true),
           '/access': (context) => const AccessGateScreen(),
@@ -1934,6 +1939,40 @@ class _DeferredAlineacionScreen extends StatelessWidget {
   }
 }
 
+class _DeferredAsistenciaScreen extends StatelessWidget {
+  const _DeferredAsistenciaScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: asistencia_screen.loadLibrary(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const _CalmLoadingScaffold();
+        }
+        return asistencia_screen.AsistenciaScreen();
+      },
+    );
+  }
+}
+
+class _DeferredConfiguracionClubScreen extends StatelessWidget {
+  const _DeferredConfiguracionClubScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: configuracion_screen.loadLibrary(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const _CalmLoadingScaffold();
+        }
+        return configuracion_screen.ConfiguracionClubScreen();
+      },
+    );
+  }
+}
+
 class MainShell extends StatefulWidget {
   final int initialIndex;
 
@@ -2025,7 +2064,7 @@ class _MainShellState extends State<MainShell> {
         _setIndex(_indexOfLabel('Calendario'));
       case ShellSection.attendance:
         if (external) {
-          _setIndex(_indexOfScreen<AsistenciaScreen>());
+          _setIndex(_indexOfLabel('Asistencia'));
         } else {
           _openTacticaSub(1); // Asistencia sub-tab
         }
@@ -2088,7 +2127,7 @@ class _MainShellState extends State<MainShell> {
       final target = switch (index) {
         0 => 0,
         >= 1 && <= 3 => 1,
-        4 => _indexOfScreen<ConfiguracionClubScreen>(),
+        4 => _indexOfLabel('Configurar'),
         5 => _indexOfLabel('Alineación & citaciones'),
         _ => null,
       };
@@ -2161,7 +2200,9 @@ class _MainShellState extends State<MainShell> {
 
   Future<void> _loadDeferredScreen(String label) => switch (label) {
     'Calendario' => calendario_screen.loadLibrary(),
+    'Asistencia' => asistencia_screen.loadLibrary(),
     'Estadísticas' => estadisticas_screen.loadLibrary(),
+    'Configurar' => configuracion_screen.loadLibrary(),
     'Alineación & citaciones' => alineacion_screen.loadLibrary(),
     _ => Future<void>.value(),
   };
@@ -2224,10 +2265,10 @@ class _MainShellState extends State<MainShell> {
     'Mi equipo' => const MiEquipoScreen(),
     'Táctica' => TacticaScreen(key: _tacticaKey),
     'Calendario' => const _DeferredCalendarioScreen(),
-    'Asistencia' => const AsistenciaScreen(),
+    'Asistencia' => const _DeferredAsistenciaScreen(),
     'Estadísticas' => const _DeferredEstadisticasScreen(),
     'Semana' => const WeekScreen(),
-    'Configurar' => const ConfiguracionClubScreen(),
+    'Configurar' => const _DeferredConfiguracionClubScreen(),
     'Alineación & citaciones' => _DeferredAlineacionScreen(
       onBack: () => _goTo(0),
     ),
@@ -2241,7 +2282,7 @@ class _MainShellState extends State<MainShell> {
     if (!external) const _DeferredEstadisticasScreen(),
     const WeekScreen(),
     if (!external && role == UserRole.coordinator)
-      const ConfiguracionClubScreen(),
+      const _DeferredConfiguracionClubScreen(),
     if (role != UserRole.viewer)
       _DeferredAlineacionScreen(onBack: () => _goTo(0)),
   ];
@@ -2313,6 +2354,7 @@ class _MainShellState extends State<MainShell> {
                   onSwitchClub: _switchClub,
                   onSignOut: _signOut,
                   onInstallPwa: _installPwa,
+                  onHelp: () => _showSupportDialog(context),
                 ),
                 Expanded(
                   child: Container(
@@ -2371,6 +2413,7 @@ class _MainShellState extends State<MainShell> {
               onSwitchClub: _switchClub,
               onSignOut: _signOut,
               onInstallPwa: _installPwa,
+              onHelp: () => _showSupportDialog(context),
             ),
           DecoratedBox(
             decoration: const BoxDecoration(
@@ -2408,6 +2451,7 @@ class _DesktopSidebar extends StatelessWidget {
   final VoidCallback onSwitchClub;
   final Future<void> Function() onSignOut;
   final VoidCallback onInstallPwa;
+  final VoidCallback onHelp;
 
   const _DesktopSidebar({
     required this.selectedIndex,
@@ -2416,6 +2460,7 @@ class _DesktopSidebar extends StatelessWidget {
     required this.onSwitchClub,
     required this.onSignOut,
     required this.onInstallPwa,
+    required this.onHelp,
   });
 
   @override
@@ -2610,6 +2655,14 @@ class _DesktopSidebar extends StatelessWidget {
                       const SizedBox(height: 10),
                       Row(
                         children: [
+                          Expanded(
+                            child: IconButton.outlined(
+                              tooltip: 'Ayuda',
+                              onPressed: onHelp,
+                              icon: const Icon(Icons.help_outline, size: 18),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: IconButton.outlined(
                               tooltip: 'Cambiar club',
@@ -2814,11 +2867,13 @@ class _MobileClubContextBar extends StatelessWidget {
   final VoidCallback onSwitchClub;
   final Future<void> Function() onSignOut;
   final VoidCallback onInstallPwa;
+  final VoidCallback onHelp;
 
   const _MobileClubContextBar({
     required this.onSwitchClub,
     required this.onSignOut,
     required this.onInstallPwa,
+    required this.onHelp,
   });
 
   @override
@@ -2864,6 +2919,7 @@ class _MobileClubContextBar extends StatelessWidget {
                       );
                     }
                     if (value == 'import') importClubFromFile(context);
+                    if (value == 'help') onHelp();
                   },
                   itemBuilder: (context) => const [
                     PopupMenuItem(
@@ -2895,6 +2951,13 @@ class _MobileClubContextBar extends StatelessWidget {
                       ),
                     ),
                     PopupMenuItem(
+                      value: 'help',
+                      child: ListTile(
+                        leading: Icon(Icons.help_outline),
+                        title: Text('Ayuda'),
+                      ),
+                    ),
+                    PopupMenuItem(
                       value: 'logout',
                       child: ListTile(
                         leading: Icon(Icons.logout),
@@ -2917,6 +2980,30 @@ String _roleLabel(UserRole role) => switch (role) {
   UserRole.coach => 'Entrenador',
   UserRole.viewer => 'Solo lectura',
 };
+
+Future<void> _showSupportDialog(BuildContext context) async {
+  await showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Ayuda'),
+      content: const Text('¿Necesitás ayuda? Escribinos a soporte@fobal.com'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cerrar'),
+        ),
+        FilledButton.icon(
+          onPressed: () {
+            html.window.open('mailto:soporte@fobal.com', '_self');
+            Navigator.pop(context);
+          },
+          icon: const Icon(Icons.mail_outline, size: 18),
+          label: const Text('Escribir'),
+        ),
+      ],
+    ),
+  );
+}
 
 String _relativeTime(DateTime time) {
   final diff = DateTime.now().difference(time);

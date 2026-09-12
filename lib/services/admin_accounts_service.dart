@@ -85,6 +85,43 @@ class AdminAccount {
   );
 }
 
+class PlatformMetrics {
+  final int activeUsers;
+  final int manualClubs;
+  final int activeLudClubs;
+  final int activeCollaborators;
+  final int recentUsers;
+  final int recentManualClubs;
+  final int recentLudMemberships;
+  final String recentSince;
+
+  const PlatformMetrics({
+    required this.activeUsers,
+    required this.manualClubs,
+    required this.activeLudClubs,
+    required this.activeCollaborators,
+    required this.recentUsers,
+    required this.recentManualClubs,
+    required this.recentLudMemberships,
+    required this.recentSince,
+  });
+
+  int get recentTotal =>
+      recentUsers + recentManualClubs + recentLudMemberships;
+
+  factory PlatformMetrics.fromJson(Map<String, dynamic> json) =>
+      PlatformMetrics(
+        activeUsers: json['activeUsers'] as int? ?? 0,
+        manualClubs: json['manualClubs'] as int? ?? 0,
+        activeLudClubs: json['activeLudClubs'] as int? ?? 0,
+        activeCollaborators: json['activeCollaborators'] as int? ?? 0,
+        recentUsers: json['recentUsers'] as int? ?? 0,
+        recentManualClubs: json['recentManualClubs'] as int? ?? 0,
+        recentLudMemberships: json['recentLudMemberships'] as int? ?? 0,
+        recentSince: json['recentSince'] as String? ?? '',
+      );
+}
+
 class AdminAccountsService {
   const AdminAccountsService._();
 
@@ -114,6 +151,27 @@ class AdminAccountsService {
     return (data['accounts'] as List<dynamic>? ?? [])
         .map((e) => AdminAccount.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  static Future<PlatformMetrics> platformMetrics() async {
+    final token = _token;
+    if (token == null) {
+      throw const AdminAccountsException('Tu sesion no esta disponible.');
+    }
+    final response = await http
+        .post(
+          Uri.base.resolve(_endpoint),
+          headers: {
+            'content-type': 'application/json',
+            'authorization': 'Bearer $token',
+          },
+          body: jsonEncode({'action': 'platform_metrics'}),
+        )
+        .timeout(const Duration(seconds: 15));
+    final data = _decode(response);
+    return PlatformMetrics.fromJson(
+      data['metrics'] as Map<String, dynamic>? ?? const {},
+    );
   }
 
   static Future<void> setBanned(String userId, bool banned) async {

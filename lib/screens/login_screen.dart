@@ -631,10 +631,7 @@ class _CreateAccountView extends StatelessWidget {
                           keyboardType: TextInputType.emailAddress,
                         ),
                         const SizedBox(height: 18),
-                        const Text(
-                          'Al registrarte aceptas nuestros Términos y condiciones y la política de privacidad.',
-                          style: TextStyle(color: CX.muted, height: 1.45),
-                        ),
+                        const _LegalConsentText(),
                         const SizedBox(height: 22),
                         ElevatedButton(
                           onPressed: onContinue,
@@ -741,6 +738,49 @@ class _CreateAccountView extends StatelessWidget {
 /// "Continuar con Google" affordance. Renders the real four-color "G" mark
 /// instead of a generic Material icon, so it reads as an actual Google
 /// sign-in button rather than a placeholder.
+class _LegalConsentText extends StatelessWidget {
+  const _LegalConsentText();
+
+  @override
+  Widget build(BuildContext context) {
+    final linkStyle = TextButton.styleFrom(
+      foregroundColor: CX.green,
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      minimumSize: Size.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      textStyle: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w800,
+        height: 1.45,
+      ),
+    );
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Text(
+          'Al registrarte aceptas nuestros ',
+          style: TextStyle(color: CX.muted, height: 1.45),
+        ),
+        TextButton(
+          style: linkStyle,
+          onPressed: () => Navigator.pushNamed(context, '/legal/terminos'),
+          child: const Text('Términos y condiciones'),
+        ),
+        const Text(
+          ' y la ',
+          style: TextStyle(color: CX.muted, height: 1.45),
+        ),
+        TextButton(
+          style: linkStyle,
+          onPressed: () => Navigator.pushNamed(context, '/legal/privacidad'),
+          child: const Text('política de privacidad'),
+        ),
+        const Text('.', style: TextStyle(color: CX.muted, height: 1.45)),
+      ],
+    );
+  }
+}
+
 class _SocialCircle extends StatelessWidget {
   final bool loading;
   final VoidCallback? onTap;

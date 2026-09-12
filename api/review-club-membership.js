@@ -7,7 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 // (invite/revoke/list_collaborators/list_my_collaborations), each gated
 // separately below.
 const CLUB_ACTIONS = new Set(["approve", "reject", "update"]);
-const PLATFORM_ACTIONS = new Set(["list_accounts", "ban", "unban"]);
+const PLATFORM_ACTIONS = new Set(["list_accounts", "ban", "unban", "platform_metrics"]);
 const COLLABORATOR_ACTIONS = new Set([
   "invite_collaborator",
   "revoke_collaborator",
@@ -131,6 +131,67 @@ async function handlePlatformAction({ req, res, action, userClient, authData }) 
   }
 
   const adminClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
+  if (action === "platform_metrics") {
+    try {
+      const recentSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const [
+        profilesCount,
+        manualClubsCount,
+        activeMemberships,
+        collaboratorsCount,
+        recentUsersCount,
+        recentManualClubsCount,
+        recentMembershipsCount,
+      ] = await Promise.all([
+        adminClient.from("user_profiles").select("id", { count: "exact", head: true }),
+        adminClient.from("club_documents").select("club_id", { count: "exact", head: true }),
+        adminClient.from("club_memberships").select("club_id").eq("status", "active"),
+        adminClient
+          .from("club_collaborators")
+          .select("user_id", { count: "exact", head: true })
+          .eq("status", "active"),
+        adminClient
+          .from("user_profiles")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", recentSince),
+        adminClient
+          .from("club_documents")
+          .select("club_id", { count: "exact", head: true })
+          .gte("updated_at", recentSince),
+        adminClient
+          .from("club_memberships")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", recentSince),
+      ]);
+      for (const result of [
+        profilesCount,
+        manualClubsCount,
+        activeMemberships,
+        collaboratorsCount,
+        recentUsersCount,
+        recentManualClubsCount,
+        recentMembershipsCount,
+      ]) {
+        if (result.error) throw result.error;
+      }
+      const activeLudClubIds = new Set((activeMemberships.data || []).map((row) => row.club_id).filter(Boolean));
+      return res.status(200).json({
+        metrics: {
+          activeUsers: profilesCount.count || 0,
+          manualClubs: manualClubsCount.count || 0,
+          activeLudClubs: activeLudClubIds.size,
+          activeCollaborators: collaboratorsCount.count || 0,
+          recentUsers: recentUsersCount.count || 0,
+          recentManualClubs: recentManualClubsCount.count || 0,
+          recentLudMemberships: recentMembershipsCount.count || 0,
+          recentSince,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({ error: "metrics_failed", message: String(error?.message || error) });
+    }
+  }
 
   if (action === "list_accounts") {
     try {

@@ -17,6 +17,7 @@ class AdminAccountsScreen extends StatefulWidget {
 
 class _AdminAccountsScreenState extends State<AdminAccountsScreen> {
   Future<List<AdminAccount>>? _future;
+  Future<PlatformMetrics>? _metricsFuture;
   String _search = '';
   final Set<String> _busy = {};
 
@@ -25,17 +26,24 @@ class _AdminAccountsScreenState extends State<AdminAccountsScreen> {
     super.initState();
     if (SupabaseAuthService.currentSession != null) {
       _future = AdminAccountsService.listAccounts();
+      _metricsFuture = AdminAccountsService.platformMetrics();
     }
   }
 
   void _onSignedIn() {
     // Straight into the panel — no detour through the app's normal
     // post-login routing (club selection, category picker, etc).
-    setState(() => _future = AdminAccountsService.listAccounts());
+    setState(() {
+      _future = AdminAccountsService.listAccounts();
+      _metricsFuture = AdminAccountsService.platformMetrics();
+    });
   }
 
   void _reload() {
-    setState(() => _future = AdminAccountsService.listAccounts());
+    setState(() {
+      _future = AdminAccountsService.listAccounts();
+      _metricsFuture = AdminAccountsService.platformMetrics();
+    });
   }
 
   Future<void> _toggleBan(AdminAccount account) async {
@@ -153,6 +161,8 @@ class _AdminAccountsScreenState extends State<AdminAccountsScreen> {
           return ListView(
             padding: const EdgeInsets.fromLTRB(18, 14, 18, 30),
             children: [
+              _MetricsSection(future: _metricsFuture),
+              const SizedBox(height: 16),
               MetricGrid(
                 tiles: [
                   MetricTile(
@@ -206,6 +216,94 @@ class _AdminAccountsScreenState extends State<AdminAccountsScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+class _MetricsSection extends StatelessWidget {
+  final Future<PlatformMetrics>? future;
+
+  const _MetricsSection({required this.future});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PlatformMetrics>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: const EdgeInsets.all(18),
+            decoration: CX.panelDecoration(),
+            child: const Row(
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 12),
+                Text('Cargando métricas...'),
+              ],
+            ),
+          );
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return EmptyStatePanel(
+            icon: Icons.insights_outlined,
+            title: 'Métricas no disponibles',
+            message: snapshot.error is AdminAccountsException
+                ? (snapshot.error as AdminAccountsException).message
+                : 'No se pudieron cargar las métricas.',
+          );
+        }
+        final metrics = snapshot.data!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const PremiumSectionHeader(title: 'Métricas'),
+            MetricGrid(
+              tiles: [
+                MetricTile(
+                  icon: Icons.person_search_outlined,
+                  value: '${metrics.activeUsers}',
+                  label: 'DTs / usuarios',
+                  context: 'perfiles activos',
+                  accent: CX.green,
+                ),
+                MetricTile(
+                  icon: Icons.apartment_outlined,
+                  value: '${metrics.manualClubs}',
+                  label: 'Clubes manuales',
+                  context: 'club_documents',
+                  accent: CX.blue,
+                ),
+                MetricTile(
+                  icon: Icons.verified_outlined,
+                  value: '${metrics.activeLudClubs}',
+                  label: 'Clubes LUD',
+                  context: 'con membresía activa',
+                  accent: CX.amber,
+                ),
+                MetricTile(
+                  icon: Icons.group_add_outlined,
+                  value: '${metrics.activeCollaborators}',
+                  label: 'Colaboradores',
+                  context: 'activos',
+                  accent: const Color(0xFFC09BFF),
+                ),
+                MetricTile(
+                  icon: Icons.trending_up,
+                  value: '${metrics.recentTotal}',
+                  label: 'Altas 7 días',
+                  context:
+                      '${metrics.recentUsers} usuarios · ${metrics.recentManualClubs} manuales · ${metrics.recentLudMemberships} LUD',
+                  accent: CX.white,
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 }

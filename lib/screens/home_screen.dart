@@ -35,6 +35,9 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _standingsKey;
   String? _fixtureKey;
   String? _resultsKey;
+  String? _onboardingKey;
+  bool _onboardingHidden = false;
+  bool _invitedCollaboratorMarked = false;
 
   @override
   void didChangeDependencies() {
@@ -43,8 +46,41 @@ class _HomeScreenState extends State<HomeScreen> {
     final contextKey = '${scope.fullClub.id}|${scope.selectedCategoryId ?? ''}';
     if (_hydratedContextKey == contextKey) return;
     _hydratedContextKey = contextKey;
+    _loadOnboardingState(scope.fullClub.id);
     Future<void>.microtask(_syncSharedPlanning);
     _ensureLeagueFutures();
+  }
+
+  void _loadOnboardingState(String clubId) {
+    final key = 'fobal_onboarding_$clubId';
+    final raw = html.window.localStorage[key];
+    Map<String, dynamic> data = const {};
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        data = jsonDecode(raw) as Map<String, dynamic>;
+      } catch (_) {}
+    }
+    _onboardingKey = key;
+    _onboardingHidden = data['hidden'] == true;
+    _invitedCollaboratorMarked = data['invitedCollaborator'] == true;
+  }
+
+  void _saveOnboardingState({
+    bool? hidden,
+    bool? invitedCollaboratorMarked,
+  }) {
+    final key = _onboardingKey;
+    if (key == null) return;
+    final nextHidden = hidden ?? _onboardingHidden;
+    final nextInvited = invitedCollaboratorMarked ?? _invitedCollaboratorMarked;
+    html.window.localStorage[key] = jsonEncode({
+      'hidden': nextHidden,
+      'invitedCollaborator': nextInvited,
+    });
+    setState(() {
+      _onboardingHidden = nextHidden;
+      _invitedCollaboratorMarked = nextInvited;
+    });
   }
 
   void _ensureLeagueFutures({bool force = false}) {
@@ -252,6 +288,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final isExternal = club.isManualClub;
     final selectedCategoryId = scope.selectedCategoryId ??
         (club.categories.isEmpty ? '' : club.categories.first.id);
+    final hasPlayer =
+        club.players.isNotEmpty || club.categories.any((c) => c.playerCount > 0);
+    final hasSession = club.sessions.isNotEmpty;
+    final showOnboarding = !_onboardingHidden && !(hasPlayer && hasSession);
 
     if (isExternal) {
       return _ExternalHome(
@@ -260,6 +300,11 @@ class _HomeScreenState extends State<HomeScreen> {
         categoryId: selectedCategoryId,
         planned: planned,
         completePlayerProfiles: completePlayerProfiles,
+        showOnboarding: showOnboarding,
+        invitedCollaboratorMarked: _invitedCollaboratorMarked,
+        onHideOnboarding: () => _saveOnboardingState(hidden: true),
+        onMarkInvitedCollaborator: () =>
+            _saveOnboardingState(invitedCollaboratorMarked: true),
       );
     }
 
@@ -287,6 +332,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         resultsFuture: _resultsFuture,
                         standingsFuture: _standingsFuture,
                       ),
+                      if (showOnboarding) ...[
+                        const SizedBox(height: 14),
+                        _OnboardingChecklist(
+                          club: club,
+                          hasPlayer: hasPlayer,
+                          hasSession: hasSession,
+                          invitedCollaboratorMarked:
+                              _invitedCollaboratorMarked,
+                          onHide: () => _saveOnboardingState(hidden: true),
+                          onMarkInvitedCollaborator: () =>
+                              _saveOnboardingState(
+                                invitedCollaboratorMarked: true,
+                              ),
+                        ),
+                      ],
                       const SizedBox(height: 14),
                       _MatchCenterPanel(
                         club: club,
@@ -517,6 +577,168 @@ class _TopBar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _OnboardingChecklist extends StatefulWidget {
+  final CanteraClub club;
+  final bool hasPlayer;
+  final bool hasSession;
+  final bool invitedCollaboratorMarked;
+  final VoidCallback onHide;
+  final VoidCallback onMarkInvitedCollaborator;
+
+  const _OnboardingChecklist({
+    required this.club,
+    required this.hasPlayer,
+    required this.hasSession,
+    required this.invitedCollaboratorMarked,
+    required this.onHide,
+    required this.onMarkInvitedCollaborator,
+  });
+
+  @override
+  State<_OnboardingChecklist> createState() => _OnboardingChecklistState();
+}
+
+class _OnboardingChecklistState extends State<_OnboardingChecklist> {
+  bool _expanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final requiredDone = [widget.hasPlayer, widget.hasSession]
+        .where((done) => done)
+        .length;
+    return Container(
+      decoration: CX.panelDecoration(),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.checklist_outlined, color: CX.green),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Primeros pasos',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        Text(
+                          '$requiredDone de 2 esenciales completos',
+                          style: const TextStyle(
+                            color: CX.faint,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: widget.onHide,
+                    child: const Text('Ocultar'),
+                  ),
+                  Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    color: CX.muted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded) ...[
+            const Divider(height: 1, color: CX.line),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              child: Column(
+                children: [
+                  _OnboardingItem(
+                    done: widget.hasPlayer,
+                    title: 'Agregar al menos 1 jugador al plantel',
+                    actionLabel: 'Ir al plantel',
+                    onAction: () =>
+                        ShellActions.of(context).openSection(ShellSection.myTeam),
+                  ),
+                  _OnboardingItem(
+                    done: widget.hasSession,
+                    title: 'Cargar o generar la primera sesión de entrenamiento',
+                    actionLabel: 'Planificar',
+                    onAction: () =>
+                        ShellActions.of(context).openSection(ShellSection.planner),
+                  ),
+                  if (widget.club.isManualClub)
+                    _OnboardingItem(
+                      done: widget.invitedCollaboratorMarked,
+                      title: 'Invitar al menos un colaborador',
+                      optional: true,
+                      actionLabel: widget.invitedCollaboratorMarked
+                          ? null
+                          : 'Marcar',
+                      onAction: widget.invitedCollaboratorMarked
+                          ? null
+                          : widget.onMarkInvitedCollaborator,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _OnboardingItem extends StatelessWidget {
+  final bool done;
+  final String title;
+  final bool optional;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const _OnboardingItem({
+    required this.done,
+    required this.title,
+    this.optional = false,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Icon(
+            done ? Icons.check_circle : Icons.radio_button_unchecked,
+            color: done ? CX.green : CX.faint,
+            size: 19,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              optional ? '$title (opcional)' : title,
+              style: TextStyle(
+                color: done ? CX.muted : CX.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+                height: 1.25,
+              ),
+            ),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(width: 8),
+            TextButton(onPressed: onAction, child: Text(actionLabel!)),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -3004,6 +3226,10 @@ class _ExternalHome extends StatelessWidget {
   final String categoryId;
   final int planned;
   final int completePlayerProfiles;
+  final bool showOnboarding;
+  final bool invitedCollaboratorMarked;
+  final VoidCallback onHideOnboarding;
+  final VoidCallback onMarkInvitedCollaborator;
 
   const _ExternalHome({
     required this.club,
@@ -3011,6 +3237,10 @@ class _ExternalHome extends StatelessWidget {
     required this.categoryId,
     required this.planned,
     required this.completePlayerProfiles,
+    required this.showOnboarding,
+    required this.invitedCollaboratorMarked,
+    required this.onHideOnboarding,
+    required this.onMarkInvitedCollaborator,
   });
 
   ({String title, DateTime when})? _nextCalendarEvent() {
@@ -3185,6 +3415,18 @@ class _ExternalHome extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (showOnboarding) ...[
+                  const SizedBox(height: 14),
+                  _OnboardingChecklist(
+                    club: club,
+                    hasPlayer: club.players.isNotEmpty ||
+                        club.categories.any((c) => c.playerCount > 0),
+                    hasSession: club.sessions.isNotEmpty,
+                    invitedCollaboratorMarked: invitedCollaboratorMarked,
+                    onHide: onHideOnboarding,
+                    onMarkInvitedCollaborator: onMarkInvitedCollaborator,
+                  ),
+                ],
                 if (pendingResults.isNotEmpty) ...[
                   const SizedBox(height: 14),
                   _PendingResultsCard(

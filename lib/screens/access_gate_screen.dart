@@ -28,6 +28,7 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
   bool _loadingClubContext = false;
   ClubMembership? _categoryMembership;
   String? _categoryRoute;
+  String _categoryClubLogoUrl = '';
   List<CategorySquad> _categoryOptions = const [];
 
   @override
@@ -122,6 +123,7 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
         _categoryRoute = widget.forcePreview ? '/preview-home' : '/home';
         _categoryOptions = categories;
         _selectedCategoryId = null;
+        _categoryClubLogoUrl = club.logoUrl;
       });
       return;
     }
@@ -214,9 +216,10 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
                   if (_categoryMembership != null) {
                     return Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 560),
+                        constraints: const BoxConstraints(maxWidth: 920),
                         child: _CategoryPicker(
                           clubName: _categoryMembership!.clubName,
+                          clubLogoUrl: _categoryClubLogoUrl,
                           categories: _categoryOptions,
                           selectedCategoryId: _selectedCategoryId,
                           loading: _loadingClubContext,
@@ -500,15 +503,20 @@ class _StepDot extends StatelessWidget {
   final bool done;
   final bool active;
   final String number;
+  // A step can be filled/green without being "done" (checked) — the
+  // current step on the Categoría screen is filled but still shows "2".
+  final bool? filled;
   const _StepDot({
     required this.label,
     required this.done,
     required this.active,
     this.number = '1',
+    this.filled,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isFilled = filled ?? done;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -518,9 +526,9 @@ class _StepDot extends StatelessWidget {
           height: 28,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: done ? CX.green : Colors.transparent,
+            color: isFilled ? CX.green : Colors.transparent,
             border: Border.all(
-              color: done ? CX.green : Colors.white.withValues(alpha: active ? .9 : .6),
+              color: isFilled ? CX.green : Colors.white.withValues(alpha: active ? .9 : .6),
               width: 1.5,
             ),
           ),
@@ -952,6 +960,7 @@ class _ClubRowState extends State<_ClubRow> {
 
 class _CategoryPicker extends StatelessWidget {
   final String clubName;
+  final String clubLogoUrl;
   final List<CategorySquad> categories;
   final String? selectedCategoryId;
   final bool loading;
@@ -961,6 +970,7 @@ class _CategoryPicker extends StatelessWidget {
 
   const _CategoryPicker({
     required this.clubName,
+    required this.clubLogoUrl,
     required this.categories,
     required this.selectedCategoryId,
     required this.loading,
@@ -978,135 +988,194 @@ class _CategoryPicker extends StatelessWidget {
           orElse: () => null,
         );
     return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: CX.panelDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      decoration: BoxDecoration(
+        color: CX.panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: CX.line),
+        boxShadow: const [
+          BoxShadow(color: Color(0x1F0D1A14), blurRadius: 40, offset: Offset(0, 20)),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final narrow = constraints.maxWidth < 700;
+          final brand = _CategoryBrandPanel(clubName: clubName, clubLogoUrl: clubLogoUrl);
+          final picker = _CategoryListPanel(
+            categories: categories,
+            selected: selected,
+            loading: loading,
+            onSelect: onChanged,
+            onEnter: selected == null ? null : onEnter,
+            onBack: onBack,
+          );
+          if (narrow) {
+            return Column(mainAxisSize: MainAxisSize.min, children: [brand, picker]);
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 3, child: brand),
+              Expanded(flex: 5, child: picker),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Left panel: same brand treatment as the club picker, plus a chip
+/// reminding which club is already chosen (crest + name) and the stepper
+/// now showing step 1 done, step 2 current.
+class _CategoryBrandPanel extends StatelessWidget {
+  final String clubName;
+  final String clubLogoUrl;
+  const _CategoryBrandPanel({required this.clubName, required this.clubLogoUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(30, 32, 30, 32),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF16332A), Color(0xFF0C201A)],
+        ),
+      ),
+      child: Stack(
         children: [
-          const _AccessBrand(),
-          const SizedBox(height: 26),
-          Text(
-            clubName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: CX.green,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-            ),
+          Positioned.fill(
+            child: Opacity(opacity: .16, child: CustomPaint(painter: _PitchLinesPainter())),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Elegir categoría',
-            style: TextStyle(
-              fontSize: 25,
-              height: 1.1,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Seleccioná la categoría que vas a dirigir. La app va a mostrar plantel, tabla, fixture y planificación solo de esa categoría.',
-            style: TextStyle(color: CX.muted, height: 1.45, fontSize: 13),
-          ),
-          const SizedBox(height: 18),
-          if (categories.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
+          Positioned(
+            right: -70,
+            bottom: -90,
+            child: Container(
+              width: 280,
+              height: 280,
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF6DD),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0x66F0BE57)),
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [CX.green.withValues(alpha: .28), Colors.transparent],
+                ),
               ),
-              child: const Text(
-                'No se encontraron categorías para este club.',
-                style: TextStyle(color: CX.amber, fontSize: 12, height: 1.35),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: CX.green,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: const [
+                        BoxShadow(color: Color(0x40000000), blurRadius: 6, offset: Offset(0, 2)),
+                      ],
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'fobal',
+                    style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -.3),
+                  ),
+                ],
               ),
-            )
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 330),
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: categories.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final category = categories[index];
-                  final active = category.id == selected?.id;
-                  return InkWell(
-                    onTap: loading ? null : () => onChanged(category.id),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.all(13),
+              const SizedBox(height: 22),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withValues(alpha: .14)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: active ? CX.greenDark : CX.panel2,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: active ? CX.green : CX.line,
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [CX.green.withValues(alpha: .7), CX.green],
                         ),
                       ),
-                      child: Row(
+                      child: ClubCrest(logoUrl: clubLogoUrl, size: 38),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.groups_2_outlined,
-                            color: active ? CX.green : CX.faint,
-                            size: 19,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  category.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  category.playerCount > 0
-                                      ? '${category.playerCount} jugadores'
-                                      : 'Plantel por cargar',
-                                  style: const TextStyle(
-                                    color: CX.faint,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
+                          Text(
+                            'CLUB SELECCIONADO',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: .65),
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: .5,
                             ),
                           ),
-                          if (active)
-                            const Icon(
-                              Icons.check_circle,
-                              color: CX.green,
-                              size: 18,
-                            ),
+                          Text(
+                            clubName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                          ),
                         ],
                       ),
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
-            ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: loading || selected == null ? null : onEnter,
-            icon: loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.login, size: 18),
-            label: Text(loading ? 'Cargando categoría' : 'Entrar'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: loading ? null : onBack,
-            icon: const Icon(Icons.arrow_back, size: 18),
-            label: const Text('Cambiar club'),
+              const SizedBox(height: 22),
+              const Text(
+                '¿Qué categoría dirigís?',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.3,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Cada categoría tiene su propio plantel, tabla, fixture y planificación de entrenamientos.',
+                style: TextStyle(color: Color(0xDDE0F3EB), fontSize: 14.5, height: 1.55),
+              ),
+              const SizedBox(height: 40),
+              Container(height: 1, color: Colors.white.withValues(alpha: .18)),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const _StepDot(label: 'Club', done: true, active: false),
+                  const Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10),
+                      child: SizedBox(height: 2, child: ColoredBox(color: CX.green)),
+                    ),
+                  ),
+                  const _StepDot(label: 'Categoría', done: false, active: true, number: '2', filled: true),
+                ],
+              ),
+            ],
           ),
         ],
       ),
@@ -1114,32 +1183,213 @@ class _CategoryPicker extends StatelessWidget {
   }
 }
 
-class _AccessBrand extends StatelessWidget {
-  const _AccessBrand();
+class _CategoryListPanel extends StatelessWidget {
+  final List<CategorySquad> categories;
+  final CategorySquad? selected;
+  final bool loading;
+  final ValueChanged<String?> onSelect;
+  final Future<void> Function()? onEnter;
+  final VoidCallback onBack;
+
+  const _CategoryListPanel({
+    required this.categories,
+    required this.selected,
+    required this.loading,
+    required this.onSelect,
+    required this.onEnter,
+    required this.onBack,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: CX.green,
-            borderRadius: BorderRadius.circular(7),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(30, 30, 30, 26),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${categories.length} categoría${categories.length == 1 ? '' : 's'} activas',
+                  style: const TextStyle(color: CX.faint, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
+                decoration: BoxDecoration(
+                  color: CX.panel,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: CX.line),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(color: CX.greenDark, shape: BoxShape.circle),
+                      child: const Text('DT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: CX.green)),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Mi cuenta', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: CX.muted)),
+                  ],
+                ),
+              ),
+            ],
           ),
-          child: const Icon(
-            Icons.stadium_outlined,
-            color: Color(0xFF07100B),
-            size: 20,
+          const SizedBox(height: 16),
+          if (categories.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF6DD),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0x66F0BE57)),
+              ),
+              child: const Text(
+                'No se encontraron categorías para este club.',
+                style: TextStyle(color: CX.amber, fontSize: 12.5, height: 1.4),
+              ),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 340),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: categories.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 9),
+                itemBuilder: (context, index) {
+                  final category = categories[index];
+                  final active = category.id == selected?.id;
+                  return _CategoryRow(
+                    category: category,
+                    active: active,
+                    onTap: loading ? null : () => onSelect(category.id),
+                  );
+                },
+              ),
+            ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: loading || onEnter == null ? null : onEnter,
+              icon: loading
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.login, size: 17),
+              label: Text(loading ? 'Cargando categoría' : 'Entrar'),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: loading ? null : onBack,
+              icon: const Icon(Icons.arrow_back, size: 17),
+              label: const Text('Cambiar club'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryRow extends StatefulWidget {
+  final CategorySquad category;
+  final bool active;
+  final VoidCallback? onTap;
+  const _CategoryRow({required this.category, required this.active, required this.onTap});
+
+  @override
+  State<_CategoryRow> createState() => _CategoryRowState();
+}
+
+class _CategoryRowState extends State<_CategoryRow> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final category = widget.category;
+    final active = widget.active;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      cursor: SystemMouseCursors.click,
+      child: AnimatedContainer(
+        duration: CX.motionFast,
+        curve: CX.curve,
+        transform: Matrix4.translationValues(0, _hover && !active ? -2 : 0, 0),
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: AnimatedContainer(
+            duration: CX.motionFast,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            decoration: BoxDecoration(
+              color: active ? CX.greenDark : CX.panel,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: active ? CX.green : (_hover ? CX.green.withValues(alpha: .4) : CX.line)),
+              boxShadow: _hover && !active
+                  ? [BoxShadow(color: CX.green.withValues(alpha: .18), blurRadius: 18, offset: const Offset(0, 8))]
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: active ? CX.green : CX.panel2,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.groups_2_outlined,
+                    color: active ? Colors.white : CX.faint,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        category.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: CX.white),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        category.playerCount > 0 ? '${category.playerCount} jugadores' : 'Plantel por cargar',
+                        style: const TextStyle(fontSize: 12, color: CX.faint),
+                      ),
+                    ],
+                  ),
+                ),
+                AnimatedScale(
+                  duration: CX.motionFast,
+                  curve: Curves.elasticOut,
+                  scale: active ? 1 : 0,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: const BoxDecoration(color: CX.green, shape: BoxShape.circle),
+                    child: const Icon(Icons.check, size: 13, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        const SizedBox(width: 10),
-        const Text(
-          'fobal',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-        ),
-      ],
+      ),
     );
   }
 }

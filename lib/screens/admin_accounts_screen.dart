@@ -28,6 +28,12 @@ class _AdminAccountsScreenState extends State<AdminAccountsScreen> {
     }
   }
 
+  void _onSignedIn() {
+    // Straight into the panel — no detour through the app's normal
+    // post-login routing (club selection, category picker, etc).
+    setState(() => _future = AdminAccountsService.listAccounts());
+  }
+
   void _reload() {
     setState(() => _future = AdminAccountsService.listAccounts());
   }
@@ -74,15 +80,11 @@ class _AdminAccountsScreenState extends State<AdminAccountsScreen> {
         backgroundColor: CX.bg,
         body: SafeArea(
           child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: EmptyStatePanel(
-                icon: Icons.admin_panel_settings_outlined,
-                title: 'Iniciá sesión con tu cuenta',
-                message: 'El panel de administración necesita tu sesión de fobal.',
-                primaryLabel: 'Ir a iniciar sesión',
-                onPrimary: () =>
-                    Navigator.pushReplacementNamed(context, '/login'),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 360),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: _AdminLoginForm(onSignedIn: _onSignedIn),
               ),
             ),
           ),
@@ -283,6 +285,108 @@ class _AccountTile extends StatelessWidget {
                     color: account.banned ? CX.green : CX.red,
                   ),
                 ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Self-contained email/password login for the admin doorway — deliberately
+/// separate from LoginScreen so a successful sign-in lands straight back on
+/// this panel instead of the app's normal post-login routing.
+class _AdminLoginForm extends StatefulWidget {
+  final VoidCallback onSignedIn;
+  const _AdminLoginForm({required this.onSignedIn});
+
+  @override
+  State<_AdminLoginForm> createState() => _AdminLoginFormState();
+}
+
+class _AdminLoginFormState extends State<_AdminLoginForm> {
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await SupabaseAuthService.signInWithPassword(
+        _email.text,
+        _password.text,
+      );
+      if (!mounted) return;
+      widget.onSignedIn();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'No se pudo iniciar sesión. Revisá los datos.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: CX.panelDecoration(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.admin_panel_settings_outlined, color: CX.green, size: 26),
+          const SizedBox(height: 12),
+          const Text(
+            'Administración',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Iniciá sesión con tu cuenta para entrar directo al panel.',
+            style: TextStyle(color: CX.muted, fontSize: 12.5, height: 1.4),
+          ),
+          const SizedBox(height: 18),
+          TextField(
+            controller: _email,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(labelText: 'Email'),
+            onSubmitted: (_) => _submit(),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _password,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Contraseña'),
+            onSubmitted: (_) => _submit(),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Text(_error!, style: const TextStyle(color: CX.red, fontSize: 12)),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _loading ? null : _submit,
+              child: _loading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Entrar al panel'),
+            ),
+          ),
         ],
       ),
     );

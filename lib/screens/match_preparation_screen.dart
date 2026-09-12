@@ -591,87 +591,109 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                     ),
                   const SizedBox(height: 10),
                 ],
-                TextField(
-                  controller: _opponentNotes,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    labelText: categoryIsLud
-                        ? 'Notas propias sobre el rival'
-                        : 'Notas del rival',
-                    hintText:
-                        'Sistema, presión, salida, zonas fuertes y débiles vistas',
-                  ),
+                _PrepFieldsPanel(
+                  icon: Icons.manage_search_outlined,
+                  accent: CX.blue,
+                  children: [
+                    TextField(
+                      controller: _opponentNotes,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: categoryIsLud
+                            ? 'Notas propias sobre el rival'
+                            : 'Notas del rival',
+                        hintText:
+                            'Sistema, presión, salida, zonas fuertes y débiles vistas',
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 const PremiumSectionHeader(
                   eyebrow: 'Plan',
                   title: 'Idea de juego',
                 ),
-                TextField(
-                  controller: _planObjective,
-                  decoration: const InputDecoration(
-                    labelText: 'Objetivo del partido',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _planIdea,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(labelText: 'Idea de juego'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _offensiveKeys,
-                  minLines: 1,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Claves ofensivas',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _defensiveKeys,
-                  minLines: 1,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Claves defensivas',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _transitions,
-                  minLines: 1,
-                  maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'Transiciones'),
+                _PrepFieldsPanel(
+                  icon: Icons.psychology_alt_outlined,
+                  accent: CX.green,
+                  children: [
+                    TextField(
+                      controller: _planObjective,
+                      decoration: const InputDecoration(
+                        labelText: 'Objetivo del partido',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _planIdea,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Idea de juego',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _offensiveKeys,
+                      minLines: 1,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Claves ofensivas',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _defensiveKeys,
+                      minLines: 1,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Claves defensivas',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _transitions,
+                      minLines: 1,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Transiciones',
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 const PremiumSectionHeader(
                   eyebrow: 'Pelota quieta',
                   title: 'A favor y en contra',
                 ),
-                TextField(
-                  controller: _setPiecesFor,
-                  minLines: 1,
-                  maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'A favor'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _setPiecesAgainst,
-                  minLines: 1,
-                  maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'En contra'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _playersToWatch,
-                  minLines: 1,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Jugadores a observar',
-                  ),
+                _PrepFieldsPanel(
+                  icon: Icons.sports_soccer,
+                  accent: CX.amber,
+                  children: [
+                    TextField(
+                      controller: _setPiecesFor,
+                      minLines: 1,
+                      maxLines: 3,
+                      decoration: const InputDecoration(labelText: 'A favor'),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _setPiecesAgainst,
+                      minLines: 1,
+                      maxLines: 3,
+                      decoration: const InputDecoration(labelText: 'En contra'),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _playersToWatch,
+                      minLines: 1,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'Jugadores a observar',
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 const PremiumSectionHeader(
@@ -686,64 +708,9 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                         'Todo el plantel de esta categoría figura disponible.',
                   )
                 else
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: CX.amber.withValues(alpha: .08),
-                      borderRadius: BorderRadius.circular(9),
-                      border: Border.all(
-                        color: CX.amber.withValues(alpha: .25),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          warningPlayers.length == 1
-                              ? '1 jugador con estado a confirmar'
-                              : '${warningPlayers.length} jugadores con estado a confirmar',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: [
-                            for (final player in warningPlayers)
-                              InkWell(
-                                borderRadius: BorderRadius.circular(999),
-                                onTap: () => openPlayerProfile(context, player),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: CX.panel,
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(
-                                      color: player.availability.color
-                                          .withValues(alpha: .4),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    '${player.fullName.trim()} · ${player.availability.label}',
-                                    style: TextStyle(
-                                      color: player.availability.color,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  _AvailabilityWarningsPanel(
+                    players: warningPlayers,
+                    onTap: (player) => openPlayerProfile(context, player),
                   ),
                 if (widget.calendarEventId.isNotEmpty) ...[
                   OutlinedButton.icon(
@@ -779,36 +746,12 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                   title: 'Preparación asociada',
                 ),
                 if (_linkedSessionTitle(club) case final title?) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: CX.greenDark.withValues(alpha: .3),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: CX.green.withValues(alpha: .24),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.check_circle_outline,
-                          color: CX.green,
-                          size: 17,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Entrenamiento vinculado: $title',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ],
+                  _PrepSummaryPanel(
+                    child: _PrepSummaryRow(
+                      icon: Icons.check_circle_outline,
+                      accent: CX.green,
+                      title: 'Entrenamiento vinculado',
+                      subtitle: title,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -827,13 +770,19 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                   eyebrow: 'Seguimiento',
                   title: 'Notas',
                 ),
-                TextField(
-                  controller: _staffNotes,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Notas del cuerpo técnico',
-                  ),
+                _PrepFieldsPanel(
+                  icon: Icons.edit_note_outlined,
+                  accent: CX.blue,
+                  children: [
+                    TextField(
+                      controller: _staffNotes,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Notas del cuerpo técnico',
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 Wrap(
@@ -864,6 +813,187 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PrepFieldsPanel extends StatelessWidget {
+  final IconData icon;
+  final Color accent;
+  final List<Widget> children;
+
+  const _PrepFieldsPanel({
+    required this.icon,
+    required this.accent,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: CX.panelDecoration(),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(icon, size: 19, color: accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Column(children: children)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PrepSummaryPanel extends StatelessWidget {
+  final Widget child;
+
+  const _PrepSummaryPanel({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: CX.panelDecoration(),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+}
+
+class _PrepSummaryRow extends StatelessWidget {
+  final IconData icon;
+  final Color accent;
+  final String title;
+  final String subtitle;
+  final String? trailing;
+  final VoidCallback? onTap;
+
+  const _PrepSummaryRow({
+    required this.icon,
+    required this.accent,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(icon, size: 19, color: accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12.5, color: CX.muted),
+                  ),
+                ],
+              ),
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                trailing!,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: CX.faint,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AvailabilityWarningsPanel extends StatelessWidget {
+  final List<Player> players;
+  final ValueChanged<Player> onTap;
+
+  const _AvailabilityWarningsPanel({
+    required this.players,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _PrepSummaryPanel(
+      child: Column(
+        children: [
+          for (var i = 0; i < players.length; i++) ...[
+            _AvailabilityWarningRow(
+              player: players[i],
+              onTap: () => onTap(players[i]),
+            ),
+            if (i < players.length - 1) const Divider(height: 1, color: CX.line),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AvailabilityWarningRow extends StatelessWidget {
+  final Player player;
+  final VoidCallback onTap;
+
+  const _AvailabilityWarningRow({
+    required this.player,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final position = player.position.trim();
+    final detail = [
+      player.availability.label,
+      if (position.isNotEmpty) position,
+    ].join(' · ');
+    return _PrepSummaryRow(
+      icon: Icons.warning_amber_outlined,
+      accent: CX.amber,
+      title: player.fullName.trim(),
+      subtitle: detail,
+      trailing: 'Ver ficha',
+      onTap: onTap,
     );
   }
 }

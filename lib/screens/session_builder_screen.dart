@@ -440,73 +440,107 @@ class _BuilderBlockTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const accent = CX.green;
+    final details = [
+      if (exercise.duration > 0) '${exercise.duration} min',
+      if (exercise.players > 0) '${exercise.players} jugadores',
+      if (exercise.space.trim().isNotEmpty) exercise.space.trim(),
+      if (exercise.objective.trim().isNotEmpty) exercise.objective.trim(),
+    ].join(' · ');
+    final description = exercise.description.trim();
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: CX.panel2,
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: CX.line),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: CX.greenDark,
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              '${index + 1}',
-              style: const TextStyle(
-                color: CX.green,
-                fontWeight: FontWeight.w900,
-                fontSize: 12,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  exercise.name,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: CX.panelDecoration(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {},
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(11),
                 ),
-                if (exercise.description.trim().isNotEmpty)
-                  Text(
-                    exercise.description,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: CX.muted, fontSize: 11.5),
-                  ),
-                if (exercise.duration > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 3),
-                    child: Text(
-                      '${exercise.duration} min',
-                      style: const TextStyle(
-                        color: CX.green,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Icon(
+                      Icons.fitness_center,
+                      size: 19,
+                      color: accent,
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Text(
+                        '${index + 1}',
+                        style: const TextStyle(
+                          color: accent,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
-                  ),
-              ],
-            ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      exercise.name,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    if (details.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        details,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: CX.muted,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                    if (description.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: CX.faint,
+                          fontSize: 12,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Quitar',
+                visualDensity: VisualDensity.compact,
+                onPressed: onRemove,
+                icon: const Icon(Icons.close, size: 18, color: CX.faint),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 9),
+                child: Icon(Icons.drag_handle, color: CX.faint),
+              ),
+            ],
           ),
-          IconButton(
-            tooltip: 'Quitar',
-            visualDensity: VisualDensity.compact,
-            onPressed: onRemove,
-            icon: const Icon(Icons.close, size: 18, color: CX.faint),
-          ),
-          const Icon(Icons.drag_handle, color: CX.faint),
-        ],
+        ),
       ),
     );
   }

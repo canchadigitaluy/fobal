@@ -60,17 +60,22 @@ class SupabaseAuthService {
     return client.auth.currentUser?.id;
   }
 
-  static Future<void> signInWithGoogle({bool localMode = false}) async {
+  static Future<void> signInWithGoogle({
+    bool localMode = false,
+    String? redirectTo,
+  }) async {
     if (!isConfigured) {
       throw const AuthConfigException();
     }
 
-    final redirectTo = localMode
-        ? '${Uri.base.origin}/#/auth-local'
-        : '${Uri.base.origin}/#/auth-lud';
+    final resolvedRedirect =
+        redirectTo ??
+        (localMode
+            ? '${Uri.base.origin}/#/auth-local'
+            : '${Uri.base.origin}/#/auth-lud');
     final launched = await client.auth.signInWithOAuth(
       OAuthProvider.google,
-      redirectTo: redirectTo,
+      redirectTo: resolvedRedirect,
     );
     if (!launched) {
       throw const AuthInputException(

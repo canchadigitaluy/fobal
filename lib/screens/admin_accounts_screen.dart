@@ -306,6 +306,7 @@ class _AdminLoginFormState extends State<_AdminLoginForm> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
+  bool _googleLoading = false;
   String? _error;
 
   @override
@@ -313,6 +314,27 @@ class _AdminLoginFormState extends State<_AdminLoginForm> {
     _email.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  Future<void> _submitGoogle() async {
+    setState(() {
+      _googleLoading = true;
+      _error = null;
+    });
+    try {
+      // Redirects back to /#/admin — the PIN doorway shows once more (it's
+      // a full page reload), but from there the session is already live and
+      // this form never appears again.
+      await SupabaseAuthService.signInWithGoogle(
+        redirectTo: '${Uri.base.origin}/#/admin',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudo iniciar con Google. Volvé a intentar.';
+        _googleLoading = false;
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -385,6 +407,32 @@ class _AdminLoginFormState extends State<_AdminLoginForm> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Text('Entrar al panel'),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: const [
+              Expanded(child: Divider()),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Text('o', style: TextStyle(color: CX.faint, fontSize: 11)),
+              ),
+              Expanded(child: Divider()),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _googleLoading ? null : _submitGoogle,
+              icon: _googleLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.g_mobiledata, size: 22),
+              label: const Text('Continuar con Google'),
             ),
           ),
         ],

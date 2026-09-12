@@ -242,6 +242,16 @@ class _WeekScreenState extends State<WeekScreen> {
   }
 }
 
+const _weekdayNames = [
+  'Lunes',
+  'Martes',
+  'Miércoles',
+  'Jueves',
+  'Viernes',
+  'Sábado',
+  'Domingo',
+];
+
 class _Agenda extends StatelessWidget {
   final List<AttendanceRecord> attendance;
   final List<MatchResult> matches;
@@ -253,13 +263,13 @@ class _Agenda extends StatelessWidget {
       for (final record in attendance)
         (
           date: record.date,
-          child: ListTile(
-            leading: const Icon(Icons.fitness_center),
-            title: const Text('Práctica'),
-            subtitle: Text(
-              '${record.rosterIds.where((id) => record.effectiveStatus(id).attended).length}/${record.rosterIds.where((id) => record.effectiveStatus(id).expected).length} asistieron',
-            ),
-            trailing: Text(record.date),
+          child: _AgendaRow(
+            icon: Icons.fitness_center,
+            accent: CX.green,
+            title: 'Práctica',
+            subtitle:
+                '${record.rosterIds.where((id) => record.effectiveStatus(id).attended).length}/${record.rosterIds.where((id) => record.effectiveStatus(id).expected).length} asistieron',
+            trailing: null,
             onTap: () => ShellActions.maybeOf(
               context,
             )?.openSection(ShellSection.attendance),
@@ -268,27 +278,131 @@ class _Agenda extends StatelessWidget {
       for (final match in matches)
         (
           date: match.date,
-          child: ListTile(
-            leading: const Icon(Icons.sports_soccer),
-            title: Text('vs ${match.opponent}'),
-            subtitle: Text(
-              '${match.goalsFor}-${match.goalsAgainst} · ${match.venueLabel}',
-            ),
-            trailing: Text(
-              match.minutesByPlayer.isEmpty
-                  ? '— min'
-                  : '${match.minutesByPlayer.values.fold(0, (a, b) => a + b)} min',
-            ),
+          child: _AgendaRow(
+            icon: Icons.sports_soccer,
+            accent: CX.blue,
+            title: 'vs ${match.opponent}',
+            subtitle: '${match.goalsFor}-${match.goalsAgainst} · ${match.venueLabel}',
+            trailing: match.minutesByPlayer.isEmpty
+                ? null
+                : '${match.minutesByPlayer.values.fold(0, (a, b) => a + b)} min',
             onTap: () =>
                 ShellActions.maybeOf(context)?.openSection(ShellSection.lineup),
           ),
         ),
     ]..sort((a, b) => a.date.compareTo(b.date));
-    return Material(
-      type: MaterialType.transparency,
-      child: Container(
-        decoration: CX.panelDecoration(),
-        child: Column(children: [for (final item in items) item.child]),
+
+    final grouped = <String, List<Widget>>{};
+    for (final item in items) {
+      grouped.putIfAbsent(item.date, () => []).add(item.child);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final entry in grouped.entries) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8, left: 2),
+            child: Text(
+              _dayLabel(entry.key),
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: CX.faint,
+              ),
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: CX.panelDecoration(),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (var i = 0; i < entry.value.length; i++) ...[
+                  entry.value[i],
+                  if (i < entry.value.length - 1)
+                    const Divider(height: 1, color: CX.line),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _dayLabel(String isoDate) {
+    final date = DateTime.tryParse(isoDate);
+    if (date == null) return isoDate;
+    final weekday = _weekdayNames[date.weekday - 1];
+    return '$weekday ${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
+  }
+}
+
+class _AgendaRow extends StatelessWidget {
+  final IconData icon;
+  final Color accent;
+  final String title;
+  final String subtitle;
+  final String? trailing;
+  final VoidCallback? onTap;
+  const _AgendaRow({
+    required this.icon,
+    required this.accent,
+    required this.title,
+    required this.subtitle,
+    required this.trailing,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(icon, size: 19, color: accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 12.5, color: CX.muted),
+                  ),
+                ],
+              ),
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                trailing!,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: CX.faint,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

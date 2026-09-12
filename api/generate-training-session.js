@@ -47,6 +47,12 @@ REGLAS DE CALIDAD
 - Usa rival_memory_from_staff, rival_danger_players_and_patterns y previous_match_notes como cuaderno tactico del cuerpo tecnico: si existen, deben cambiar el plan de partido, los riesgos, los roles y los ajustes. No los conviertas en texto decorativo.
 - Usa scheduled_date para ubicar la carga y la especificidad del plan. No inventes dias de recuperacion ni calendario adicional.
 - Usa fixture_context_from_lud como fuente prioritaria cuando exista: fecha, rival, localia, competencia y categoria deben aparecer en context_used y condicionar el plan de partido.
+- Usa match_day_context.periodization_label como regla dura de carga cuando exista; context_used puede citar esa etiqueta si condiciono el plan.
+- Si match_day_context.periodization_label es MD: no planifiques cargas de desarrollo; solo activacion prepartido, estrategia puntual o recuperacion segun el momento del dia.
+- Si match_day_context.periodization_label es MD-1: prohibido volumen alto, carga neuromuscular explosiva o excentrica alta y duelos de alta intensidad prolongados. Prioridad: activacion, reaccion corta, patrones tacticos especificos del rival y volumen bajo.
+- Si match_day_context.periodization_label es MD-2: volumen medio-bajo, evitar fatiga residual y priorizar tactica especifica con bloques cortos de alta velocidad sin acumulacion.
+- Si match_day_context.periodization_label es MD-3 o mas o sin_referencia: puede haber mayor volumen, fuerza o resistencia segun el objetivo, sin restriccion especial por proximidad a partido.
+- Si match_day_context.periodization_label es MD+1: sesion regenerativa, volumen bajo, foco en jugadores con mas minutos si ese dato existe y sin trabajo de intensidad.
 - Usa category.position_map para asignar roles por linea. No inventes posiciones para jugadores sin perfil posicional; si faltan, baja la confianza y declaralo en limitations.
 - Usa data_quality.ai_ready_player_profiles e incomplete_ai_player_profiles para calibrar roles individuales: si hay perfiles incompletos, evita instrucciones nominales finas sobre esos jugadores, baja confidence como minimo a medium cuando afecte a mas del 25% del plantel y repite el faltante en limitations.
 - Respeta las capacidades cognitivas y fisicas de la categoria/edad.
@@ -121,6 +127,66 @@ function meaningful(value, minimumLength = 8) {
 function simpleValue(value, minimumLength = 3) {
   const text = normalize(value);
   return text.length >= minimumLength && !forbiddenInputs.has(text);
+}
+
+function parseDateOnly(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+  const text = String(value).trim();
+  let match = text.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if (match) {
+    const [, year, month, day] = match;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    return isSameDateParts(date, Number(year), Number(month), Number(day)) ? date : null;
+  }
+  match = text.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+  if (match) {
+    const [, day, month, year] = match;
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    return isSameDateParts(date, Number(year), Number(month), Number(day)) ? date : null;
+  }
+  return null;
+}
+
+function isSameDateParts(date, year, month, day) {
+  return (
+    date instanceof Date &&
+    !Number.isNaN(date.getTime()) &&
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+}
+
+function buildMatchDayContext(payload) {
+  const sessionDate = parseDateOnly(payload?.session_request?.scheduled_date);
+  const fixtureText = payload?.match_context?.fixture_context_from_lud;
+  const fixtureDate = parseDateOnly(fixtureText);
+  if (!sessionDate || !fixtureDate) return null;
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const daysUntilMatch = Math.round((fixtureDate - sessionDate) / dayMs);
+  let periodizationLabel = "sin_referencia";
+  if (daysUntilMatch === 0) periodizationLabel = "MD";
+  else if (daysUntilMatch === 1) periodizationLabel = "MD-1";
+  else if (daysUntilMatch === 2) periodizationLabel = "MD-2";
+  else if (daysUntilMatch >= 3) periodizationLabel = "MD-3 o mas";
+  else if (daysUntilMatch === -1) periodizationLabel = "MD+1";
+
+  return {
+    periodization_label: periodizationLabel,
+    days_until_match: daysUntilMatch,
+    session_date: formatDateOnly(sessionDate),
+    match_date: formatDateOnly(fixtureDate),
+    source: "scheduled_date + fixture_context_from_lud",
+  };
+}
+
+function formatDateOnly(date) {
+  const two = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
 }
 
 function validatePayload(payload) {
@@ -228,6 +294,10 @@ export default async function handler(req, res) {
       if (!simpleValue(sr.problem, 4)) {
         sr.problem = "mejorar la ejecucion del objetivo planteado";
       }
+    }
+    const matchDayContext = buildMatchDayContext(payload);
+    if (matchDayContext) {
+      payload.match_day_context = matchDayContext;
     }
     const schema = {
       title: "Titulo especifico del caso",
@@ -416,6 +486,9 @@ function buildFallbackTraining(payload) {
       `Problema detectado: ${problem}.`,
       `Espacio disponible: ${space}.`,
       `Jugadores disponibles: ${players}.`,
+      ...(payload.match_day_context?.periodization_label
+        ? [`Etiqueta de carga: ${payload.match_day_context.periodization_label}.`]
+        : []),
       `Club/equipo: ${rawText(club.name, "equipo manual")}.`,
     ],
     limitations: [

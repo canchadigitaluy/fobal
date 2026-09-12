@@ -340,12 +340,14 @@ class _PreviewClubPickerState extends State<_PreviewClubPicker> {
               children: [brand, picker],
             );
           }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(flex: 3, child: brand),
-              Expanded(flex: 5, child: picker),
-            ],
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(flex: 3, child: brand),
+                Expanded(flex: 5, child: picker),
+              ],
+            ),
           );
         },
       ),
@@ -1012,12 +1014,14 @@ class _CategoryPicker extends StatelessWidget {
           if (narrow) {
             return Column(mainAxisSize: MainAxisSize.min, children: [brand, picker]);
           }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(flex: 3, child: brand),
-              Expanded(flex: 5, child: picker),
-            ],
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(flex: 3, child: brand),
+                Expanded(flex: 5, child: picker),
+              ],
+            ),
           );
         },
       ),

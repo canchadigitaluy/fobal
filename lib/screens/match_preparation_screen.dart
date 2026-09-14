@@ -411,6 +411,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.of(context).size.width < 700;
     final scope = AppScope.of(context);
     final club = scope.club;
     if (club.categories.isEmpty) {
@@ -470,14 +471,20 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 760),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
+              padding: EdgeInsets.fromLTRB(
+                18,
+                narrow ? 9 : 12,
+                18,
+                narrow ? 22 : 30,
+              ),
               children: [
-                const PremiumSectionHeader(
+                PremiumSectionHeader(
                   eyebrow: 'Partido',
                   title: 'Datos del compromiso',
+                  compact: narrow,
                 ),
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: EdgeInsets.all(narrow ? 11 : 14),
                   decoration: CX.panelDecoration(),
                   child: Column(
                     children: [
@@ -486,7 +493,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                         onChanged: (_) => setState(() {}),
                         decoration: const InputDecoration(labelText: 'Rival'),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: narrow ? 8 : 10),
                       Row(
                         children: [
                           Expanded(
@@ -497,7 +504,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          SizedBox(width: narrow ? 8 : 10),
                           Expanded(
                             child: TextField(
                               controller: _time,
@@ -509,7 +516,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: narrow ? 8 : 10),
                       DropdownButtonFormField<String>(
                         initialValue: _venue,
                         decoration: const InputDecoration(
@@ -539,10 +546,11 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                const PremiumSectionHeader(
+                SizedBox(height: narrow ? 14 : 20),
+                PremiumSectionHeader(
                   eyebrow: 'Rival',
                   title: 'Lo que sabemos',
+                  compact: narrow,
                 ),
                 if (categoryIsLud) ...[
                   if (rivalRow != null)
@@ -589,11 +597,12 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                           ? 'Escribí el nombre del rival para buscarlo en la tabla de la liga.'
                           : 'No lo encontramos en la tabla con ese nombre — puede ser de otra categoría o liga.',
                     ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: narrow ? 7 : 10),
                 ],
                 _PrepFieldsPanel(
                   icon: Icons.manage_search_outlined,
                   accent: CX.blue,
+                  compact: narrow,
                   children: [
                     TextField(
                       controller: _opponentNotes,
@@ -609,14 +618,16 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                const PremiumSectionHeader(
+                SizedBox(height: narrow ? 14 : 20),
+                PremiumSectionHeader(
                   eyebrow: 'Plan',
                   title: 'Idea de juego',
+                  compact: narrow,
                 ),
                 _PrepFieldsPanel(
                   icon: Icons.psychology_alt_outlined,
                   accent: CX.green,
+                  compact: narrow,
                   children: [
                     TextField(
                       controller: _planObjective,
@@ -624,7 +635,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                         labelText: 'Objetivo del partido',
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: narrow ? 8 : 10),
                     TextField(
                       controller: _planIdea,
                       minLines: 2,
@@ -633,7 +644,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                         labelText: 'Idea de juego',
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: narrow ? 8 : 10),
                     TextField(
                       controller: _offensiveKeys,
                       minLines: 1,
@@ -642,7 +653,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                         labelText: 'Claves ofensivas',
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: narrow ? 8 : 10),
                     TextField(
                       controller: _defensiveKeys,
                       minLines: 1,
@@ -651,7 +662,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                         labelText: 'Claves defensivas',
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: narrow ? 8 : 10),
                     TextField(
                       controller: _transitions,
                       minLines: 1,
@@ -662,14 +673,16 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                const PremiumSectionHeader(
+                SizedBox(height: narrow ? 14 : 20),
+                PremiumSectionHeader(
                   eyebrow: 'Pelota quieta',
                   title: 'A favor y en contra',
+                  compact: narrow,
                 ),
                 _PrepFieldsPanel(
                   icon: Icons.sports_soccer,
                   accent: CX.amber,
+                  compact: narrow,
                   children: [
                     TextField(
                       controller: _setPiecesFor,
@@ -677,14 +690,14 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                       maxLines: 3,
                       decoration: const InputDecoration(labelText: 'A favor'),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: narrow ? 8 : 10),
                     TextField(
                       controller: _setPiecesAgainst,
                       minLines: 1,
                       maxLines: 3,
                       decoration: const InputDecoration(labelText: 'En contra'),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: narrow ? 8 : 10),
                     TextField(
                       controller: _playersToWatch,
                       minLines: 1,
@@ -695,10 +708,11 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                const PremiumSectionHeader(
+                SizedBox(height: narrow ? 14 : 20),
+                PremiumSectionHeader(
                   eyebrow: 'Citación',
                   title: 'Disponibilidad del plantel',
+                  compact: narrow,
                 ),
                 if (warningPlayers.isEmpty)
                   const EmptyStatePanel(
@@ -711,6 +725,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                   _AvailabilityWarningsPanel(
                     players: warningPlayers,
                     onTap: (player) => openPlayerProfile(context, player),
+                    compact: narrow,
                   ),
                 if (widget.calendarEventId.isNotEmpty) ...[
                   OutlinedButton.icon(
@@ -732,18 +747,19 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                           : 'Editar resultado (${existingResult.goalsFor}-${existingResult.goalsAgainst})',
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: narrow ? 7 : 10),
                 ],
-                const SizedBox(height: 10),
+                SizedBox(height: narrow ? 7 : 10),
                 OutlinedButton.icon(
                   onPressed: _goToLineup,
                   icon: const Icon(Icons.groups_2_outlined, size: 17),
                   label: const Text('Ir a Alineación & citaciones'),
                 ),
-                const SizedBox(height: 20),
-                const PremiumSectionHeader(
+                SizedBox(height: narrow ? 14 : 20),
+                PremiumSectionHeader(
                   eyebrow: 'Entrenamiento',
                   title: 'Preparación asociada',
+                  compact: narrow,
                 ),
                 if (_linkedSessionTitle(club) case final title?) ...[
                   _PrepSummaryPanel(
@@ -752,9 +768,10 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                       accent: CX.green,
                       title: 'Entrenamiento vinculado',
                       subtitle: title,
+                      compact: narrow,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: narrow ? 7 : 10),
                 ],
                 OutlinedButton.icon(
                   onPressed: () => _goToPlanificar(club, category),
@@ -765,14 +782,16 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                         : 'Preparar otro entrenamiento para este partido',
                   ),
                 ),
-                const SizedBox(height: 20),
-                const PremiumSectionHeader(
+                SizedBox(height: narrow ? 14 : 20),
+                PremiumSectionHeader(
                   eyebrow: 'Seguimiento',
                   title: 'Notas',
+                  compact: narrow,
                 ),
                 _PrepFieldsPanel(
                   icon: Icons.edit_note_outlined,
                   accent: CX.blue,
+                  compact: narrow,
                   children: [
                     TextField(
                       controller: _staffNotes,
@@ -784,7 +803,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: narrow ? 14 : 20),
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
@@ -821,11 +840,13 @@ class _PrepFieldsPanel extends StatelessWidget {
   final IconData icon;
   final Color accent;
   final List<Widget> children;
+  final bool compact;
 
   const _PrepFieldsPanel({
     required this.icon,
     required this.accent,
     required this.children,
+    this.compact = false,
   });
 
   @override
@@ -834,21 +855,24 @@ class _PrepFieldsPanel extends StatelessWidget {
       decoration: CX.panelDecoration(),
       clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 12 : 16,
+          vertical: compact ? 10 : 13,
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: compact ? 32 : 38,
+              height: compact ? 32 : 38,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(11),
+                borderRadius: BorderRadius.circular(compact ? 9 : 11),
               ),
-              child: Icon(icon, size: 19, color: accent),
+              child: Icon(icon, size: compact ? 16 : 19, color: accent),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: compact ? 10 : 12),
             Expanded(child: Column(children: children)),
           ],
         ),
@@ -879,6 +903,7 @@ class _PrepSummaryRow extends StatelessWidget {
   final String subtitle;
   final String? trailing;
   final VoidCallback? onTap;
+  final bool compact;
 
   const _PrepSummaryRow({
     required this.icon,
@@ -887,6 +912,7 @@ class _PrepSummaryRow extends StatelessWidget {
     required this.subtitle,
     this.trailing,
     this.onTap,
+    this.compact = false,
   });
 
   @override
@@ -894,20 +920,23 @@ class _PrepSummaryRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 12 : 16,
+          vertical: compact ? 10 : 13,
+        ),
         child: Row(
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: compact ? 32 : 38,
+              height: compact ? 32 : 38,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(11),
+                borderRadius: BorderRadius.circular(compact ? 9 : 11),
               ),
-              child: Icon(icon, size: 19, color: accent),
+              child: Icon(icon, size: compact ? 16 : 19, color: accent),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: compact ? 10 : 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -947,10 +976,12 @@ class _PrepSummaryRow extends StatelessWidget {
 class _AvailabilityWarningsPanel extends StatelessWidget {
   final List<Player> players;
   final ValueChanged<Player> onTap;
+  final bool compact;
 
   const _AvailabilityWarningsPanel({
     required this.players,
     required this.onTap,
+    this.compact = false,
   });
 
   @override
@@ -962,6 +993,7 @@ class _AvailabilityWarningsPanel extends StatelessWidget {
             _AvailabilityWarningRow(
               player: players[i],
               onTap: () => onTap(players[i]),
+              compact: compact,
             ),
             if (i < players.length - 1)
               const Divider(height: 1, color: CX.line),
@@ -975,8 +1007,13 @@ class _AvailabilityWarningsPanel extends StatelessWidget {
 class _AvailabilityWarningRow extends StatelessWidget {
   final Player player;
   final VoidCallback onTap;
+  final bool compact;
 
-  const _AvailabilityWarningRow({required this.player, required this.onTap});
+  const _AvailabilityWarningRow({
+    required this.player,
+    required this.onTap,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -992,6 +1029,7 @@ class _AvailabilityWarningRow extends StatelessWidget {
       subtitle: detail,
       trailing: 'Ver ficha',
       onTap: onTap,
+      compact: compact,
     );
   }
 }

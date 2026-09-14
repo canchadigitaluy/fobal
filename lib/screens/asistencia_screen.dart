@@ -459,6 +459,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.of(context).size.width < 700;
     final scope = AppScope.of(context);
     final club = scope.club;
     final category = club.categories.isEmpty ? null : club.categories.first;
@@ -525,11 +526,16 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       bottomNavigationBar: categoryPlayers.isEmpty
           ? null
           : SafeArea(
-              minimum: const EdgeInsets.fromLTRB(18, 8, 18, 14),
+              minimum: EdgeInsets.fromLTRB(
+                18,
+                narrow ? 6 : 8,
+                18,
+                narrow ? 10 : 14,
+              ),
               child: ElevatedButton.icon(
                 onPressed: () => _saveAttendance(club, category),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: EdgeInsets.symmetric(vertical: narrow ? 11 : 14),
                 ),
                 icon: const Icon(Icons.check_circle_outline),
                 label: Text(saveLabel),
@@ -556,7 +562,12 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
               ),
             )
           : ListView(
-              padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+              padding: EdgeInsets.fromLTRB(
+                18,
+                narrow ? 8 : 10,
+                18,
+                narrow ? 14 : 18,
+              ),
               children: [
                 _DateSelector(
                   label: _selectedDateLabel(),
@@ -565,11 +576,12 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                   onNext: () => _moveSelectedDate(1),
                   onToday: _selectedDateIsToday ? null : _goToToday,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: narrow ? 9 : 12),
                 if (planteles.isNotEmpty) ...[
-                  const PremiumSectionHeader(
+                  PremiumSectionHeader(
                     eyebrow: 'GRUPO DE HOY',
                     title: 'Planteles convocados',
+                    compact: narrow,
                   ),
                   Wrap(
                     spacing: 8,
@@ -594,12 +606,13 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: narrow ? 9 : 12),
                 ],
                 _AttendanceSummary(
                   statuses: [for (final player in players) _statusOf(player.id)],
+                  compact: narrow,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: narrow ? 9 : 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -645,7 +658,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: narrow ? 6 : 8),
                 if (players.length > 8) ...[
                   TextField(
                     onChanged: (v) => setState(() => _search = v),
@@ -655,7 +668,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                       isDense: true,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: narrow ? 6 : 8),
                 ],
                 Builder(
                   builder: (context) {
@@ -705,6 +718,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                                 onChanged: (status) => setState(
                                   () => _statusById[player.id] = status,
                                 ),
+                                compact: narrow,
                               ),
                           ],
                         ),
@@ -712,7 +726,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: narrow ? 10 : 14),
                 TextField(
                   controller: _noteController,
                   minLines: 2,
@@ -728,7 +742,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                   builder: (context) {
                     if (history.length < 2) return const SizedBox.shrink();
                     return Padding(
-                      padding: const EdgeInsets.only(top: 20),
+                      padding: EdgeInsets.only(top: narrow ? 14 : 20),
                       child: _AttendanceHistory(
                         history: history,
                         players: players,
@@ -736,10 +750,11 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 20),
-                const PremiumSectionHeader(
+                SizedBox(height: narrow ? 14 : 20),
+                PremiumSectionHeader(
                   eyebrow: 'Configuración',
                   title: 'Días y horarios de práctica',
+                  compact: narrow,
                 ),
                 TextField(
                   controller: _scheduleController,
@@ -750,7 +765,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                     alignLabelWithHint: true,
                   ),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: narrow ? 7 : 10),
                 OutlinedButton.icon(
                   onPressed: () => _saveSchedule(club, category),
                   icon: const Icon(Icons.save_outlined),
@@ -821,7 +836,8 @@ class _DateSelector extends StatelessWidget {
 
 class _AttendanceSummary extends StatelessWidget {
   final List<AttendanceStatus> statuses;
-  const _AttendanceSummary({required this.statuses});
+  final bool compact;
+  const _AttendanceSummary({required this.statuses, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
@@ -848,7 +864,7 @@ class _AttendanceSummary extends StatelessWidget {
         ? CX.amber
         : CX.red;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(compact ? 10 : 12),
       decoration: CX.panelDecoration(),
       child: Column(
         children: [
@@ -866,11 +882,11 @@ class _AttendanceSummary extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 8 : 10),
           Row(
             children: [
               Expanded(child: _cell('$present', 'Presentes', CX.green)),
-              const SizedBox(width: 8),
+              SizedBox(width: compact ? 6 : 8),
               Expanded(
                 child: _cell(
                   '$absent',
@@ -878,7 +894,7 @@ class _AttendanceSummary extends StatelessWidget {
                   absent == 0 ? CX.faint : CX.amber,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: compact ? 6 : 8),
               Expanded(child: _cell('$pct%', 'Asistencia', color)),
             ],
           ),
@@ -894,7 +910,10 @@ class _AttendanceSummary extends StatelessWidget {
 
   Widget _cell(String value, String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+      padding: EdgeInsets.symmetric(
+        vertical: compact ? 9 : 12,
+        horizontal: compact ? 8 : 10,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(9),
@@ -905,7 +924,7 @@ class _AttendanceSummary extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              fontSize: 22,
+              fontSize: compact ? 19 : 22,
               fontWeight: FontWeight.w900,
               color: color,
             ),
@@ -930,11 +949,13 @@ class _AttendanceRow extends StatelessWidget {
   final AttendanceStatus status;
   final int absenceStreak;
   final ValueChanged<AttendanceStatus> onChanged;
+  final bool compact;
   const _AttendanceRow({
     required this.player,
     required this.status,
     required this.absenceStreak,
     required this.onChanged,
+    this.compact = false,
   });
 
   @override
@@ -954,7 +975,10 @@ class _AttendanceRow extends StatelessWidget {
       ),
       child: Container(
         color: status.attended ? null : color.withValues(alpha: .05),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 12 : 16,
+          vertical: compact ? 10 : 13,
+        ),
         child: Row(
           children: [
             PopupMenuButton<AttendanceStatus>(
@@ -978,18 +1002,22 @@ class _AttendanceRow extends StatelessWidget {
                   ),
               ],
               child: Container(
-                width: 40,
-                height: 40,
+                width: compact ? 32 : 40,
+                height: compact ? 32 : 40,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: .14),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(compact ? 10 : 12),
                   border: Border.all(color: color.withValues(alpha: .30)),
                 ),
-                child: Icon(attendanceStatusIcon(status), size: 20, color: color),
+                child: Icon(
+                  attendanceStatusIcon(status),
+                  size: compact ? 17 : 20,
+                  color: color,
+                ),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: compact ? 10 : 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

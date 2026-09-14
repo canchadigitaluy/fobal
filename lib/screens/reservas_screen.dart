@@ -363,6 +363,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.of(context).size.width < 700;
     final scope = AppScope.of(context);
     final club = scope.fullClub;
     final canGenerate = scope.role != UserRole.viewer;
@@ -456,7 +457,12 @@ class _ReservasScreenState extends State<ReservasScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1080),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+              padding: EdgeInsets.fromLTRB(
+                18,
+                narrow ? 6 : 8,
+                18,
+                narrow ? 20 : 28,
+              ),
               children: CanteraMotion.stagger([
                 if (_handoffOrigin.isNotEmpty) ...[
                   _HandoffBanner(
@@ -467,7 +473,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                       _handoffContext = '';
                     }),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: narrow ? 8 : 12),
                 ],
                 if (club.categories.isNotEmpty) ...[
                   DropdownButtonFormField<String>(
@@ -488,20 +494,20 @@ class _ReservasScreenState extends State<ReservasScreen> {
                     onChanged: _selectCategory,
                   ),
                 ],
-                const SizedBox(height: 16),
+                SizedBox(height: narrow ? 11 : 16),
                 if (matchPlans.isNotEmpty) ...[
-                  const _SectionTitle('Plan de partido guardado'),
-                  const SizedBox(height: 10),
+                  _SectionTitle('Plan de partido guardado', compact: narrow),
+                  SizedBox(height: narrow ? 7 : 10),
                   _MatchPlanPanel(plans: matchPlans),
-                  const SizedBox(height: 16),
+                  SizedBox(height: narrow ? 11 : 16),
                 ] else if (nextPreparation != null) ...[
-                  const _SectionTitle('Proximo partido guardado'),
-                  const SizedBox(height: 10),
+                  _SectionTitle('Proximo partido guardado', compact: narrow),
+                  SizedBox(height: narrow ? 7 : 10),
                   _MatchPreparationSummaryPanel(prep: nextPreparation),
-                  const SizedBox(height: 16),
+                  SizedBox(height: narrow ? 11 : 16),
                 ],
-                const _SectionTitle('Proximas sesiones'),
-                const SizedBox(height: 10),
+                _SectionTitle('Proximas sesiones', compact: narrow),
+                SizedBox(height: narrow ? 7 : 10),
                 if (plannedSessions.isEmpty)
                   const _PlanningEmptyPanel(
                     icon: Icons.event_note_outlined,
@@ -516,9 +522,9 @@ class _ReservasScreenState extends State<ReservasScreen> {
                     onChanged: (session) => _updateSession(club, session),
                   ),
                 if (completedSessions.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const _SectionTitle('Sesiones completadas'),
-                  const SizedBox(height: 10),
+                  SizedBox(height: narrow ? 11 : 16),
+                  _SectionTitle('Sesiones completadas', compact: narrow),
+                  SizedBox(height: narrow ? 7 : 10),
                   _CompletedSessionsList(
                     sessions: completedSessions,
                     canEdit: canGenerate,
@@ -529,18 +535,20 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   ),
                 ],
                 if (reports.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const _SectionTitle('Ultima lectura de campo'),
-                  const SizedBox(height: 10),
+                  SizedBox(height: narrow ? 11 : 16),
+                  _SectionTitle('Ultima lectura de campo', compact: narrow),
+                  SizedBox(height: narrow ? 7 : 10),
                   for (final report in reports.take(2)) ...[
                     _ReportCard(report: report),
                     const SizedBox(height: 10),
                   ],
                 ],
-                const SizedBox(height: 18),
+                SizedBox(height: narrow ? 12 : 18),
                 Row(
                   children: [
-                    const Expanded(child: _SectionTitle('Próximo partido')),
+                    Expanded(
+                      child: _SectionTitle('Próximo partido', compact: narrow),
+                    ),
                     OutlinedButton.icon(
                       onPressed: () => openMatchPreparation(context, rival: _rivalName),
                       icon: const Icon(Icons.assignment_outlined, size: 16),
@@ -548,7 +556,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: narrow ? 7 : 10),
                 _MatchPrepForm(
                   rivalName: _rivalName,
                   rivalTableContext: _rivalTableContext,
@@ -584,24 +592,25 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   onUseFixture: _applyFixtureMatch,
                   generating: _generatingTactic,
                   onGenerateTactic: () => _generateTactic(club, category),
+                  compact: narrow,
                 ),
                 if (_tacticError != null) ...[
-                  const SizedBox(height: 10),
+                  SizedBox(height: narrow ? 7 : 10),
                   _GenerationFeedback(message: _tacticError!),
                 ],
                 if (_generatedTactic != null && !_generatingTactic) ...[
-                  const SizedBox(height: 18),
-                  _SectionTitle('Plan de partido'),
-                  const SizedBox(height: 10),
+                  SizedBox(height: narrow ? 12 : 18),
+                  _SectionTitle('Plan de partido', compact: narrow),
+                  SizedBox(height: narrow ? 7 : 10),
                   _GeneratedSessionCard(
                     session: _generatedTactic!,
                     clubName: club.name,
                     categoryName: category.name,
                   ),
                 ],
-                const SizedBox(height: 16),
-                _SectionTitle('Preparar entrenamiento'),
-                const SizedBox(height: 10),
+                SizedBox(height: narrow ? 11 : 16),
+                _SectionTitle('Preparar entrenamiento', compact: narrow),
+                SizedBox(height: narrow ? 7 : 10),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -632,7 +641,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: narrow ? 8 : 12),
                 _GeneratorForm(
                   objective: _objective,
                   problem: _problem,
@@ -655,6 +664,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   onPlayers: (v) => _updateSessionPrep(players: v),
                   generating: _generating,
                   onGenerate: () => _generateSession(club, category),
+                  compact: narrow,
                 ),
                 if (_sessionError != null) ...[
                   const SizedBox(height: 10),
@@ -2624,6 +2634,7 @@ class _MatchPrepForm extends StatefulWidget {
   final ValueChanged<LudFixtureMatch> onUseFixture;
   final bool generating;
   final VoidCallback onGenerateTactic;
+  final bool compact;
 
   const _MatchPrepForm({
     required this.rivalName,
@@ -2657,6 +2668,7 @@ class _MatchPrepForm extends StatefulWidget {
     required this.onUseFixture,
     required this.generating,
     required this.onGenerateTactic,
+    this.compact = false,
   });
 
   @override
@@ -2724,6 +2736,7 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
 
   @override
   Widget build(BuildContext context) {
+    final compact = widget.compact;
     final readiness = _MatchReadiness.fromValues(
       fixtureContext: widget.fixtureContext,
       rivalName: widget.rivalName,
@@ -2731,7 +2744,7 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
       squadProfile: widget.effectiveSquadProfile,
     );
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: EdgeInsets.all(compact ? 11 : 15),
       decoration: BoxDecoration(
         color: CX.panel,
         borderRadius: BorderRadius.circular(8),
@@ -2739,13 +2752,13 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
       ),
       child: Column(
         children: [
-          const SizedBox(height: 2),
+          SizedBox(height: compact ? 0 : 2),
           _PlanningDateField(
             label: 'Fecha del partido',
             date: widget.matchDate,
             onChanged: widget.onMatchDate,
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 7 : 10),
           _FixturePanel(
             loading: widget.fixtureLoading,
             error: widget.fixtureError,
@@ -2756,7 +2769,7 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
             onUse: widget.onUseFixture,
           ),
           if (widget.opponentLoading || widget.opponentError != null) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: compact ? 7 : 10),
             _AutopilotNotice(
               title: widget.opponentLoading
                   ? 'Analizando al rival'
@@ -2767,22 +2780,29 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
             ),
           ],
           if (widget.opponentAnalysis != null) ...[
-            const SizedBox(height: 14),
-            const PremiumSectionHeader(title: 'Datos objetivos del rival'),
-            _OpponentObjectivePanel(analysis: widget.opponentAnalysis!),
+            SizedBox(height: compact ? 10 : 14),
+            PremiumSectionHeader(
+              title: 'Datos objetivos del rival',
+              compact: compact,
+            ),
+            _OpponentObjectivePanel(
+              analysis: widget.opponentAnalysis!,
+              compact: compact,
+            ),
           ],
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 7 : 10),
           _MatchPrepInputSection(
             icon: Icons.query_stats_outlined,
             title: 'Contexto',
             color: CX.blue,
+            compact: compact,
             children: [
               _matchPrepTextField(
                 controller: _rivalNameController,
                 labelText: 'Nombre del rival',
                 onChanged: widget.onRivalName,
               ),
-              const _MatchPrepFieldDivider(),
+              _MatchPrepFieldDivider(compact: compact),
               _matchPrepTextField(
                 controller: _tableContextController,
                 labelText: 'Como viene en la tabla o momento actual',
@@ -2792,11 +2812,12 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 7 : 10),
           _MatchPrepInputSection(
             icon: Icons.travel_explore_outlined,
             title: 'Estilo de juego',
             color: CX.amber,
+            compact: compact,
             children: [
               _matchPrepTextField(
                 controller: _rivalStyleController,
@@ -2806,7 +2827,7 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
                     'Sistema, salida, presion, zonas fuertes y espacios que concede',
                 onChanged: widget.onRivalStyle,
               ),
-              const _MatchPrepFieldDivider(),
+              _MatchPrepFieldDivider(compact: compact),
               _matchPrepTextField(
                 controller: _rivalMemoryController,
                 maxLines: 3,
@@ -2815,7 +2836,7 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
                     'Ej: en la ida sufrimos al 4 en el juego aereo; nos costaron sus cambios de frente',
                 onChanged: widget.onRivalMemory,
               ),
-              const _MatchPrepFieldDivider(),
+              _MatchPrepFieldDivider(compact: compact),
               _matchPrepTextField(
                 controller: _rivalDangerPlayersController,
                 maxLines: 2,
@@ -2826,11 +2847,12 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 7 : 10),
           _MatchPrepInputSection(
             icon: Icons.groups_2_outlined,
             title: 'Plantel propio',
             color: CX.green,
+            compact: compact,
             children: [
               _matchPrepTextField(
                 controller: _previousMatchNotesController,
@@ -2840,7 +2862,7 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
                     'Que funciono, que fallo, como fue el partido y que no queres repetir',
                 onChanged: widget.onPreviousMatchNotes,
               ),
-              const _MatchPrepFieldDivider(),
+              _MatchPrepFieldDivider(compact: compact),
               _matchPrepTextField(
                 controller: _squadProfileController,
                 maxLines: 4,
@@ -2853,14 +2875,14 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
             ],
           ),
           if (widget.suggestedSquadProfile.trim().isNotEmpty) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: compact ? 7 : 10),
             _ContextSuggestion(
               title: 'Contexto del plantel',
               text: widget.suggestedSquadProfile,
               onUse: () => widget.onSquadProfile(widget.suggestedSquadProfile),
             ),
           ],
-          const SizedBox(height: 14),
+          SizedBox(height: compact ? 10 : 14),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -2869,7 +2891,7 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
                   ? null
                   : widget.onGenerateTactic,
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: EdgeInsets.symmetric(vertical: compact ? 11 : 14),
               ),
               icon: widget.generating
                   ? const SizedBox(
@@ -2933,19 +2955,21 @@ class _MatchPrepInputSection extends StatelessWidget {
   final String title;
   final Color color;
   final List<Widget> children;
+  final bool compact;
 
   const _MatchPrepInputSection({
     required this.icon,
     required this.title,
     required this.color,
     required this.children,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(compact ? 11 : 14),
       decoration: CX.panelDecoration(borderColor: color.withValues(alpha: .22)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2953,16 +2977,16 @@ class _MatchPrepInputSection extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: compact ? 30 : 34,
+                height: compact ? 30 : 34,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: .14),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Icon(icon, color: color, size: 18),
+                child: Icon(icon, color: color, size: compact ? 16 : 18),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: compact ? 8 : 10),
               Expanded(
                 child: Text(
                   title,
@@ -2977,7 +3001,7 @@ class _MatchPrepInputSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: compact ? 6 : 8),
           ...children,
         ],
       ),
@@ -2986,13 +3010,14 @@ class _MatchPrepInputSection extends StatelessWidget {
 }
 
 class _MatchPrepFieldDivider extends StatelessWidget {
-  const _MatchPrepFieldDivider();
+  final bool compact;
+  const _MatchPrepFieldDivider({this.compact = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 1,
-      margin: const EdgeInsets.symmetric(vertical: 12),
+      margin: EdgeInsets.symmetric(vertical: compact ? 8 : 12),
       color: CX.line,
     );
   }
@@ -3000,8 +3025,12 @@ class _MatchPrepFieldDivider extends StatelessWidget {
 
 class _OpponentObjectivePanel extends StatelessWidget {
   final OpponentAnalysis analysis;
+  final bool compact;
 
-  const _OpponentObjectivePanel({required this.analysis});
+  const _OpponentObjectivePanel({
+    required this.analysis,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -3016,14 +3045,14 @@ class _OpponentObjectivePanel extends StatelessWidget {
           builder: (context, constraints) {
             final narrow = constraints.maxWidth < 720;
             final cards = [
-              _GoalMinuteCard(analysis: analysis),
-              _OpponentMomentCard(analysis: analysis),
+              _GoalMinuteCard(analysis: analysis, compact: compact || narrow),
+              _OpponentMomentCard(analysis: analysis, compact: compact || narrow),
             ];
             if (narrow) {
               return Column(
                 children: [
                   cards[0],
-                  const SizedBox(height: 10),
+                  SizedBox(height: compact ? 7 : 10),
                   cards[1],
                 ],
               );
@@ -3049,6 +3078,7 @@ class _OpponentObjectivePanel extends StatelessWidget {
                 emptyText: 'Sin estadísticas individuales verificables.',
                 players: danger,
                 color: CX.red,
+                compact: compact || narrow,
               ),
               _OpponentPlayerList(
                 title: 'Más continuidad',
@@ -3056,13 +3086,14 @@ class _OpponentObjectivePanel extends StatelessWidget {
                 emptyText: 'Sin minutos publicados para esta categoría.',
                 players: continuity,
                 color: CX.blue,
+                compact: compact || narrow,
               ),
             ];
             if (narrow) {
               return Column(
                 children: [
                   lists[0],
-                  const SizedBox(height: 10),
+                  SizedBox(height: compact ? 7 : 10),
                   lists[1],
                 ],
               );
@@ -3077,8 +3108,8 @@ class _OpponentObjectivePanel extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 10),
-        _OpponentContextChips(analysis: analysis),
+        SizedBox(height: compact ? 7 : 10),
+        _OpponentContextChips(analysis: analysis, compact: compact),
       ],
     );
   }
@@ -3086,8 +3117,9 @@ class _OpponentObjectivePanel extends StatelessWidget {
 
 class _GoalMinuteCard extends StatelessWidget {
   final OpponentAnalysis analysis;
+  final bool compact;
 
-  const _GoalMinuteCard({required this.analysis});
+  const _GoalMinuteCard({required this.analysis, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
@@ -3106,12 +3138,13 @@ class _GoalMinuteCard extends StatelessWidget {
       icon: Icons.stacked_bar_chart_outlined,
       title: 'Franja horaria de gol',
       color: CX.green,
+      compact: compact,
       child: hasMinuteData
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
-                  height: 132,
+                  height: compact ? 112 : 132,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: buckets
@@ -3120,13 +3153,14 @@ class _GoalMinuteCard extends StatelessWidget {
                             child: _GoalBucketBar(
                               bucket: bucket,
                               maxGoals: maxGoals == 0 ? 1 : maxGoals,
+                              compact: compact,
                             ),
                           ),
                         )
                         .toList(),
                   ),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: compact ? 7 : 10),
                 const Wrap(
                   spacing: 10,
                   runSpacing: 6,
@@ -3155,19 +3189,26 @@ class _GoalMinuteCard extends StatelessWidget {
 class _GoalBucketBar extends StatelessWidget {
   final OpponentGoalBucket bucket;
   final int maxGoals;
+  final bool compact;
 
-  const _GoalBucketBar({required this.bucket, required this.maxGoals});
+  const _GoalBucketBar({
+    required this.bucket,
+    required this.maxGoals,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    double heightFor(int goals) => goals == 0 ? 4 : 18 + (goals / maxGoals) * 78;
+    final barMax = compact ? 72.0 : 100.0;
+    double heightFor(int goals) =>
+        goals == 0 ? 4 : 16 + (goals / maxGoals) * (barMax - 22);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 2 : 3),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           SizedBox(
-            height: 100,
+            height: barMax,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -3186,7 +3227,7 @@ class _GoalBucketBar extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: compact ? 4 : 6),
           Text(
             bucket.range,
             maxLines: 1,
@@ -3230,8 +3271,9 @@ class _MinuteBar extends StatelessWidget {
 
 class _OpponentMomentCard extends StatelessWidget {
   final OpponentAnalysis analysis;
+  final bool compact;
 
-  const _OpponentMomentCard({required this.analysis});
+  const _OpponentMomentCard({required this.analysis, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
@@ -3242,6 +3284,7 @@ class _OpponentMomentCard extends StatelessWidget {
       icon: Icons.show_chart,
       title: 'Forma y momento',
       color: standingColor,
+      compact: compact,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3252,11 +3295,11 @@ class _OpponentMomentCard extends StatelessWidget {
                 standing.rankLabel,
                 style: TextStyle(
                   color: standingColor,
-                  fontSize: 30,
+                  fontSize: compact ? 25 : 30,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: compact ? 6 : 8),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 5),
@@ -3270,14 +3313,14 @@ class _OpponentMomentCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: compact ? 8 : 12),
           if (analysis.recentMatches.isNotEmpty)
             Row(
               children: analysis.recentMatches.take(5).map((match) {
                 final read = _FormRead.fromText(match);
                 return Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.only(right: 5),
+                    padding: EdgeInsets.only(right: compact ? 4 : 5),
                     child: FormPill(
                       outcome: read.outcome,
                       score: read.score,
@@ -3293,7 +3336,7 @@ class _OpponentMomentCard extends StatelessWidget {
               icon: Icons.history_toggle_off_outlined,
               text: 'Sin forma reciente verificable.',
             ),
-          const SizedBox(height: 12),
+          SizedBox(height: compact ? 8 : 12),
           StatusPill(streak, _streakColor(analysis.streakType)),
         ],
       ),
@@ -3325,6 +3368,7 @@ class _OpponentPlayerList extends StatelessWidget {
   final String emptyText;
   final List<_OpponentPlayerStat> players;
   final Color color;
+  final bool compact;
 
   const _OpponentPlayerList({
     required this.title,
@@ -3332,6 +3376,7 @@ class _OpponentPlayerList extends StatelessWidget {
     required this.emptyText,
     required this.players,
     required this.color,
+    this.compact = false,
   });
 
   @override
@@ -3344,22 +3389,22 @@ class _OpponentPlayerList extends StatelessWidget {
       child: players.isEmpty
           ? _PanelEmptyLine(icon: Icons.info_outline, text: emptyText)
           : Column(
-              children: players.take(5).map((player) {
+              children: players.take(compact ? 4 : 5).map((player) {
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: EdgeInsets.only(bottom: compact ? 6 : 8),
                   child: Row(
                     children: [
                       Container(
-                        width: 26,
-                        height: 26,
+                        width: compact ? 24 : 26,
+                        height: compact ? 24 : 26,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: color.withValues(alpha: .1),
                           borderRadius: BorderRadius.circular(7),
                         ),
-                        child: Icon(icon, color: color, size: 14),
+                        child: Icon(icon, color: color, size: compact ? 13 : 14),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: compact ? 6 : 8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3397,28 +3442,31 @@ class _OpponentPlayerList extends StatelessWidget {
 
 class _OpponentContextChips extends StatelessWidget {
   final OpponentAnalysis analysis;
+  final bool compact;
 
-  const _OpponentContextChips({required this.analysis});
+  const _OpponentContextChips({
+    required this.analysis,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final home = analysis.homeAwaySplit.home;
     final away = analysis.homeAwaySplit.away;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
+    final chips = [
         _OpponentContextChip(
           icon: Icons.home_outlined,
           value: _splitLabel(home),
           label: 'Local',
           color: CX.green,
+          compact: compact,
         ),
         _OpponentContextChip(
           icon: Icons.flight_takeoff_outlined,
           value: _splitLabel(away),
           label: 'Visitante',
           color: CX.blue,
+          compact: compact,
         ),
         _OpponentContextChip(
           icon: Icons.sports_score_outlined,
@@ -3426,6 +3474,7 @@ class _OpponentContextChips extends StatelessWidget {
               '${analysis.avgGoalsFor.toStringAsFixed(1)} / ${analysis.avgGoalsAgainst.toStringAsFixed(1)}',
           label: 'Prom. GF/GC',
           color: CX.amber,
+          compact: compact,
         ),
         _OpponentContextChip(
           icon: Icons.trending_up,
@@ -3435,6 +3484,7 @@ class _OpponentContextChips extends StatelessWidget {
           ),
           label: 'Mayor goleada',
           color: CX.green,
+          compact: compact,
         ),
         _OpponentContextChip(
           icon: Icons.trending_down,
@@ -3444,15 +3494,31 @@ class _OpponentContextChips extends StatelessWidget {
           ),
           label: 'Peor derrota',
           color: CX.red,
+          compact: compact,
         ),
         _OpponentContextChip(
           icon: Icons.shield_outlined,
           value: '${analysis.cleanSheets}',
           label: 'Vallas invictas',
           color: CX.blue,
+          compact: compact,
         ),
-      ],
-    );
+      ];
+    if (compact) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final width = (constraints.maxWidth - 7) / 2;
+          return Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [
+              for (final chip in chips) SizedBox(width: width, child: chip),
+            ],
+          );
+        },
+      );
+    }
+    return Wrap(spacing: 8, runSpacing: 8, children: chips);
   }
 
   String _splitLabel(OpponentSplitSide side) {
@@ -3471,19 +3537,24 @@ class _OpponentContextChip extends StatelessWidget {
   final String value;
   final String label;
   final Color color;
+  final bool compact;
 
   const _OpponentContextChip({
     required this.icon,
     required this.value,
     required this.label,
     required this.color,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(maxWidth: 260),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      constraints: BoxConstraints(maxWidth: compact ? double.infinity : 260),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
+        vertical: compact ? 6 : 8,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .07),
         borderRadius: BorderRadius.circular(8),
@@ -3492,8 +3563,8 @@ class _OpponentContextChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 15),
-          const SizedBox(width: 7),
+          Icon(icon, color: color, size: compact ? 13 : 15),
+          SizedBox(width: compact ? 5 : 7),
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3503,8 +3574,8 @@ class _OpponentContextChip extends StatelessWidget {
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
+                  style: TextStyle(
+                    fontSize: compact ? 10 : 11,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -3512,7 +3583,7 @@ class _OpponentContextChip extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: CX.faint, fontSize: 9),
+                  style: TextStyle(color: CX.faint, fontSize: compact ? 8.5 : 9),
                 ),
               ],
             ),
@@ -4330,6 +4401,7 @@ class _GeneratorForm extends StatefulWidget {
   final ValueChanged<DateTime> onScheduledDate;
   final bool generating;
   final VoidCallback onGenerate;
+  final bool compact;
 
   const _GeneratorForm({
     required this.objective,
@@ -4350,6 +4422,7 @@ class _GeneratorForm extends StatefulWidget {
     required this.onScheduledDate,
     required this.generating,
     required this.onGenerate,
+    this.compact = false,
   });
 
   @override
@@ -4400,8 +4473,9 @@ class _GeneratorFormState extends State<_GeneratorForm> {
   @override
   Widget build(BuildContext context) {
     final w = widget;
+    final compact = widget.compact;
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: EdgeInsets.all(compact ? 11 : 15),
       decoration: BoxDecoration(
         color: CX.panel,
         borderRadius: BorderRadius.circular(8),
@@ -4417,13 +4491,13 @@ class _GeneratorFormState extends State<_GeneratorForm> {
             ),
             onChanged: w.onObjective,
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 8 : 10),
           TextFormField(
             controller: _spaceCtrl,
             decoration: const InputDecoration(labelText: 'Espacio disponible'),
             onChanged: w.onSpace,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: compact ? 9 : 12),
           _StepperBox(
             'Duracion',
             w.duration,
@@ -4432,7 +4506,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
             max: 120,
             step: 5,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: compact ? 9 : 12),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
@@ -4454,7 +4528,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 8),
+                      SizedBox(height: compact ? 6 : 8),
                       const Text(
                         'CONTEXTO OPCIONAL — MEJORA LA SESIÓN, NO ES OBLIGATORIO',
                         style: TextStyle(
@@ -4464,21 +4538,21 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                           letterSpacing: .4,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: compact ? 6 : 8),
                       _PlanningDateField(
                         label: 'Fecha de la sesión',
                         date: w.scheduledDate,
                         onChanged: w.onScheduledDate,
                       ),
                       if (w.automaticSquadContext) ...[
-                        const SizedBox(height: 10),
+                        SizedBox(height: compact ? 7 : 10),
                         const _AutopilotNotice(
                           title: 'Sesión con plantel contextual',
                           message:
                               'fobal cruza el objetivo con las posiciones reales, la disponibilidad y las notas guardadas de la categoría.',
                         ),
                       ],
-                      const SizedBox(height: 10),
+                      SizedBox(height: compact ? 7 : 10),
                       TextFormField(
                         controller: _problemCtrl,
                         decoration: const InputDecoration(
@@ -4488,7 +4562,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                         ),
                         onChanged: w.onProblem,
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: compact ? 9 : 12),
                       _StepperBox(
                         'Jugadores',
                         w.players,
@@ -4498,7 +4572,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                       ),
                       if (w.suggestedPlayers > 0 &&
                           w.suggestedPlayers != w.players) ...[
-                        const SizedBox(height: 10),
+                        SizedBox(height: compact ? 7 : 10),
                         Align(
                           alignment: Alignment.centerLeft,
                           child: TextButton.icon(
@@ -4513,7 +4587,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                         ),
                       ],
                       if (w.totalPlayers > w.suggestedPlayers) ...[
-                        const SizedBox(height: 4),
+                        SizedBox(height: compact ? 3 : 4),
                         Text(
                           '${w.totalPlayers - w.suggestedPlayers} jugador'
                           '${w.totalPlayers - w.suggestedPlayers == 1 ? '' : 'es'} '
@@ -4526,13 +4600,13 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                   )
                 : const SizedBox(width: double.infinity),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: compact ? 10 : 14),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: w.generating || !w.canGenerate ? null : w.onGenerate,
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: EdgeInsets.symmetric(vertical: compact ? 11 : 14),
               ),
               icon: w.generating
                   ? const SizedBox(
@@ -6080,11 +6154,13 @@ class _StructuredResult extends StatelessWidget {
 
 class _SectionTitle extends StatelessWidget {
   final String text;
+  final bool compact;
 
-  const _SectionTitle(this.text);
+  const _SectionTitle(this.text, {this.compact = false});
 
   @override
-  Widget build(BuildContext context) => PremiumSectionHeader(title: text);
+  Widget build(BuildContext context) =>
+      PremiumSectionHeader(title: text, compact: compact);
 }
 
 class _Tag extends StatelessWidget {

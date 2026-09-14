@@ -244,6 +244,7 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.of(context).size.width < 700;
     final scope = AppScope.of(context);
     final club = scope.club;
     if (club.categories.isEmpty) {
@@ -280,10 +281,10 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
       appBar: AppBar(title: const Text('Constructor de sesión')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
+          padding: EdgeInsets.fromLTRB(18, narrow ? 9 : 12, 18, narrow ? 22 : 30),
           children: [
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: EdgeInsets.all(narrow ? 11 : 14),
               decoration: CX.panelDecoration(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,19 +301,19 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
                     ],
                     onChanged: (value) => setState(() => _categoryId = value),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: narrow ? 8 : 10),
                   TextField(
                     controller: _title,
                     decoration: const InputDecoration(
                       labelText: 'Título de la sesión',
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: narrow ? 8 : 10),
                   TextField(
                     controller: _objective,
                     decoration: const InputDecoration(labelText: 'Objetivo'),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: narrow ? 8 : 10),
                   InkWell(
                     borderRadius: BorderRadius.circular(8),
                     onTap: () async {
@@ -345,7 +346,7 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: narrow ? 8 : 10),
                   Row(
                     children: [
                       Expanded(
@@ -356,7 +357,7 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: narrow ? 8 : 10),
                       Expanded(
                         child: TextFormField(
                           initialValue: '$_playerCount',
@@ -373,7 +374,7 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: narrow ? 11 : 16),
             Row(
               children: [
                 Expanded(
@@ -382,6 +383,7 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
                     title: _blocks.isEmpty
                         ? 'Sin bloques todavía'
                         : '${_blocks.length} bloque${_blocks.length == 1 ? '' : 's'} · $totalDuration min en total',
+                    compact: narrow,
                   ),
                 ),
               ],
@@ -407,10 +409,11 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
                     index: index,
                     exercise: block,
                     onRemove: () => _removeBlock(index),
+                    compact: narrow,
                   );
                 },
               ),
-            const SizedBox(height: 10),
+            SizedBox(height: narrow ? 7 : 10),
             ActionStrip(
               actions: [
                 ActionSpec(
@@ -425,7 +428,7 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: narrow ? 12 : 18),
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -459,12 +462,14 @@ class _BuilderBlockTile extends StatelessWidget {
   final int index;
   final Exercise exercise;
   final VoidCallback onRemove;
+  final bool compact;
 
   const _BuilderBlockTile({
     super.key,
     required this.index,
     required this.exercise,
     required this.onRemove,
+    this.compact = false,
   });
 
   @override
@@ -478,27 +483,34 @@ class _BuilderBlockTile extends StatelessWidget {
     ].join(' · ');
     final description = exercise.description.trim();
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: EdgeInsets.only(bottom: compact ? 7 : 10),
       decoration: CX.panelDecoration(),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 12 : 16,
+            vertical: compact ? 10 : 13,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: compact ? 32 : 38,
+                height: compact ? 32 : 38,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(compact ? 9 : 11),
                 ),
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    const Icon(Icons.fitness_center, size: 19, color: accent),
+                    Icon(
+                      Icons.fitness_center,
+                      size: compact ? 16 : 19,
+                      color: accent,
+                    ),
                     Positioned(
                       right: 0,
                       bottom: 0,
@@ -514,7 +526,7 @@ class _BuilderBlockTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: compact ? 10 : 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -548,7 +560,7 @@ class _BuilderBlockTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: compact ? 6 : 8),
               IconButton(
                 tooltip: 'Quitar',
                 visualDensity: VisualDensity.compact,

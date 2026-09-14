@@ -259,6 +259,7 @@ class _Agenda extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.of(context).size.width < 700;
     final items = <({String date, Widget child})>[
       for (final record in attendance)
         (
@@ -273,6 +274,7 @@ class _Agenda extends StatelessWidget {
             onTap: () => ShellActions.maybeOf(
               context,
             )?.openSection(ShellSection.attendance),
+            compact: narrow,
           ),
         ),
       for (final match in matches)
@@ -288,6 +290,7 @@ class _Agenda extends StatelessWidget {
                 : '${match.minutesByPlayer.values.fold(0, (a, b) => a + b)} min',
             onTap: () =>
                 ShellActions.maybeOf(context)?.openSection(ShellSection.lineup),
+            compact: narrow,
           ),
         ),
     ]..sort((a, b) => a.date.compareTo(b.date));
@@ -302,7 +305,7 @@ class _Agenda extends StatelessWidget {
       children: [
         for (final entry in grouped.entries) ...[
           Padding(
-            padding: const EdgeInsets.only(bottom: 8, left: 2),
+            padding: EdgeInsets.only(bottom: narrow ? 6 : 8, left: 2),
             child: Text(
               _dayLabel(entry.key),
               style: const TextStyle(
@@ -313,7 +316,7 @@ class _Agenda extends StatelessWidget {
             ),
           ),
           Container(
-            margin: const EdgeInsets.only(bottom: 16),
+            margin: EdgeInsets.only(bottom: narrow ? 11 : 16),
             decoration: CX.panelDecoration(),
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -346,6 +349,7 @@ class _AgendaRow extends StatelessWidget {
   final String subtitle;
   final String? trailing;
   final VoidCallback? onTap;
+  final bool compact;
   const _AgendaRow({
     required this.icon,
     required this.accent,
@@ -353,27 +357,32 @@ class _AgendaRow extends StatelessWidget {
     required this.subtitle,
     required this.trailing,
     required this.onTap,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final badgeSize = compact ? 32.0 : 38.0;
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 12 : 16,
+          vertical: compact ? 10 : 13,
+        ),
         child: Row(
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: badgeSize,
+              height: badgeSize,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(11),
+                borderRadius: BorderRadius.circular(compact ? 9 : 11),
               ),
-              child: Icon(icon, size: 19, color: accent),
+              child: Icon(icon, size: compact ? 16 : 19, color: accent),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: compact ? 10 : 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

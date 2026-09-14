@@ -347,24 +347,26 @@ class PremiumSectionHeader extends StatelessWidget {
   final String? eyebrow;
   final String title;
   final Widget? trailing;
+  final bool compact;
   const PremiumSectionHeader({
     super.key,
     this.eyebrow,
     required this.title,
     this.trailing,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14, top: 2),
+      padding: EdgeInsets.only(bottom: compact ? 9 : 14, top: compact ? 0 : 2),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             width: 3,
-            height: 30,
-            margin: const EdgeInsets.only(right: 10),
+            height: compact ? 24 : 30,
+            margin: EdgeInsets.only(right: compact ? 8 : 10),
             decoration: BoxDecoration(
               color: CX.green,
               borderRadius: BorderRadius.circular(999),
@@ -377,22 +379,22 @@ class PremiumSectionHeader extends StatelessWidget {
                 if (eyebrow != null && eyebrow!.trim().isNotEmpty) ...[
                   Text(
                     eyebrow!.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: CX.green,
-                      fontSize: 10,
+                      fontSize: compact ? 9 : 10,
                       fontWeight: FontWeight.w900,
-                      letterSpacing: .8,
+                      letterSpacing: compact ? .5 : .8,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  SizedBox(height: compact ? 2 : 3),
                 ],
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 18,
+                  style: TextStyle(
+                    fontSize: compact ? 16 : 18,
                     fontWeight: FontWeight.w900,
                     height: 1.15,
-                    letterSpacing: -.2,
+                    letterSpacing: compact ? 0 : -.2,
                   ),
                 ),
               ],

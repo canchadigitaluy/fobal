@@ -389,7 +389,10 @@ class _PreviewClubPickerState extends State<_PreviewClubPicker> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final narrow = constraints.maxWidth < 700;
-          final brand = _ClubPickerBrandPanel(clubChosen: selectedClub != null);
+          final brand = _ClubPickerBrandPanel(
+            clubChosen: selectedClub != null,
+            compact: narrow,
+          );
           final picker = _ClubPickerListPanel(
             clubs: widget.clubs,
             collaborations: widget.collaborations,
@@ -433,12 +436,18 @@ class _PreviewClubPickerState extends State<_PreviewClubPicker> {
 /// fill — purely decorative, no data.
 class _ClubPickerBrandPanel extends StatelessWidget {
   final bool clubChosen;
-  const _ClubPickerBrandPanel({required this.clubChosen});
+  final bool compact;
+  const _ClubPickerBrandPanel({
+    required this.clubChosen,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(30, 32, 30, 32),
+      padding: compact
+          ? const EdgeInsets.fromLTRB(20, 18, 20, 18)
+          : const EdgeInsets.fromLTRB(30, 32, 30, 32),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -448,12 +457,13 @@ class _ClubPickerBrandPanel extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          Positioned.fill(
-            child: Opacity(
-              opacity: .16,
-              child: CustomPaint(painter: PitchLinesPainter()),
+          if (!compact)
+            Positioned.fill(
+              child: Opacity(
+                opacity: .16,
+                child: CustomPaint(painter: PitchLinesPainter()),
+              ),
             ),
-          ),
           Positioned(
             right: -70,
             bottom: -90,
@@ -474,8 +484,8 @@ class _ClubPickerBrandPanel extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 36,
-                    height: 36,
+                    width: compact ? 32 : 36,
+                    height: compact ? 32 : 36,
                     decoration: BoxDecoration(
                       color: CX.green,
                       borderRadius: BorderRadius.circular(10),
@@ -499,40 +509,42 @@ class _ClubPickerBrandPanel extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const Text(
+                  Text(
                     'fobal',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 19,
+                      fontSize: compact ? 17 : 19,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -.3,
+                      letterSpacing: compact ? 0 : -.3,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 26),
-              const Text(
+              SizedBox(height: compact ? 12 : 26),
+              Text(
                 'Elegí tu club',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 26,
+                  fontSize: compact ? 20 : 26,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: -.3,
+                  letterSpacing: compact ? 0 : -.3,
                   height: 1.2,
                 ),
               ),
-              const SizedBox(height: 10),
-              const Text(
+              SizedBox(height: compact ? 4 : 10),
+              Text(
                 'Seleccioná el club que vas a dirigir. Vas a elegir la categoría a continuación.',
+                maxLines: compact ? 1 : null,
+                overflow: compact ? TextOverflow.ellipsis : null,
                 style: TextStyle(
-                  color: Color(0xDDE0F3EB),
-                  fontSize: 14.5,
-                  height: 1.55,
+                  color: const Color(0xDDE0F3EB),
+                  fontSize: compact ? 13 : 14.5,
+                  height: compact ? 1.25 : 1.55,
                 ),
               ),
-              const SizedBox(height: 40),
+              SizedBox(height: compact ? 10 : 40),
               Container(height: 1, color: Colors.white.withValues(alpha: .18)),
-              const SizedBox(height: 16),
+              SizedBox(height: compact ? 8 : 16),
               _ClubPickerStepper(clubChosen: clubChosen),
             ],
           ),
@@ -1188,6 +1200,7 @@ class _CategoryPicker extends StatelessWidget {
           final brand = _CategoryBrandPanel(
             clubName: clubName,
             clubLogoUrl: clubLogoUrl,
+            compact: narrow,
           );
           final picker = _CategoryListPanel(
             categories: categories,
@@ -1224,15 +1237,19 @@ class _CategoryPicker extends StatelessWidget {
 class _CategoryBrandPanel extends StatelessWidget {
   final String clubName;
   final String clubLogoUrl;
+  final bool compact;
   const _CategoryBrandPanel({
     required this.clubName,
     required this.clubLogoUrl,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(30, 32, 30, 32),
+      padding: compact
+          ? const EdgeInsets.fromLTRB(20, 16, 20, 16)
+          : const EdgeInsets.fromLTRB(30, 32, 30, 32),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -1242,12 +1259,13 @@ class _CategoryBrandPanel extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          Positioned.fill(
-            child: Opacity(
-              opacity: .16,
-              child: CustomPaint(painter: PitchLinesPainter()),
+          if (!compact)
+            Positioned.fill(
+              child: Opacity(
+                opacity: .16,
+                child: CustomPaint(painter: PitchLinesPainter()),
+              ),
             ),
-          ),
           Positioned(
             right: -70,
             bottom: -90,
@@ -1268,8 +1286,8 @@ class _CategoryBrandPanel extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 36,
-                    height: 36,
+                    width: compact ? 32 : 36,
+                    height: compact ? 32 : 36,
                     decoration: BoxDecoration(
                       color: CX.green,
                       borderRadius: BorderRadius.circular(10),
@@ -1293,20 +1311,20 @@ class _CategoryBrandPanel extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const Text(
+                  Text(
                     'fobal',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 19,
+                      fontSize: compact ? 17 : 19,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -.3,
+                      letterSpacing: compact ? 0 : -.3,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 22),
+              SizedBox(height: compact ? 10 : 22),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(compact ? 8 : 12),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: .08),
                   borderRadius: BorderRadius.circular(14),
@@ -1317,8 +1335,8 @@ class _CategoryBrandPanel extends StatelessWidget {
                 child: Row(
                   children: [
                     Container(
-                      width: 42,
-                      height: 42,
+                      width: compact ? 34 : 42,
+                      height: compact ? 34 : 42,
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
@@ -1328,7 +1346,10 @@ class _CategoryBrandPanel extends StatelessWidget {
                           colors: [CX.green.withValues(alpha: .7), CX.green],
                         ),
                       ),
-                      child: ClubCrest(logoUrl: clubLogoUrl, size: 38),
+                      child: ClubCrest(
+                        logoUrl: clubLogoUrl,
+                        size: compact ? 30 : 38,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1361,29 +1382,31 @@ class _CategoryBrandPanel extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 22),
-              const Text(
+              SizedBox(height: compact ? 10 : 22),
+              Text(
                 '¿Qué categoría dirigís?',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 24,
+                  fontSize: compact ? 20 : 24,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: -.3,
+                  letterSpacing: compact ? 0 : -.3,
                   height: 1.2,
                 ),
               ),
-              const SizedBox(height: 10),
-              const Text(
-                'Cada categoría tiene su propio plantel, tabla, fixture y planificación de entrenamientos.',
-                style: TextStyle(
-                  color: Color(0xDDE0F3EB),
-                  fontSize: 14.5,
-                  height: 1.55,
+              if (!compact) ...[
+                const SizedBox(height: 10),
+                const Text(
+                  'Cada categoría tiene su propio plantel, tabla, fixture y planificación de entrenamientos.',
+                  style: TextStyle(
+                    color: Color(0xDDE0F3EB),
+                    fontSize: 14.5,
+                    height: 1.55,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 40),
+              ],
+              SizedBox(height: compact ? 10 : 40),
               Container(height: 1, color: Colors.white.withValues(alpha: .18)),
-              const SizedBox(height: 16),
+              SizedBox(height: compact ? 8 : 16),
               Row(
                 children: [
                   const _StepDot(label: 'Club', done: true, active: false),

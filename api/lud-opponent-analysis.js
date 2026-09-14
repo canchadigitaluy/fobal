@@ -195,12 +195,13 @@ async function buildGoalMinuteData(matches, teamId) {
   const eventRows = await Promise.all(
     matches.map((match) =>
       fetchLeagueJson(`/matches/${match.id}/events/`, 9000)
-        .then((value) => rows(value))
-        .catch(() => null),
+        .then((value) => ({ readable: true, events: rows(value) }))
+        .catch(() => ({ readable: false, events: [] })),
     ),
   );
-  const readable = eventRows.filter((events) => Array.isArray(events));
-  for (const events of readable) {
+  const readable = eventRows.filter((row) => row.readable);
+  for (const row of readable) {
+    const events = Array.isArray(row.events) ? row.events : [];
     for (const event of events) {
       if (event?.event_type !== "goal") continue;
       const minute = Number(event.minute) || 0;

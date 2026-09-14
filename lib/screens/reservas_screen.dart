@@ -2772,80 +2772,85 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
             _OpponentObjectivePanel(analysis: widget.opponentAnalysis!),
           ],
           const SizedBox(height: 10),
-          TextFormField(
-            controller: _rivalNameController,
-            decoration: const InputDecoration(labelText: 'Nombre del rival'),
-            onChanged: widget.onRivalName,
+          _MatchPrepInputSection(
+            icon: Icons.query_stats_outlined,
+            title: 'Contexto',
+            color: CX.blue,
+            children: [
+              _matchPrepTextField(
+                controller: _rivalNameController,
+                labelText: 'Nombre del rival',
+                onChanged: widget.onRivalName,
+              ),
+              const _MatchPrepFieldDivider(),
+              _matchPrepTextField(
+                controller: _tableContextController,
+                labelText: 'Como viene en la tabla o momento actual',
+                hintText:
+                    'Ej: tercero, cuatro triunfos seguidos, recibe pocos goles',
+                onChanged: widget.onRivalTableContext,
+              ),
+            ],
           ),
           const SizedBox(height: 10),
-          TextFormField(
-            controller: _tableContextController,
-            decoration: const InputDecoration(
-              labelText: 'Como viene en la tabla o momento actual',
-              hintText:
-                  'Ej: tercero, cuatro triunfos seguidos, recibe pocos goles',
-            ),
-            onChanged: widget.onRivalTableContext,
+          _MatchPrepInputSection(
+            icon: Icons.travel_explore_outlined,
+            title: 'Estilo de juego',
+            color: CX.amber,
+            children: [
+              _matchPrepTextField(
+                controller: _rivalStyleController,
+                maxLines: 3,
+                labelText: 'Como juega: fortalezas y debilidades',
+                hintText:
+                    'Sistema, salida, presion, zonas fuertes y espacios que concede',
+                onChanged: widget.onRivalStyle,
+              ),
+              const _MatchPrepFieldDivider(),
+              _matchPrepTextField(
+                controller: _rivalMemoryController,
+                maxLines: 3,
+                labelText: 'Memoria del rival',
+                hintText:
+                    'Ej: en la ida sufrimos al 4 en el juego aereo; nos costaron sus cambios de frente',
+                onChanged: widget.onRivalMemory,
+              ),
+              const _MatchPrepFieldDivider(),
+              _matchPrepTextField(
+                controller: _rivalDangerPlayersController,
+                maxLines: 2,
+                labelText: 'Jugadores o patrones rivales a vigilar',
+                hintText:
+                    'Ej: el 11 ataca espalda del lateral; el 9 descarga bien de espaldas',
+                onChanged: widget.onRivalDangerPlayers,
+              ),
+            ],
           ),
           const SizedBox(height: 10),
-          TextFormField(
-            controller: _rivalStyleController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Como juega: fortalezas y debilidades',
-              hintText:
-                  'Sistema, salida, presion, zonas fuertes y espacios que concede',
-              alignLabelWithHint: true,
-            ),
-            onChanged: widget.onRivalStyle,
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _rivalMemoryController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Memoria del rival',
-              hintText:
-                  'Ej: en la ida sufrimos al 4 en el juego aereo; nos costaron sus cambios de frente',
-              alignLabelWithHint: true,
-            ),
-            onChanged: widget.onRivalMemory,
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _rivalDangerPlayersController,
-            maxLines: 2,
-            decoration: const InputDecoration(
-              labelText: 'Jugadores o patrones rivales a vigilar',
-              hintText:
-                  'Ej: el 11 ataca espalda del lateral; el 9 descarga bien de espaldas',
-              alignLabelWithHint: true,
-            ),
-            onChanged: widget.onRivalDangerPlayers,
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _previousMatchNotesController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Notas del ultimo cruce o partido observado',
-              hintText:
-                  'Que funciono, que fallo, como fue el partido y que no queres repetir',
-              alignLabelWithHint: true,
-            ),
-            onChanged: widget.onPreviousMatchNotes,
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _squadProfileController,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Caracteristicas individuales y grupales del plantel',
-              hintText:
-                  'Virtudes, limitaciones, jugadores clave, velocidad, juego aereo y perfiles',
-              alignLabelWithHint: true,
-            ),
-            onChanged: widget.onSquadProfile,
+          _MatchPrepInputSection(
+            icon: Icons.groups_2_outlined,
+            title: 'Plantel propio',
+            color: CX.green,
+            children: [
+              _matchPrepTextField(
+                controller: _previousMatchNotesController,
+                maxLines: 3,
+                labelText: 'Notas del ultimo cruce o partido observado',
+                hintText:
+                    'Que funciono, que fallo, como fue el partido y que no queres repetir',
+                onChanged: widget.onPreviousMatchNotes,
+              ),
+              const _MatchPrepFieldDivider(),
+              _matchPrepTextField(
+                controller: _squadProfileController,
+                maxLines: 4,
+                labelText:
+                    'Caracteristicas individuales y grupales del plantel',
+                hintText:
+                    'Virtudes, limitaciones, jugadores clave, velocidad, juego aereo y perfiles',
+                onChanged: widget.onSquadProfile,
+              ),
+            ],
           ),
           if (widget.suggestedSquadProfile.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -2892,6 +2897,103 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _matchPrepTextField({
+    required TextEditingController controller,
+    required String labelText,
+    required ValueChanged<String> onChanged,
+    String? hintText,
+    int? maxLines,
+  }) {
+    final hasMultipleLines = maxLines != null && maxLines > 1;
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: labelText,
+        hintText: hintText,
+        alignLabelWithHint: hasMultipleLines,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        errorBorder: InputBorder.none,
+        focusedErrorBorder: InputBorder.none,
+        isDense: true,
+        contentPadding: EdgeInsets.zero,
+      ),
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _MatchPrepInputSection extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color color;
+  final List<Widget> children;
+
+  const _MatchPrepInputSection({
+    required this.icon,
+    required this.title,
+    required this.color,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: CX.panelDecoration(borderColor: color.withValues(alpha: .22)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: CX.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _MatchPrepFieldDivider extends StatelessWidget {
+  const _MatchPrepFieldDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 1,
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      color: CX.line,
     );
   }
 }

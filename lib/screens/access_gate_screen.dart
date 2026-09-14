@@ -1248,7 +1248,7 @@ class _CategoryBrandPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: compact
-          ? const EdgeInsets.fromLTRB(20, 16, 20, 16)
+          ? const EdgeInsets.fromLTRB(20, 12, 20, 12)
           : const EdgeInsets.fromLTRB(30, 32, 30, 32),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -1322,9 +1322,9 @@ class _CategoryBrandPanel extends StatelessWidget {
                   ),
                 ],
               ),
-              SizedBox(height: compact ? 10 : 22),
+              SizedBox(height: compact ? 6 : 22),
               Container(
-                padding: EdgeInsets.all(compact ? 8 : 12),
+                padding: EdgeInsets.all(compact ? 4 : 12),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: .08),
                   borderRadius: BorderRadius.circular(14),
@@ -1335,8 +1335,8 @@ class _CategoryBrandPanel extends StatelessWidget {
                 child: Row(
                   children: [
                     Container(
-                      width: compact ? 34 : 42,
-                      height: compact ? 34 : 42,
+                      width: compact ? 30 : 42,
+                      height: compact ? 30 : 42,
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
@@ -1348,7 +1348,7 @@ class _CategoryBrandPanel extends StatelessWidget {
                       ),
                       child: ClubCrest(
                         logoUrl: clubLogoUrl,
-                        size: compact ? 30 : 38,
+                        size: compact ? 26 : 38,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1382,7 +1382,7 @@ class _CategoryBrandPanel extends StatelessWidget {
                   ],
                 ),
               ),
-              SizedBox(height: compact ? 10 : 22),
+              SizedBox(height: compact ? 8 : 22),
               Text(
                 '¿Qué categoría dirigís?',
                 style: TextStyle(
@@ -1404,9 +1404,9 @@ class _CategoryBrandPanel extends StatelessWidget {
                   ),
                 ),
               ],
-              SizedBox(height: compact ? 10 : 40),
+              SizedBox(height: compact ? 8 : 40),
               Container(height: 1, color: Colors.white.withValues(alpha: .18)),
-              SizedBox(height: compact ? 8 : 16),
+              SizedBox(height: compact ? 6 : 16),
               Row(
                 children: [
                   const _StepDot(label: 'Club', done: true, active: false),

@@ -53,10 +53,10 @@ export default async function handler(req, res) {
     .slice(0, 5);
   const continuity = [...players].sort((a, b) => b.minutes - a.minutes).slice(0, 5);
 
-  const finished = rows(matchesRaw)
+  const allFinished = rows(matchesRaw)
     .filter((match) => belongs(match, teamId) && score(match, "home") != null && score(match, "away") != null)
-    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
-    .slice(0, 5);
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  const finished = allFinished.slice(0, 5);
   let gf = 0;
   let ga = 0;
   const results = finished.map((match) => {
@@ -68,6 +68,8 @@ export default async function handler(req, res) {
     const opponent = home ? match.away_team?.name : match.home_team?.name;
     return `${own > against ? "G" : own < against ? "P" : "E"} ${own}-${against} vs ${opponent || "rival"}`;
   });
+  const objectiveStats = buildObjectiveStats(allFinished, teamId);
+  const goalMinuteData = await buildGoalMinuteData(allFinished.slice(0, 5), teamId);
 
   const standings = rows(standingsRaw);
   const standingIndex = standings.findIndex((row) =>
@@ -98,7 +100,128 @@ export default async function handler(req, res) {
     memorySummary: formContext,
     squadSummary: squadContext,
     recentMatches: results,
+    homeAwaySplit: objectiveStats.homeAwaySplit,
+    avgGoalsPerMatch: objectiveStats.avgGoalsPerMatch,
+    biggestWin: objectiveStats.biggestWin,
+    biggestLoss: objectiveStats.biggestLoss,
+    currentStreak: objectiveStats.currentStreak,
+    cleanSheets: objectiveStats.cleanSheets,
+    goalMinuteBuckets: goalMinuteData.goalMinuteBuckets,
+    goalMinuteSampleSize: goalMinuteData.goalMinuteSampleSize,
   });
+}
+
+function buildObjectiveStats(matches, teamId) {
+  const split = {
+    home: emptySplitSide(),
+    away: emptySplitSide(),
+  };
+  let totalFor = 0;
+  let totalAgainst = 0;
+  let cleanSheets = 0;
+  let biggestWin = null;
+  let biggestLoss = null;
+  const streakResults = [];
+
+  for (const match of matches) {
+    const home = teamId === Number(match.home_team?.id || match.home_team_id);
+    const own = score(match, home ? "home" : "away") || 0;
+    const against = score(match, home ? "away" : "home") || 0;
+    const side = home ? split.home : split.away;
+    const opponent = home ? match.away_team?.name : match.home_team?.name;
+    const diff = own - against;
+
+    side.played += 1;
+    side.gf += own;
+    side.ga += against;
+    if (diff > 0) side.won += 1;
+    else if (diff < 0) side.lost += 1;
+    else side.drawn += 1;
+
+    totalFor += own;
+    totalAgainst += against;
+    if (against === 0) cleanSheets += 1;
+    streakResults.push(diff > 0 ? "W" : diff < 0 ? "L" : "D");
+
+    if (diff > 0 && (!biggestWin || diff > biggestWin.diff)) {
+      biggestWin = { diff, score: `${own}-${against}`, opponent: opponent || "rival" };
+    }
+    if (diff < 0 && (!biggestLoss || Math.abs(diff) > biggestLoss.diff)) {
+      biggestLoss = { diff: Math.abs(diff), score: `${own}-${against}`, opponent: opponent || "rival" };
+    }
+  }
+
+  return {
+    homeAwaySplit: split,
+    avgGoalsPerMatch: {
+      for: round1(matches.length ? totalFor / matches.length : 0),
+      against: round1(matches.length ? totalAgainst / matches.length : 0),
+    },
+    biggestWin: biggestWin ? { score: biggestWin.score, opponent: biggestWin.opponent } : null,
+    biggestLoss: biggestLoss ? { score: biggestLoss.score, opponent: biggestLoss.opponent } : null,
+    currentStreak: buildCurrentStreak(streakResults),
+    cleanSheets,
+  };
+}
+
+function emptySplitSide() {
+  return { played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0 };
+}
+
+function round1(value) {
+  return Math.round(value * 10) / 10;
+}
+
+function buildCurrentStreak(results) {
+  if (!results.length) return null;
+  const type = results[0];
+  let count = 0;
+  for (const result of results) {
+    if (result !== type) break;
+    count += 1;
+  }
+  return { type, count };
+}
+
+async function buildGoalMinuteData(matches, teamId) {
+  const buckets = [
+    { range: "0-15", goalsFor: 0, goalsAgainst: 0 },
+    { range: "16-30", goalsFor: 0, goalsAgainst: 0 },
+    { range: "31-45", goalsFor: 0, goalsAgainst: 0 },
+    { range: "46-60", goalsFor: 0, goalsAgainst: 0 },
+    { range: "61-75", goalsFor: 0, goalsAgainst: 0 },
+    { range: "76-90", goalsFor: 0, goalsAgainst: 0 },
+  ];
+  const eventRows = await Promise.all(
+    matches.map((match) =>
+      fetchLeagueJson(`/matches/${match.id}/events/`, 9000)
+        .then((value) => rows(value))
+        .catch(() => null),
+    ),
+  );
+  const readable = eventRows.filter((events) => Array.isArray(events));
+  for (const events of readable) {
+    for (const event of events) {
+      if (event?.event_type !== "goal") continue;
+      const minute = Number(event.minute) || 0;
+      const bucket = buckets[goalBucketIndex(minute)];
+      if (Number(event.team) === teamId) bucket.goalsFor += 1;
+      else bucket.goalsAgainst += 1;
+    }
+  }
+  return {
+    goalMinuteBuckets: buckets,
+    goalMinuteSampleSize: readable.length,
+  };
+}
+
+function goalBucketIndex(minute) {
+  if (minute <= 15) return 0;
+  if (minute <= 30) return 1;
+  if (minute <= 45) return 2;
+  if (minute <= 60) return 3;
+  if (minute <= 75) return 4;
+  return 5;
 }
 
 function rows(value) {

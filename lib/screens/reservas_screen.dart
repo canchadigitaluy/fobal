@@ -58,6 +58,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
   String? _tacticError;
   String? _fixtureError;
   String? _opponentError;
+  OpponentAnalysis? _opponentAnalysis;
   String _fixtureContext = '';
   List<LudFixtureMatch> _fixtureMatches = const [];
   List<TrainingSession> _matchPlans = const [];
@@ -563,6 +564,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   fixtureError: _fixtureError,
                   opponentLoading: _opponentLoading,
                   opponentError: _opponentError,
+                  opponentAnalysis: _opponentAnalysis,
                   fixtureMatches: _fixtureMatches,
                   fixtureContext: activeFixtureContext,
                   categoryName: category.name,
@@ -766,6 +768,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
       _fixtureContext = remembered?.fixtureContext ?? '';
       _fixtureError = remembered?.error;
       _fixtureLoading = false;
+      _opponentAnalysis = remembered?.opponentAnalysis;
       _rivalName = remembered?.rivalName ?? '';
       _rivalTableContext = remembered?.rivalTableContext ?? '';
       _rivalStyle = remembered?.rivalStyle ?? '';
@@ -807,6 +810,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
     _fixtureMemoryByCategory[key] = _FixtureMemory(
       matches: _fixtureMatches,
       error: _fixtureError,
+      opponentAnalysis: _opponentAnalysis,
       fixtureContext: _fixtureContext,
       rivalName: _rivalName,
       rivalTableContext: _rivalTableContext,
@@ -906,6 +910,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
   }) {
     setState(() {
       if (rivalName != null) _rivalName = rivalName;
+      if (rivalName != null) _opponentAnalysis = null;
       if (rivalTableContext != null) _rivalTableContext = rivalTableContext;
       if (rivalStyle != null) _rivalStyle = rivalStyle;
       if (squadProfile != null) _squadProfile = squadProfile;
@@ -1053,6 +1058,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
           _rivalStyle.trim() == _fixtureStylePlaceholder) {
         _rivalStyle = _fixtureStylePlaceholder;
       }
+      _opponentAnalysis = null;
     });
     _rememberFixtureState(_selectedCategoryId);
     Future.microtask(() => _loadOpponentAnalysis(match, force: forceOpponent));
@@ -1091,6 +1097,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
         _rivalStyle = analysis.styleSummary;
         _rivalDangerPlayers = analysis.dangerPlayers;
         _rivalMemory = analysis.memorySummary;
+        _opponentAnalysis = analysis;
         _opponentLoading = false;
       });
       _rememberFixtureState(category.id);
@@ -2600,6 +2607,7 @@ class _MatchPrepForm extends StatefulWidget {
   final String? fixtureError;
   final bool opponentLoading;
   final String? opponentError;
+  final OpponentAnalysis? opponentAnalysis;
   final List<LudFixtureMatch> fixtureMatches;
   final String fixtureContext;
   final String categoryName;
@@ -2632,6 +2640,7 @@ class _MatchPrepForm extends StatefulWidget {
     required this.fixtureError,
     required this.opponentLoading,
     required this.opponentError,
+    required this.opponentAnalysis,
     required this.fixtureMatches,
     required this.fixtureContext,
     required this.categoryName,
@@ -2757,6 +2766,11 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
                   : widget.opponentError!,
             ),
           ],
+          if (widget.opponentAnalysis != null) ...[
+            const SizedBox(height: 14),
+            const PremiumSectionHeader(title: 'Datos objetivos del rival'),
+            _OpponentObjectivePanel(analysis: widget.opponentAnalysis!),
+          ],
           const SizedBox(height: 10),
           TextFormField(
             controller: _rivalNameController,
@@ -2879,6 +2893,732 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
         ],
       ),
     );
+  }
+}
+
+class _OpponentObjectivePanel extends StatelessWidget {
+  final OpponentAnalysis analysis;
+
+  const _OpponentObjectivePanel({required this.analysis});
+
+  @override
+  Widget build(BuildContext context) {
+    final danger = _OpponentPlayerStat.fromDangerText(analysis.dangerPlayers);
+    final continuity = _OpponentPlayerStat.fromContinuityText(
+      analysis.squadSummary,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 720;
+            final cards = [
+              _GoalMinuteCard(analysis: analysis),
+              _OpponentMomentCard(analysis: analysis),
+            ];
+            if (narrow) {
+              return Column(
+                children: [
+                  cards[0],
+                  const SizedBox(height: 10),
+                  cards[1],
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: cards[0]),
+                const SizedBox(width: 10),
+                Expanded(child: cards[1]),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 680;
+            final lists = [
+              _OpponentPlayerList(
+                title: 'Goleadores del rival',
+                icon: Icons.sports_soccer,
+                emptyText: 'Sin estadísticas individuales verificables.',
+                players: danger,
+                color: CX.red,
+              ),
+              _OpponentPlayerList(
+                title: 'Más continuidad',
+                icon: Icons.timer_outlined,
+                emptyText: 'Sin minutos publicados para esta categoría.',
+                players: continuity,
+                color: CX.blue,
+              ),
+            ];
+            if (narrow) {
+              return Column(
+                children: [
+                  lists[0],
+                  const SizedBox(height: 10),
+                  lists[1],
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: lists[0]),
+                const SizedBox(width: 10),
+                Expanded(child: lists[1]),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 10),
+        _OpponentContextChips(analysis: analysis),
+      ],
+    );
+  }
+}
+
+class _GoalMinuteCard extends StatelessWidget {
+  final OpponentAnalysis analysis;
+
+  const _GoalMinuteCard({required this.analysis});
+
+  @override
+  Widget build(BuildContext context) {
+    final buckets = analysis.goalMinuteBuckets;
+    final maxGoals = buckets.fold<int>(
+      0,
+      (max, bucket) {
+        final localMax = bucket.goalsFor > bucket.goalsAgainst
+            ? bucket.goalsFor
+            : bucket.goalsAgainst;
+        return localMax > max ? localMax : max;
+      },
+    );
+    final hasMinuteData = analysis.goalMinuteSampleSize > 0 && buckets.isNotEmpty;
+    return _OpponentCard(
+      icon: Icons.stacked_bar_chart_outlined,
+      title: 'Franja horaria de gol',
+      color: CX.green,
+      child: hasMinuteData
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 132,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: buckets
+                        .map(
+                          (bucket) => Expanded(
+                            child: _GoalBucketBar(
+                              bucket: bucket,
+                              maxGoals: maxGoals == 0 ? 1 : maxGoals,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Wrap(
+                  spacing: 10,
+                  runSpacing: 6,
+                  children: [
+                    _LegendDot(label: 'A favor', color: CX.green),
+                    _LegendDot(label: 'En contra', color: CX.red),
+                  ],
+                ),
+                if (analysis.goalMinuteSampleSize < 5) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Basado en ${analysis.goalMinuteSampleSize} partidos',
+                    style: const TextStyle(color: CX.faint, fontSize: 10),
+                  ),
+                ],
+              ],
+            )
+          : const _PanelEmptyLine(
+              icon: Icons.info_outline,
+              text: 'Sin datos de minutos de gol para este rival',
+            ),
+    );
+  }
+}
+
+class _GoalBucketBar extends StatelessWidget {
+  final OpponentGoalBucket bucket;
+  final int maxGoals;
+
+  const _GoalBucketBar({required this.bucket, required this.maxGoals});
+
+  @override
+  Widget build(BuildContext context) {
+    double heightFor(int goals) => goals == 0 ? 4 : 18 + (goals / maxGoals) * 78;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 3),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          SizedBox(
+            height: 100,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _MinuteBar(
+                  height: heightFor(bucket.goalsFor),
+                  color: CX.green,
+                  value: bucket.goalsFor,
+                ),
+                const SizedBox(width: 3),
+                _MinuteBar(
+                  height: heightFor(bucket.goalsAgainst),
+                  color: CX.red,
+                  value: bucket.goalsAgainst,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            bucket.range,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: CX.faint, fontSize: 9),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MinuteBar extends StatelessWidget {
+  final double height;
+  final Color color;
+  final int value;
+
+  const _MinuteBar({
+    required this.height,
+    required this.color,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: '$value goles',
+      child: AnimatedContainer(
+        duration: CX.motion,
+        curve: CX.curve,
+        width: 9,
+        height: height,
+        decoration: BoxDecoration(
+          color: value == 0 ? color.withValues(alpha: .18) : color,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+    );
+  }
+}
+
+class _OpponentMomentCard extends StatelessWidget {
+  final OpponentAnalysis analysis;
+
+  const _OpponentMomentCard({required this.analysis});
+
+  @override
+  Widget build(BuildContext context) {
+    final standing = _StandingRead.fromText(analysis.tableContext);
+    final standingColor = standing.color;
+    final streak = _streakLabel(analysis.streakType, analysis.streakCount);
+    return _OpponentCard(
+      icon: Icons.show_chart,
+      title: 'Forma y momento',
+      color: standingColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                standing.rankLabel,
+                style: TextStyle(
+                  color: standingColor,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 5),
+                  child: Text(
+                    standing.totalLabel,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: CX.muted, fontSize: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (analysis.recentMatches.isNotEmpty)
+            Row(
+              children: analysis.recentMatches.take(5).map((match) {
+                final read = _FormRead.fromText(match);
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 5),
+                    child: FormPill(
+                      outcome: read.outcome,
+                      score: read.score,
+                      rival: read.rival,
+                      onDark: false,
+                    ),
+                  ),
+                );
+              }).toList(),
+            )
+          else
+            const _PanelEmptyLine(
+              icon: Icons.history_toggle_off_outlined,
+              text: 'Sin forma reciente verificable.',
+            ),
+          const SizedBox(height: 12),
+          StatusPill(streak, _streakColor(analysis.streakType)),
+        ],
+      ),
+    );
+  }
+
+  String _streakLabel(String? type, int count) {
+    if (type == null || count <= 0) return 'Sin racha verificable';
+    final label = switch (type) {
+      'W' => 'triunfos',
+      'D' => 'empates',
+      'L' => 'derrotas',
+      _ => 'partidos',
+    };
+    return 'Racha: $count $label';
+  }
+
+  Color _streakColor(String? type) => switch (type) {
+    'W' => CX.green,
+    'D' => CX.amber,
+    'L' => CX.red,
+    _ => CX.faint,
+  };
+}
+
+class _OpponentPlayerList extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final String emptyText;
+  final List<_OpponentPlayerStat> players;
+  final Color color;
+
+  const _OpponentPlayerList({
+    required this.title,
+    required this.icon,
+    required this.emptyText,
+    required this.players,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _OpponentCard(
+      icon: icon,
+      title: title,
+      color: color,
+      compact: true,
+      child: players.isEmpty
+          ? _PanelEmptyLine(icon: Icons.info_outline, text: emptyText)
+          : Column(
+              children: players.take(5).map((player) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 26,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: .1),
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Icon(icon, color: color, size: 14),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              player.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              player.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: CX.faint,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+    );
+  }
+}
+
+class _OpponentContextChips extends StatelessWidget {
+  final OpponentAnalysis analysis;
+
+  const _OpponentContextChips({required this.analysis});
+
+  @override
+  Widget build(BuildContext context) {
+    final home = analysis.homeAwaySplit.home;
+    final away = analysis.homeAwaySplit.away;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _OpponentContextChip(
+          icon: Icons.home_outlined,
+          value: _splitLabel(home),
+          label: 'Local',
+          color: CX.green,
+        ),
+        _OpponentContextChip(
+          icon: Icons.flight_takeoff_outlined,
+          value: _splitLabel(away),
+          label: 'Visitante',
+          color: CX.blue,
+        ),
+        _OpponentContextChip(
+          icon: Icons.sports_score_outlined,
+          value:
+              '${analysis.avgGoalsFor.toStringAsFixed(1)} / ${analysis.avgGoalsAgainst.toStringAsFixed(1)}',
+          label: 'Prom. GF/GC',
+          color: CX.amber,
+        ),
+        _OpponentContextChip(
+          icon: Icons.trending_up,
+          value: _resultLabel(
+            analysis.biggestWinScore,
+            analysis.biggestWinOpponent,
+          ),
+          label: 'Mayor goleada',
+          color: CX.green,
+        ),
+        _OpponentContextChip(
+          icon: Icons.trending_down,
+          value: _resultLabel(
+            analysis.biggestLossScore,
+            analysis.biggestLossOpponent,
+          ),
+          label: 'Peor derrota',
+          color: CX.red,
+        ),
+        _OpponentContextChip(
+          icon: Icons.shield_outlined,
+          value: '${analysis.cleanSheets}',
+          label: 'Vallas invictas',
+          color: CX.blue,
+        ),
+      ],
+    );
+  }
+
+  String _splitLabel(OpponentSplitSide side) {
+    return '${side.played} PJ / ${side.won}G ${side.drawn}E ${side.lost}P / ${side.gf}-${side.ga}';
+  }
+
+  String _resultLabel(String? score, String? opponent) {
+    if (score == null) return 'Sin dato';
+    final rival = opponent == null ? '' : ' vs $opponent';
+    return '$score$rival';
+  }
+}
+
+class _OpponentContextChip extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+
+  const _OpponentContextChip({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 260),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .07),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: .18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: CX.faint, fontSize: 9),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OpponentCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color color;
+  final Widget child;
+  final bool compact;
+
+  const _OpponentCard({
+    required this.icon,
+    required this.title,
+    required this.color,
+    required this.child,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(compact ? 12 : 14),
+      decoration: BoxDecoration(
+        color: CX.panel2,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: .2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: compact ? 10 : 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _LegendDot({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: const TextStyle(color: CX.muted, fontSize: 10),
+        ),
+      ],
+    );
+  }
+}
+
+class _PanelEmptyLine extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _PanelEmptyLine({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: CX.faint, size: 15),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(color: CX.muted, fontSize: 12, height: 1.35),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StandingRead {
+  final int? rank;
+  final int? total;
+
+  const _StandingRead({this.rank, this.total});
+
+  factory _StandingRead.fromText(String text) {
+    final match = RegExp(r'Puesto\s+(\d+)\s+de\s+(\d+)').firstMatch(text);
+    return _StandingRead(
+      rank: int.tryParse(match?.group(1) ?? ''),
+      total: int.tryParse(match?.group(2) ?? ''),
+    );
+  }
+
+  String get rankLabel => rank == null ? '--' : '#$rank';
+
+  String get totalLabel => total == null ? 'Tabla sin posición verificable' : 'de $total equipos';
+
+  Color get color {
+    if (rank == null || total == null || total! <= 0) return CX.faint;
+    final topCut = total! < 4 ? 1 : 4;
+    final redFrom = ((total! * 2) / 3).floor() + 1;
+    if (rank! <= topCut) return CX.green;
+    if (rank! >= redFrom) return CX.red;
+    return CX.amber;
+  }
+}
+
+class _FormRead {
+  final String outcome;
+  final String? score;
+  final String? rival;
+
+  const _FormRead({required this.outcome, this.score, this.rival});
+
+  factory _FormRead.fromText(String text) {
+    final match = RegExp(r'^([GEP])\s+(\d+-\d+)\s+vs\s+(.+)$').firstMatch(text);
+    return _FormRead(
+      outcome: match?.group(1) ?? 'E',
+      score: match?.group(2),
+      rival: match?.group(3),
+    );
+  }
+}
+
+class _OpponentPlayerStat {
+  final String name;
+  final String subtitle;
+
+  const _OpponentPlayerStat({required this.name, required this.subtitle});
+
+  static List<_OpponentPlayerStat> fromDangerText(String text) {
+    return text
+        .split(';')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .map((part) {
+          final match = RegExp(
+            r'^(.+?):\s*(\d+)\s+goles,\s*(\d+)\s+asistencias,\s*(\d+)\s+min',
+          ).firstMatch(part);
+          if (match == null) return null;
+          return _OpponentPlayerStat(
+            name: match.group(1)!.trim(),
+            subtitle:
+                '${match.group(2)} goles / ${match.group(3)} asist. / ${match.group(4)} min',
+          );
+        })
+        .whereType<_OpponentPlayerStat>()
+        .toList();
+  }
+
+  static List<_OpponentPlayerStat> fromContinuityText(String text) {
+    final clean = text.replaceFirst(
+      RegExp(r'^Jugadores con mayor continuidad:\s*'),
+      '',
+    );
+    return clean
+        .replaceFirst(RegExp(r'\.\s*$'), '')
+        .split(';')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .map((part) {
+          final match = RegExp(
+            r'^(.+?)\s+\((\d+)\s+min,\s*(\d+)\s+PJ(?:,\s*(.+))?\)$',
+          ).firstMatch(part);
+          if (match == null) return null;
+          final position = match.group(4)?.trim();
+          return _OpponentPlayerStat(
+            name: match.group(1)!.trim(),
+            subtitle:
+                '${match.group(2)} min / ${match.group(3)} PJ${position == null || position.isEmpty ? '' : ' / $position'}',
+          );
+        })
+        .whereType<_OpponentPlayerStat>()
+        .toList();
   }
 }
 
@@ -3269,6 +4009,7 @@ class _FixtureQualityNotice extends StatelessWidget {
 class _FixtureMemory {
   final List<LudFixtureMatch> matches;
   final String? error;
+  final OpponentAnalysis? opponentAnalysis;
   final String fixtureContext;
   final String rivalName;
   final String rivalTableContext;
@@ -3288,6 +4029,7 @@ class _FixtureMemory {
   const _FixtureMemory({
     required this.matches,
     required this.error,
+    required this.opponentAnalysis,
     required this.fixtureContext,
     required this.rivalName,
     required this.rivalTableContext,
@@ -3310,6 +4052,7 @@ class _FixtureMemory {
     return _FixtureMemory(
       matches: const [],
       error: null,
+      opponentAnalysis: null,
       fixtureContext: json['fixtureContext'] as String? ?? '',
       rivalName: json['rivalName'] as String? ?? '',
       rivalTableContext: json['rivalTableContext'] as String? ?? '',

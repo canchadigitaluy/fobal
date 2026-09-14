@@ -759,6 +759,19 @@ class OpponentAnalysis {
   final String dangerPlayers;
   final String memorySummary;
   final String squadSummary;
+  final List<String> recentMatches;
+  final OpponentHomeAwaySplit homeAwaySplit;
+  final double avgGoalsFor;
+  final double avgGoalsAgainst;
+  final String? biggestWinScore;
+  final String? biggestWinOpponent;
+  final String? biggestLossScore;
+  final String? biggestLossOpponent;
+  final String? streakType;
+  final int streakCount;
+  final int cleanSheets;
+  final List<OpponentGoalBucket> goalMinuteBuckets;
+  final int goalMinuteSampleSize;
 
   const OpponentAnalysis({
     required this.tableContext,
@@ -766,15 +779,152 @@ class OpponentAnalysis {
     required this.dangerPlayers,
     required this.memorySummary,
     required this.squadSummary,
+    this.recentMatches = const [],
+    this.homeAwaySplit = OpponentHomeAwaySplit.empty,
+    this.avgGoalsFor = 0,
+    this.avgGoalsAgainst = 0,
+    this.biggestWinScore,
+    this.biggestWinOpponent,
+    this.biggestLossScore,
+    this.biggestLossOpponent,
+    this.streakType,
+    this.streakCount = 0,
+    this.cleanSheets = 0,
+    this.goalMinuteBuckets = const [],
+    this.goalMinuteSampleSize = 0,
   });
 
   factory OpponentAnalysis.fromJson(Map<String, dynamic> json) {
+    final avg = _mapOf(json['avgGoalsPerMatch']);
+    final biggestWin = _mapOf(json['biggestWin']);
+    final biggestLoss = _mapOf(json['biggestLoss']);
+    final streak = _mapOf(json['currentStreak']);
+    final streakType = streak['type']?.toString();
     return OpponentAnalysis(
       tableContext: json['tableContext']?.toString() ?? '',
       styleSummary: json['styleSummary']?.toString() ?? '',
       dangerPlayers: json['dangerPlayers']?.toString() ?? '',
       memorySummary: json['memorySummary']?.toString() ?? '',
       squadSummary: json['squadSummary']?.toString() ?? '',
+      recentMatches: (json['recentMatches'] as List<dynamic>? ?? const [])
+          .map((value) => value.toString())
+          .where((value) => value.trim().isNotEmpty)
+          .toList(),
+      homeAwaySplit: OpponentHomeAwaySplit.fromJson(
+        _mapOf(json['homeAwaySplit']),
+      ),
+      avgGoalsFor: _doubleOf(avg['for']),
+      avgGoalsAgainst: _doubleOf(avg['against']),
+      biggestWinScore: _stringOrNull(biggestWin['score']),
+      biggestWinOpponent: _stringOrNull(biggestWin['opponent']),
+      biggestLossScore: _stringOrNull(biggestLoss['score']),
+      biggestLossOpponent: _stringOrNull(biggestLoss['opponent']),
+      streakType: streakType == 'W' || streakType == 'D' || streakType == 'L'
+          ? streakType
+          : null,
+      streakCount: _intOf(streak['count']),
+      cleanSheets: _intOf(json['cleanSheets']),
+      goalMinuteBuckets:
+          (json['goalMinuteBuckets'] as List<dynamic>? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .map(OpponentGoalBucket.fromJson)
+              .toList(),
+      goalMinuteSampleSize: _intOf(json['goalMinuteSampleSize']),
+    );
+  }
+
+  static Map<String, dynamic> _mapOf(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return const {};
+  }
+
+  static int _intOf(Object? value) =>
+      value is num ? value.toInt() : int.tryParse('${value ?? ''}') ?? 0;
+
+  static double _doubleOf(Object? value) => value is num
+      ? value.toDouble()
+      : double.tryParse('${value ?? ''}') ?? 0;
+
+  static String? _stringOrNull(Object? value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
+  }
+}
+
+class OpponentHomeAwaySplit {
+  final OpponentSplitSide home;
+  final OpponentSplitSide away;
+
+  static const empty = OpponentHomeAwaySplit(
+    home: OpponentSplitSide.empty,
+    away: OpponentSplitSide.empty,
+  );
+
+  const OpponentHomeAwaySplit({required this.home, required this.away});
+
+  factory OpponentHomeAwaySplit.fromJson(Map<String, dynamic> json) {
+    return OpponentHomeAwaySplit(
+      home: OpponentSplitSide.fromJson(OpponentAnalysis._mapOf(json['home'])),
+      away: OpponentSplitSide.fromJson(OpponentAnalysis._mapOf(json['away'])),
+    );
+  }
+}
+
+class OpponentSplitSide {
+  final int played;
+  final int won;
+  final int drawn;
+  final int lost;
+  final int gf;
+  final int ga;
+
+  static const empty = OpponentSplitSide(
+    played: 0,
+    won: 0,
+    drawn: 0,
+    lost: 0,
+    gf: 0,
+    ga: 0,
+  );
+
+  const OpponentSplitSide({
+    required this.played,
+    required this.won,
+    required this.drawn,
+    required this.lost,
+    required this.gf,
+    required this.ga,
+  });
+
+  factory OpponentSplitSide.fromJson(Map<String, dynamic> json) {
+    return OpponentSplitSide(
+      played: OpponentAnalysis._intOf(json['played']),
+      won: OpponentAnalysis._intOf(json['won']),
+      drawn: OpponentAnalysis._intOf(json['drawn']),
+      lost: OpponentAnalysis._intOf(json['lost']),
+      gf: OpponentAnalysis._intOf(json['gf']),
+      ga: OpponentAnalysis._intOf(json['ga']),
+    );
+  }
+}
+
+class OpponentGoalBucket {
+  final String range;
+  final int goalsFor;
+  final int goalsAgainst;
+
+  const OpponentGoalBucket({
+    required this.range,
+    required this.goalsFor,
+    required this.goalsAgainst,
+  });
+
+  factory OpponentGoalBucket.fromJson(Map<String, dynamic> json) {
+    return OpponentGoalBucket(
+      range: json['range']?.toString() ?? '',
+      goalsFor: OpponentAnalysis._intOf(json['goalsFor']),
+      goalsAgainst: OpponentAnalysis._intOf(json['goalsAgainst']),
     );
   }
 }

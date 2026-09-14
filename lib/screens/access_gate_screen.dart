@@ -408,11 +408,11 @@ class _PreviewClubPickerState extends State<_PreviewClubPicker> {
             onLeave: widget.onLeave,
           );
           if (narrow) {
-            return SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [brand, picker],
-              ),
+            return Column(
+              children: [
+                brand,
+                Expanded(child: picker),
+              ],
             );
           }
           return Row(
@@ -1198,11 +1198,11 @@ class _CategoryPicker extends StatelessWidget {
             onBack: onBack,
           );
           if (narrow) {
-            return SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [brand, picker],
-              ),
+            return Column(
+              children: [
+                brand,
+                Expanded(child: picker),
+              ],
             );
           }
           return Row(

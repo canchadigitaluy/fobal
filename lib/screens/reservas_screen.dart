@@ -2802,51 +2802,61 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
                 labelText: 'Nombre del rival',
                 onChanged: widget.onRivalName,
               ),
-              _MatchPrepFieldDivider(compact: compact),
-              _matchPrepTextField(
-                controller: _tableContextController,
-                labelText: 'Como viene en la tabla o momento actual',
-                hintText:
-                    'Ej: tercero, cuatro triunfos seguidos, recibe pocos goles',
-                onChanged: widget.onRivalTableContext,
-              ),
+              // Tabla/forma/jugadores a vigilar ya se muestran como chips de
+              // color en "Datos objetivos del rival" arriba (parseados de
+              // este mismo texto) — repetirlos acá como formulario sería
+              // mostrar la misma info dos veces. Los campos siguen existiendo
+              // (el valor auto-completado sigue alimentando la generación de
+              // táctica), solo se ocultan de la UI cuando hay datos objetivos.
+              if (widget.opponentAnalysis == null) ...[
+                _MatchPrepFieldDivider(compact: compact),
+                _matchPrepTextField(
+                  controller: _tableContextController,
+                  labelText: 'Como viene en la tabla o momento actual',
+                  hintText:
+                      'Ej: tercero, cuatro triunfos seguidos, recibe pocos goles',
+                  onChanged: widget.onRivalTableContext,
+                ),
+              ],
             ],
           ),
-          SizedBox(height: compact ? 7 : 10),
-          _MatchPrepInputSection(
-            icon: Icons.travel_explore_outlined,
-            title: 'Estilo de juego',
-            color: CX.amber,
-            compact: compact,
-            children: [
-              _matchPrepTextField(
-                controller: _rivalStyleController,
-                maxLines: 3,
-                labelText: 'Como juega: fortalezas y debilidades',
-                hintText:
-                    'Sistema, salida, presion, zonas fuertes y espacios que concede',
-                onChanged: widget.onRivalStyle,
-              ),
-              _MatchPrepFieldDivider(compact: compact),
-              _matchPrepTextField(
-                controller: _rivalMemoryController,
-                maxLines: 3,
-                labelText: 'Memoria del rival',
-                hintText:
-                    'Ej: en la ida sufrimos al 4 en el juego aereo; nos costaron sus cambios de frente',
-                onChanged: widget.onRivalMemory,
-              ),
-              _MatchPrepFieldDivider(compact: compact),
-              _matchPrepTextField(
-                controller: _rivalDangerPlayersController,
-                maxLines: 2,
-                labelText: 'Jugadores o patrones rivales a vigilar',
-                hintText:
-                    'Ej: el 11 ataca espalda del lateral; el 9 descarga bien de espaldas',
-                onChanged: widget.onRivalDangerPlayers,
-              ),
-            ],
-          ),
+          if (widget.opponentAnalysis == null) ...[
+            SizedBox(height: compact ? 7 : 10),
+            _MatchPrepInputSection(
+              icon: Icons.travel_explore_outlined,
+              title: 'Estilo de juego',
+              color: CX.amber,
+              compact: compact,
+              children: [
+                _matchPrepTextField(
+                  controller: _rivalStyleController,
+                  maxLines: 3,
+                  labelText: 'Como juega: fortalezas y debilidades',
+                  hintText:
+                      'Sistema, salida, presion, zonas fuertes y espacios que concede',
+                  onChanged: widget.onRivalStyle,
+                ),
+                _MatchPrepFieldDivider(compact: compact),
+                _matchPrepTextField(
+                  controller: _rivalMemoryController,
+                  maxLines: 3,
+                  labelText: 'Memoria del rival',
+                  hintText:
+                      'Ej: en la ida sufrimos al 4 en el juego aereo; nos costaron sus cambios de frente',
+                  onChanged: widget.onRivalMemory,
+                ),
+                _MatchPrepFieldDivider(compact: compact),
+                _matchPrepTextField(
+                  controller: _rivalDangerPlayersController,
+                  maxLines: 2,
+                  labelText: 'Jugadores o patrones rivales a vigilar',
+                  hintText:
+                      'Ej: el 11 ataca espalda del lateral; el 9 descarga bien de espaldas',
+                  onChanged: widget.onRivalDangerPlayers,
+                ),
+              ],
+            ),
+          ],
           SizedBox(height: compact ? 7 : 10),
           _MatchPrepInputSection(
             icon: Icons.groups_2_outlined,
@@ -2933,9 +2943,25 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
+      style: TextStyle(
+        fontSize: 13,
+        height: 1.45,
+        color: CX.white.withValues(alpha: .88),
+      ),
       decoration: InputDecoration(
         labelText: labelText,
         hintText: hintText,
+        labelStyle: const TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: CX.faint,
+        ),
+        floatingLabelStyle: const TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w800,
+          color: CX.green,
+        ),
+        hintStyle: const TextStyle(fontSize: 12.5, color: CX.faint),
         alignLabelWithHint: hasMultipleLines,
         border: InputBorder.none,
         enabledBorder: InputBorder.none,

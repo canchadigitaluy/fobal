@@ -2742,6 +2742,7 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
       rivalName: widget.rivalName,
       rivalStyle: widget.rivalStyle,
       squadProfile: widget.effectiveSquadProfile,
+      hasObjectiveData: widget.opponentAnalysis != null,
     );
     return Container(
       padding: EdgeInsets.all(compact ? 11 : 15),
@@ -3841,15 +3842,19 @@ class _MatchReadiness {
     required String rivalName,
     required String rivalStyle,
     required String squadProfile,
+    bool hasObjectiveData = false,
   }) {
     final cleanStyle = rivalStyle.trim() == _fixtureStylePlaceholder
         ? ''
         : rivalStyle.trim();
     final scouting = _ScoutingQuality.fromText(cleanStyle);
+    // With real objective data (tabla, forma, franja de gol, goleadores) the
+    // DT no longer types free-text tactical keywords into a field we now
+    // hide — that data source replaces the keyword-based scouting check.
     return _MatchReadiness(
       hasFixtureOrDate: fixtureContext.trim().isNotEmpty,
       hasRival: rivalName.trim().length >= 3,
-      hasRivalStyle: scouting.ready,
+      hasRivalStyle: hasObjectiveData || scouting.ready,
       hasSquadProfile: squadProfile.trim().length >= 18,
       scouting: scouting,
     );

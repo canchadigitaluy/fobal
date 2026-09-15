@@ -262,21 +262,10 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
           body: SafeArea(
             child: LayoutBuilder(
               builder: (context, viewport) {
-                final cardHeight = (viewport.maxHeight - 44).clamp(
-                  420.0,
-                  double.infinity,
-                );
-                return Padding(
-                  padding: const EdgeInsets.all(22),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: 920,
-                        maxHeight: cardHeight,
-                      ),
-                      child: SizedBox(
-                        height: cardHeight,
-                        child: _categoryMembership != null
+                return SizedBox(
+                  width: viewport.maxWidth,
+                  height: viewport.maxHeight,
+                  child: _categoryMembership != null
                             ? _CategoryPicker(
                                 clubName: _categoryMembership!.clubName,
                                 clubLogoUrl: _categoryClubLogoUrl,
@@ -305,9 +294,6 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
                                 onEnterCollaboration: _enterCollaboration,
                                 onLeave: _leave,
                               ),
-                      ),
-                    ),
-                  ),
                 );
               },
             ),
@@ -373,19 +359,7 @@ class _PreviewClubPickerState extends State<_PreviewClubPicker> {
     final visible = filtered.take(_clubPickerVisibleCap).toList();
 
     return Container(
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: CX.line),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1F0D1A14),
-            blurRadius: 40,
-            offset: Offset(0, 20),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
+      color: CX.panel,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final narrow = constraints.maxWidth < 700;
@@ -1181,19 +1155,7 @@ class _CategoryPicker extends StatelessWidget {
       orElse: () => null,
     );
     return Container(
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: CX.line),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1F0D1A14),
-            blurRadius: 40,
-            offset: Offset(0, 20),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
+      color: CX.panel,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final narrow = constraints.maxWidth < 700;

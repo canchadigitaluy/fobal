@@ -516,7 +516,27 @@ class _ModernLoginView extends StatelessWidget {
               ],
             )
           else
-            Center(child: form),
+            Center(
+              child: Theme(
+                data: ThemeData.dark(useMaterial3: true).copyWith(
+                  colorScheme: const ColorScheme.dark(
+                    primary: Color(0xFF6EF2C7),
+                    surface: Color(0x33212925),
+                  ),
+                  inputDecorationTheme: InputDecorationTheme(
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: .16),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: Colors.white.withValues(alpha: .22),
+                      ),
+                    ),
+                  ),
+                ),
+                child: form,
+              ),
+            ),
           // Deliberately unlabeled — the real door is /api/admin-accounts,
           // which re-checks platform_admins server-side either way.
           Positioned(

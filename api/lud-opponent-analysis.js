@@ -13,15 +13,22 @@ export default async function handler(req, res) {
   const categoryName = String(req.query.categoryName || "").trim();
   if (!Number.isInteger(teamId)) return res.status(400).json({ error: "invalid_team" });
 
-  const [seasonRaw, matchesRaw, standingsRaw] = await Promise.all([
-    fetchLeagueJson(`/teams/${teamId}/season-players/`, 9000).catch(() => []),
-    Number.isInteger(phaseId)
-      ? fetchLeagueJson(`/phases/${phaseId}/matches/`, 9000).catch(() => [])
-      : Promise.resolve([]),
-    Number.isInteger(phaseId)
-      ? fetchLeagueJson(`/phases/${phaseId}/standings/`, 9000).catch(() => [])
-      : Promise.resolve([]),
-  ]);
+  const seasonPromise = fetchLeagueJson(`/teams/${teamId}/season-players/`, 9000).catch(() => []);
+  const matchesPromise = Number.isInteger(phaseId)
+    ? fetchLeagueJson(`/phases/${phaseId}/matches/`, 9000).catch(() => [])
+    : Promise.resolve([]);
+  const standingsPromise = Number.isInteger(phaseId)
+    ? fetchLeagueJson(`/phases/${phaseId}/standings/`, 9000).catch(() => [])
+    : Promise.resolve([]);
+
+  const matchesRaw = await matchesPromise;
+  const allFinishedForEvents = rows(matchesRaw)
+    .filter((match) => belongs(match, teamId) && score(match, "home") != null && score(match, "away") != null)
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+    .slice(0, 5);
+  const goalMinutePromise = buildGoalMinuteData(allFinishedForEvents, teamId);
+
+  const [seasonRaw, standingsRaw] = await Promise.all([seasonPromise, standingsPromise]);
 
   const entries = rows(seasonRaw).filter((entry) =>
     sameCategory(entry.category || entry.category_name, categoryName),
@@ -69,7 +76,7 @@ export default async function handler(req, res) {
     return `${own > against ? "G" : own < against ? "P" : "E"} ${own}-${against} vs ${opponent || "rival"}`;
   });
   const objectiveStats = buildObjectiveStats(allFinished, teamId);
-  const goalMinuteData = await buildGoalMinuteData(allFinished.slice(0, 5), teamId);
+  const goalMinuteData = await goalMinutePromise;
 
   const standings = rows(standingsRaw);
   const standingIndex = standings.findIndex((row) =>

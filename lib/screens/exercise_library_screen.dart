@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/exercise_library_service.dart';
+import '../services/offline_mutation_service.dart';
 import '../ui/exercise_animation_preview.dart';
 import '../ui/ui_kit.dart';
 
@@ -95,9 +96,10 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
       );
       if (confirmed != true || !mounted) return;
     }
-    scope.updateClub(
-      club.copyWith(savedExercises: [result, ...libraryWithoutSelf]),
-    );
+    final nextExercises = [result, ...libraryWithoutSelf];
+    scope.updateClub(club.copyWith(savedExercises: nextExercises));
+    await _saveLibraryOfflineFirst(nextExercises);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -132,14 +134,26 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
     );
     if (confirmed != true || !mounted) return;
     final scope = AppScope.of(context);
-    scope.updateClub(
-      club.copyWith(
-        savedExercises:
-            club.savedExercises.where((item) => item.id != exercise.id).toList(),
-      ),
-    );
+    final nextExercises =
+        club.savedExercises.where((item) => item.id != exercise.id).toList();
+    scope.updateClub(club.copyWith(savedExercises: nextExercises));
+    await _saveLibraryOfflineFirst(nextExercises);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Borrado: ${exercise.name}')),
+    );
+  }
+
+  Future<void> _saveLibraryOfflineFirst(List<Exercise> exercises) async {
+    await OfflineMutationService.instance.saveTacticalDataOfflineFirst(
+      type: 'exercise_library',
+      title: 'Biblioteca de ejercicios',
+      content: {
+        'kind': 'exercise_library',
+        'exercises': [for (final exercise in exercises) exercise.toJson()],
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      },
+      categoryId: _categoryId.isEmpty ? null : _categoryId,
     );
   }
 
@@ -445,12 +459,14 @@ class _ExerciseCard extends StatelessWidget {
 /// captured with the exact same fields/validation as a library exercise.
 class ExerciseEditDialog extends StatefulWidget {
   final Exercise? existing;
+  final Exercise? prefill;
   final List<CategorySquad> categories;
   final String defaultCategoryId;
 
   const ExerciseEditDialog({
     super.key,
     this.existing,
+    this.prefill,
     required this.categories,
     required this.defaultCategoryId,
   });
@@ -476,7 +492,7 @@ class _ExerciseEditDialogState extends State<ExerciseEditDialog> {
   @override
   void initState() {
     super.initState();
-    final e = widget.existing;
+    final e = widget.existing ?? widget.prefill;
     _name = TextEditingController(text: e?.name ?? '');
     _description = TextEditingController(text: e?.description ?? '');
     _objective = TextEditingController(text: e?.objective ?? '');

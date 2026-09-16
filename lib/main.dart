@@ -1385,16 +1385,50 @@ class _MembershipHydratorState extends State<_MembershipHydrator> {
     if (!mounted) return;
 
     Methodology? sharedMethodology;
+    final remoteAttendanceByKey = <String, AttendanceRecord>{};
+    final remoteMatchPreparationsById = <String, MatchPreparation>{};
+    final remoteCallUpsByKey = <String, CallUp>{};
     for (final record in sharedRecords) {
-      if (record.type != 'methodology') continue;
-      final raw = record.content['methodology'];
-      if (raw is Map) {
-        sharedMethodology = Methodology.fromJson(
-          Map<String, dynamic>.from(raw),
-        );
-        break;
-      }
+      try {
+        if (record.type == 'methodology') {
+          final raw = record.content['methodology'];
+          if (raw is Map && sharedMethodology == null) {
+            sharedMethodology = Methodology.fromJson(
+              Map<String, dynamic>.from(raw),
+            );
+          }
+        } else if (record.type == 'attendance') {
+          final attendance = AttendanceRecord.fromJson(record.content);
+          if (attendance.categoryId.isNotEmpty &&
+              attendance.date.isNotEmpty) {
+            remoteAttendanceByKey.putIfAbsent(
+              '${attendance.categoryId}|${attendance.date}',
+              () => attendance,
+            );
+          }
+        } else if (record.type == 'match_preparation') {
+          final prep = MatchPreparation.fromJson(record.content);
+          if (prep.id.isNotEmpty && prep.categoryId.isNotEmpty) {
+            remoteMatchPreparationsById.putIfAbsent(prep.id, () => prep);
+          }
+        } else if (record.type == 'call_up') {
+          final callUp = CallUp.fromJson(record.content);
+          if (callUp.calendarKey.isNotEmpty && callUp.categoryId.isNotEmpty) {
+            remoteCallUpsByKey.putIfAbsent(
+              '${callUp.categoryId}|${callUp.calendarKey}',
+              () => callUp,
+            );
+          }
+        }
+      } catch (_) {}
     }
+
+    final remoteAttendance = remoteAttendanceByKey.values.toList();
+    final remoteMatchPreparations = remoteMatchPreparationsById.values.toList();
+    final remoteCallUps = remoteCallUpsByKey.values.toList();
+    final attendanceKeys = remoteAttendanceByKey.keys.toSet();
+    final prepIds = remoteMatchPreparationsById.keys.toSet();
+    final callUpKeys = remoteCallUpsByKey.keys.toSet();
 
     final basePlayers = contextData == null
         ? localClub.players
@@ -1428,6 +1462,24 @@ class _MembershipHydratorState extends State<_MembershipHydrator> {
           players: basePlayers,
           records: sharedRecords,
         ),
+        attendanceRecords: [
+          ...remoteAttendance,
+          ...localClub.attendanceRecords.where(
+            (item) => !attendanceKeys.contains('${item.categoryId}|${item.date}'),
+          ),
+        ],
+        matchPreparations: [
+          ...remoteMatchPreparations,
+          ...localClub.matchPreparations.where(
+            (item) => !prepIds.contains(item.id),
+          ),
+        ],
+        callUps: [
+          ...remoteCallUps,
+          ...localClub.callUps.where(
+            (item) => !callUpKeys.contains('${item.categoryId}|${item.calendarKey}'),
+          ),
+        ],
       ),
     );
     final allCategories = contextData?.categories ?? localClub.categories;

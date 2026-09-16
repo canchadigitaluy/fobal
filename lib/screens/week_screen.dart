@@ -1,9 +1,15 @@
+// ignore_for_file: avoid_web_libraries_in_flutter
+
+import 'dart:convert';
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/attendance_stats_service.dart';
 import '../services/plantel_service.dart';
+import '../state/calendar_events.dart';
 import '../services/week_view_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/ui_kit.dart';
@@ -71,6 +77,15 @@ class _WeekScreenState extends State<WeekScreen> {
       _week,
       categoryId: activeCategory.id,
     );
+    final sessions = club.sessions.where((session) {
+      if (session.categoryId != activeCategory.id) return false;
+      final date = DateTime.tryParse(session.scheduledDate);
+      if (date == null) return false;
+      final day = DateTime(date.year, date.month, date.day);
+      return !day.isBefore(_week) &&
+          day.isBefore(_week.add(const Duration(days: 7)));
+    }).toList();
+    final calendarEvents = _calendarEventsForWeek(club, activeCategory.id);
     final rates = attendance.map(attendanceRecordRate).whereType<double>();
     final average = rates.isEmpty
         ? null
@@ -220,7 +235,10 @@ class _WeekScreenState extends State<WeekScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          if (attendance.isEmpty && matches.isEmpty)
+          if (attendance.isEmpty &&
+              matches.isEmpty &&
+              sessions.isEmpty &&
+              calendarEvents.isEmpty)
             const EmptyStatePanel(
               icon: Icons.event_available_outlined,
               title: 'Semana sin actividad registrada',
@@ -235,11 +253,71 @@ class _WeekScreenState extends State<WeekScreen> {
               matches: matches,
             )
           else
-            _Agenda(attendance: attendance, matches: matches),
+            _Agenda(
+              attendance: attendance,
+              matches: matches,
+              sessions: sessions,
+              calendarEvents: calendarEvents,
+            ),
         ],
       ),
     );
   }
+
+  List<_WeekCalendarEvent> _calendarEventsForWeek(
+    CanteraClub club,
+    String categoryId,
+  ) {
+    final raw =
+        html.window.localStorage['cantera_calendar_${club.id}_$categoryId'];
+    if (raw == null || raw.isEmpty) return const [];
+    final out = <_WeekCalendarEvent>[];
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      for (final entry in data.entries) {
+        final day = DateTime.tryParse(entry.key);
+        if (day == null ||
+            day.isBefore(_week) ||
+            !day.isBefore(_week.add(const Duration(days: 7)))) {
+          continue;
+        }
+        for (final rawEvent in entry.value as List<dynamic>? ?? const []) {
+          if (rawEvent is! Map) continue;
+          final event = normalizeEventJson(
+            Map<String, dynamic>.from(rawEvent),
+            entry.key,
+          );
+          final title = event['title']?.toString().trim() ?? '';
+          if (title.isEmpty) continue;
+          out.add(
+            _WeekCalendarEvent(
+              date: entry.key,
+              title: title,
+              type: event['type']?.toString().trim() ?? 'Evento',
+              time: event['time']?.toString().trim() ?? '',
+            ),
+          );
+        }
+      }
+    } catch (_) {
+      return const [];
+    }
+    return out;
+  }
+}
+
+class _WeekCalendarEvent {
+  final String date;
+  final String title;
+  final String type;
+  final String time;
+
+  const _WeekCalendarEvent({
+    required this.date,
+    required this.title,
+    required this.type,
+    required this.time,
+  });
 }
 
 const _weekdayNames = [
@@ -255,7 +333,14 @@ const _weekdayNames = [
 class _Agenda extends StatelessWidget {
   final List<AttendanceRecord> attendance;
   final List<MatchResult> matches;
-  const _Agenda({required this.attendance, required this.matches});
+  final List<TrainingSession> sessions;
+  final List<_WeekCalendarEvent> calendarEvents;
+  const _Agenda({
+    required this.attendance,
+    required this.matches,
+    required this.sessions,
+    required this.calendarEvents,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -290,6 +375,46 @@ class _Agenda extends StatelessWidget {
                 : '${match.minutesByPlayer.values.fold(0, (a, b) => a + b)} min',
             onTap: () =>
                 ShellActions.maybeOf(context)?.openSection(ShellSection.lineup),
+            compact: narrow,
+          ),
+        ),
+      for (final session in sessions)
+        (
+          date: session.scheduledDate,
+          child: _AgendaRow(
+            icon: Icons.view_agenda_outlined,
+            accent: CX.amber,
+            title: session.title.trim().isEmpty
+                ? 'Sesion planificada'
+                : session.title.trim(),
+            subtitle: [
+              if (session.objective.trim().isNotEmpty) session.objective.trim(),
+              if (session.duration > 0) '${session.duration} min',
+              if (session.space.trim().isNotEmpty) session.space.trim(),
+            ].join(' - '),
+            trailing: session.playerCount > 0 ? '${session.playerCount} jug' : null,
+            onTap: () =>
+                ShellActions.maybeOf(context)?.openSection(ShellSection.planner),
+            compact: narrow,
+          ),
+        ),
+      for (final event in calendarEvents)
+        (
+          date: event.date,
+          child: _AgendaRow(
+            icon: event.type == 'Partido' || event.type == 'Torneo'
+                ? Icons.sports_soccer
+                : Icons.event_outlined,
+            accent: event.type == 'Partido' || event.type == 'Torneo'
+                ? CX.blue
+                : CX.faint,
+            title: event.title,
+            subtitle: [
+              event.type,
+              if (event.time.isNotEmpty) event.time,
+            ].join(' - '),
+            trailing: null,
+            onTap: null,
             compact: narrow,
           ),
         ),

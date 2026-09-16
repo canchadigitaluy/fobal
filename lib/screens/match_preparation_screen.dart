@@ -1,5 +1,7 @@
 // ignore_for_file: avoid_web_libraries_in_flutter
 
+import 'dart:async';
+import 'dart:convert';
 import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
@@ -10,7 +12,9 @@ import '../services/alignment_history_service.dart';
 import '../services/club_access_service.dart';
 import '../services/export_download_service.dart';
 import '../services/export_text_service.dart';
+import '../services/offline_mutation_service.dart';
 import '../services/player_match_stats_service.dart';
+import '../state/calendar_events.dart';
 import '../state/section_handoff.dart';
 import '../ui/export_preview_dialog.dart';
 import '../ui/ui_kit.dart';
@@ -81,6 +85,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
 
   LudStandingsTable? _standings;
   bool _loadingRival = false;
+  bool _opponentAnalysisLoaded = false;
 
   @override
   void initState() {
@@ -118,13 +123,15 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     super.dispose();
   }
 
-  void _hydrate(CanteraClub club) {
+  void _hydrate(CanteraClub club, CategorySquad category) {
     if (_hydrated) return;
     _hydrated = true;
-    if (widget.calendarEventId.isEmpty) return;
+    final calendarEventId = _activeCalendarEventId(club, category);
+    if (calendarEventId.isEmpty) return;
     MatchPreparation? existing;
     for (final item in club.matchPreparations) {
-      if (item.calendarEventId == widget.calendarEventId) {
+      if (item.calendarEventId == calendarEventId &&
+          item.categoryId == category.id) {
         existing = item;
         break;
       }
@@ -182,8 +189,123 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     return null;
   }
 
+  Future<void> _loadOpponentAnalysis(CategorySquad category) async {
+    if (_opponentAnalysisLoaded) return;
+    final rivalName = _rival.text.trim().toLowerCase();
+    if (rivalName.isEmpty || LudCategoryRef.teamIdOf(category.id) == null) {
+      return;
+    }
+    _opponentAnalysisLoaded = true;
+    final membership = await ClubAccessService.activeMembership();
+    if (membership == null || !mounted) return;
+    try {
+      final matches = await ClubAccessService.loadFixture(
+        membership: membership,
+        category: category,
+      );
+      LudFixtureMatch? match;
+      final targetDate = DateTime.tryParse(_date.text.trim());
+      for (final item in matches) {
+        final sameRival =
+            item.opponentName.toLowerCase().contains(rivalName) ||
+            rivalName.contains(item.opponentName.toLowerCase());
+        if (!sameRival) continue;
+        if (targetDate == null ||
+            (item.date.year == targetDate.year &&
+                item.date.month == targetDate.month &&
+                item.date.day == targetDate.day)) {
+          match = item;
+          break;
+        }
+        match ??= item;
+      }
+      if (match == null || match.opponentTeamId == null) return;
+      final analysis = await ClubAccessService.loadOpponentAnalysis(
+        match: match,
+        category: category,
+      );
+      if (!mounted || analysis == null) return;
+      final notes = _opponentNotesFromAnalysis(analysis);
+      setState(() {
+        if (_opponentNotes.text.trim().isEmpty) {
+          _opponentNotes.text = notes;
+        }
+        if (_playersToWatch.text.trim().isEmpty) {
+          _playersToWatch.text = analysis.dangerPlayers.trim();
+        }
+      });
+    } catch (_) {
+      // Opponent enrichment is opportunistic; manual prep remains usable.
+    }
+  }
+
+  String _opponentNotesFromAnalysis(OpponentAnalysis analysis) {
+    final buckets = analysis.goalMinuteBuckets
+        .where((bucket) => bucket.goalsFor > 0 || bucket.goalsAgainst > 0)
+        .map(
+          (bucket) =>
+              '${bucket.range}: ${bucket.goalsFor} GF / ${bucket.goalsAgainst} GC',
+        )
+        .join(', ');
+    final formParts = [
+      if (analysis.styleSummary.trim().isNotEmpty) analysis.styleSummary.trim(),
+      if (analysis.tableContext.trim().isNotEmpty)
+        analysis.tableContext.trim(),
+      if (analysis.memorySummary.trim().isNotEmpty)
+        analysis.memorySummary.trim(),
+      if (analysis.avgGoalsFor > 0 || analysis.avgGoalsAgainst > 0)
+        'Promedio: ${analysis.avgGoalsFor.toStringAsFixed(1)} GF / ${analysis.avgGoalsAgainst.toStringAsFixed(1)} GC.',
+      if (analysis.biggestWinScore != null)
+        'Mayor triunfo: ${analysis.biggestWinScore}${analysis.biggestWinOpponent == null ? '' : ' vs ${analysis.biggestWinOpponent}'}',
+      if (analysis.biggestLossScore != null)
+        'Mayor derrota: ${analysis.biggestLossScore}${analysis.biggestLossOpponent == null ? '' : ' vs ${analysis.biggestLossOpponent}'}',
+      if (analysis.streakType != null && analysis.streakCount > 0)
+        'Racha actual: ${analysis.streakCount} ${analysis.streakType}',
+      if (analysis.cleanSheets > 0)
+        'Vallas invictas: ${analysis.cleanSheets}',
+      if (buckets.isNotEmpty) 'Minutos de gol: $buckets',
+    ];
+    return formParts.where((part) => part.trim().isNotEmpty).join('\n');
+  }
+
   void _save(CanteraClub club, CategorySquad category) =>
       _persistPrep(club, category);
+
+  CategorySquad? _activeCategory(AppScope scope) {
+    final selectedId = scope.club.categories.any(
+      (category) => category.id == scope.selectedCategoryId,
+    )
+        ? scope.selectedCategoryId
+        : scope.club.categories.isEmpty
+        ? null
+        : scope.club.categories.first.id;
+    return selectedId == null
+        ? null
+        : scope.club.categories.firstWhere(
+            (category) => category.id == selectedId,
+          );
+  }
+
+  String _activeCalendarEventId(CanteraClub club, CategorySquad category) {
+    if (widget.calendarEventId.isEmpty) return '';
+    final raw = html
+        .window
+        .localStorage['cantera_calendar_${club.id}_${category.id}'];
+    if (raw == null || raw.isEmpty) return '';
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      for (final entry in data.entries) {
+        for (final item in (entry.value as List<dynamic>? ?? const [])) {
+          final map = normalizeEventJson(
+            item as Map<String, dynamic>,
+            entry.key,
+          );
+          if (map['id'] == widget.calendarEventId) return widget.calendarEventId;
+        }
+      }
+    } catch (_) {}
+    return '';
+  }
 
   void _persistPrep(
     CanteraClub club,
@@ -198,7 +320,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     final prep = MatchPreparation(
       id: id,
       categoryId: category.id,
-      calendarEventId: widget.calendarEventId,
+      calendarEventId: _activeCalendarEventId(club, category),
       rival: _rival.text.trim(),
       date: _date.text.trim(),
       time: _time.text.trim(),
@@ -225,6 +347,15 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
           prep,
           ...club.matchPreparations.where((item) => item.id != id),
         ],
+      ),
+    );
+    unawaited(
+      OfflineMutationService.instance.saveTacticalDataOfflineFirst(
+        type: 'match_preparation',
+        title: 'Plan de partido ${category.name}${prep.rival.isEmpty ? '' : ' vs ${prep.rival}'}',
+        content: prep.toJson(),
+        relatedLudTeamId: LudCategoryRef.teamIdOf(category.id),
+        categoryId: category.id,
       ),
     );
     if (!silent) {
@@ -269,7 +400,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
       existing: existing,
       initialDate: DateTime.tryParse(_date.text.trim()),
       initialOpponent: _rival.text.trim(),
-      calendarKey: widget.calendarEventId,
+      calendarKey: _activeCalendarEventId(club, category),
       players: categoryPlayers,
       suggestedLineupIds: suggestedLineupIds,
     );
@@ -310,13 +441,13 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     ).showSnackBar(const SnackBar(content: Text('Resultado guardado.')));
   }
 
-  void _goToLineup() {
+  void _goToLineup(CanteraClub club, CategorySquad category) {
     ShellActions.of(context).openLineup(
       LineupHint(
         rival: _rival.text.trim(),
         date: _date.text.trim(),
         time: _time.text.trim(),
-        calendarEventId: widget.calendarEventId,
+        calendarEventId: _activeCalendarEventId(club, category),
       ),
     );
     Navigator.of(context).popUntil((route) => route.isFirst);
@@ -326,9 +457,10 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
     // If this prep came from a calendar event but was never saved, persist
     // it now (silently) so the session the planner generates has a real
     // MatchPreparation to write linkedSessionId back onto.
-    if (widget.calendarEventId.isNotEmpty &&
+    final calendarEventId = _activeCalendarEventId(club, category);
+    if (calendarEventId.isNotEmpty &&
         !club.matchPreparations.any(
-          (p) => p.calendarEventId == widget.calendarEventId,
+          (p) => p.calendarEventId == calendarEventId,
         )) {
       _persistPrep(club, category, silent: true);
     }
@@ -348,7 +480,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
         ].where((s) => s.isNotEmpty).join(' — '),
         note: _staffNotes.text.trim(),
         origin: 'Panel de partido',
-        calendarEventId: widget.calendarEventId,
+        calendarEventId: calendarEventId,
       ),
     );
     Navigator.of(context).popUntil((route) => route.isFirst);
@@ -429,12 +561,16 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
         ),
       );
     }
-    final category = club.categories.first;
-    _hydrate(club);
+    final category = _activeCategory(scope)!;
+    final calendarEventId = _activeCalendarEventId(club, category);
+    _hydrate(club, category);
     final categoryIsLud = LudCategoryRef.teamIdOf(category.id) != null;
     if (categoryIsLud) {
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _loadRivalContext(category),
+        (_) {
+          _loadRivalContext(category);
+          _loadOpponentAnalysis(category);
+        },
       );
     }
     final rivalRow = _rivalRow();
@@ -449,9 +585,9 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
         '${player.fullName.trim()}: ${player.availability.label.toLowerCase()}, confirmar antes del partido.',
     ];
     MatchResult? existingResult;
-    if (widget.calendarEventId.isNotEmpty) {
+    if (calendarEventId.isNotEmpty) {
       for (final result in club.matchResults) {
-        if (result.calendarKey == widget.calendarEventId) {
+        if (result.calendarKey == calendarEventId) {
           existingResult = result;
           break;
         }
@@ -490,7 +626,9 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                     children: [
                       TextField(
                         controller: _rival,
-                        onChanged: (_) => setState(() {}),
+                        onChanged: (_) => setState(() {
+                          _opponentAnalysisLoaded = false;
+                        }),
                         decoration: const InputDecoration(labelText: 'Rival'),
                       ),
                       SizedBox(height: narrow ? 8 : 10),
@@ -727,7 +865,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                     onTap: (player) => openPlayerProfile(context, player),
                     compact: narrow,
                   ),
-                if (widget.calendarEventId.isNotEmpty) ...[
+                if (calendarEventId.isNotEmpty) ...[
                   OutlinedButton.icon(
                     onPressed: () => _logResult(
                       club,
@@ -751,7 +889,7 @@ class _MatchPreparationScreenState extends State<MatchPreparationScreen> {
                 ],
                 SizedBox(height: narrow ? 7 : 10),
                 OutlinedButton.icon(
-                  onPressed: _goToLineup,
+                  onPressed: () => _goToLineup(club, category),
                   icon: const Icon(Icons.groups_2_outlined, size: 17),
                   label: const Text('Ir a Alineación & citaciones'),
                 ),

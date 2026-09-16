@@ -10,7 +10,20 @@ class PerfilScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final club = AppScope.of(context).club;
+    final scope = AppScope.of(context);
+    final club = scope.club;
+    final selectedCategoryId = club.categories.any(
+      (category) => category.id == scope.selectedCategoryId,
+    )
+        ? scope.selectedCategoryId
+        : club.categories.isEmpty
+        ? null
+        : club.categories.first.id;
+    final players = selectedCategoryId == null
+        ? <Player>[]
+        : club.players
+            .where((player) => player.categoryId == selectedCategoryId)
+            .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -47,8 +60,8 @@ class PerfilScreen extends StatelessWidget {
                 _SignalTile(
                   metric: _SignalMetric(
                     'Plantel',
-                    '${club.players.length} '
-                        '${club.players.length == 1 ? 'jugador' : 'jugadores'}',
+                    '${players.length} '
+                        '${players.length == 1 ? 'jugador' : 'jugadores'}',
                     Icons.groups_2_outlined,
                     CX.green,
                   ),
@@ -66,7 +79,7 @@ class PerfilScreen extends StatelessWidget {
                   eyebrow: 'Jugadores',
                   title: 'Seguimiento individual',
                 ),
-                if (club.players.isEmpty)
+                if (players.isEmpty)
                   const _IntelligenceEmpty(
                     icon: Icons.person_search_outlined,
                     title: 'Sin jugadores para comparar',
@@ -74,7 +87,7 @@ class PerfilScreen extends StatelessWidget {
                         'Carga el plantel para comenzar el seguimiento de asistencia, estado y evolucion.',
                   )
                 else
-                  _PlayerRadar(players: club.players),
+                  _PlayerRadar(players: players),
                   ]),
                 );
               },

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
+import '../services/offline_mutation_service.dart';
 import '../services/plantel_service.dart';
 import '../ui/ui_kit.dart';
 import 'add_player_dialog.dart';
@@ -96,9 +97,8 @@ class _CuotaScreenState extends State<CuotaScreen> {
         .toList();
     scope.updateClub(club.copyWith(players: players));
 
-    var synced = false;
-    try {
-      synced = await ClubAccessService.saveTacticalData(
+    final writeResult =
+        await OfflineMutationService.instance.saveTacticalDataOfflineFirst(
         type: 'staff_note',
         title: 'Perfil jugador ${updated.fullName.trim()}',
         content: {
@@ -106,17 +106,13 @@ class _CuotaScreenState extends State<CuotaScreen> {
           'player': updated.toJson(),
           'updatedAt': DateTime.now().toUtc().toIso8601String(),
         },
-        relatedLudPlayerIds: [_ludPlayerId(updated)].whereType<int>().toList(),
         categoryId: updated.categoryId,
       );
-    } catch (_) {
-      synced = false;
-    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          synced
+          writeResult.synced
               ? 'Perfil del jugador guardado para futuras tacticas.'
               : 'Perfil actualizado en este dispositivo.',
         ),
@@ -152,11 +148,6 @@ class _CuotaScreenState extends State<CuotaScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${player.fullName.trim()} agregado al plantel.')),
     );
-  }
-
-  int? _ludPlayerId(Player player) {
-    final match = RegExp(r'lud-player-(\d+)$').firstMatch(player.id);
-    return int.tryParse(match?.group(1) ?? '');
   }
 
   @override
@@ -218,12 +209,22 @@ class _CuotaScreenState extends State<CuotaScreen> {
                   const _EmptyWorkspace(),
                   if (uncategorizedPlayers.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    _UncategorizedPlayersPanel(players: uncategorizedPlayers),
+                    _UncategorizedPlayersPanel(
+                      players: uncategorizedPlayers,
+                      categories: club.categories,
+                      onAssign: (player, categoryId) =>
+                          _assignPlayerCategory(club, player, categoryId),
+                    ),
                   ],
                 ] else ...[
                   if (uncategorizedPlayers.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    _UncategorizedPlayersPanel(players: uncategorizedPlayers),
+                    _UncategorizedPlayersPanel(
+                      players: uncategorizedPlayers,
+                      categories: club.categories,
+                      onAssign: (player, categoryId) =>
+                          _assignPlayerCategory(club, player, categoryId),
+                    ),
                   ],
                   const SizedBox(height: 12),
                   _CategoryOverview(
@@ -293,12 +294,66 @@ class _CuotaScreenState extends State<CuotaScreen> {
       ),
     );
   }
+
+  Future<void> _assignPlayerCategory(
+    CanteraClub club,
+    Player player,
+    String categoryId,
+  ) async {
+    if (!club.categories.any((category) => category.id == categoryId)) return;
+    final updated = player.copyWith(categoryId: categoryId);
+    final players = [
+      for (final item in club.players)
+        if (item.id == updated.id) updated else item,
+    ];
+    final categories = [
+      for (final category in club.categories)
+        category.copyWith(
+          playerCount: players
+              .where((candidate) => candidate.categoryId == category.id)
+              .length,
+        ),
+    ];
+    AppScope.of(context).updateClub(
+      club.copyWith(players: players, categories: categories),
+    );
+    final writeResult =
+        await OfflineMutationService.instance.saveTacticalDataOfflineFirst(
+      type: 'staff_note',
+      title: 'Perfil jugador ${updated.fullName.trim()}',
+      content: {
+        'kind': 'player_profile_update',
+        'player': updated.toJson(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      },
+      categoryId: updated.categoryId,
+    );
+    if (!mounted) return;
+    final category = club.categories.firstWhere(
+      (item) => item.id == categoryId,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          writeResult.synced
+              ? '${updated.fullName.trim()} asignado a ${category.name}.'
+              : '${updated.fullName.trim()} asignado en este dispositivo.',
+        ),
+      ),
+    );
+  }
 }
 
 class _UncategorizedPlayersPanel extends StatelessWidget {
   final List<Player> players;
+  final List<CategorySquad> categories;
+  final void Function(Player player, String categoryId) onAssign;
 
-  const _UncategorizedPlayersPanel({required this.players});
+  const _UncategorizedPlayersPanel({
+    required this.players,
+    required this.categories,
+    required this.onAssign,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -354,6 +409,13 @@ class _UncategorizedPlayersPanel extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: CX.muted, fontSize: 11),
                   ),
+                  trailing: categories.isEmpty
+                      ? null
+                      : OutlinedButton.icon(
+                          onPressed: () => _showAssignDialog(context, player),
+                          icon: const Icon(Icons.drive_file_move_outline, size: 16),
+                          label: const Text('Asignar'),
+                        ),
                 ),
               ),
           if (players.length > 6)
@@ -365,6 +427,45 @@ class _UncategorizedPlayersPanel extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _showAssignDialog(BuildContext context, Player player) async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        var value = categories.first.id;
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: Text(player.fullName.trim()),
+            content: DropdownButtonFormField<String>(
+              initialValue: value,
+              decoration: const InputDecoration(labelText: 'Categoria'),
+              items: [
+                for (final category in categories)
+                  DropdownMenuItem(
+                    value: category.id,
+                    child: Text(category.name),
+                  ),
+              ],
+              onChanged: (next) => setState(() => value = next ?? value),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton.icon(
+                onPressed: () => Navigator.pop(context, value),
+                icon: const Icon(Icons.check, size: 18),
+                label: const Text('Asignar'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (selected == null) return;
+    onAssign(player, selected);
   }
 }
 

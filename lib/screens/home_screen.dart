@@ -85,8 +85,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _ensureLeagueFutures({bool force = false}) {
     final scope = AppScope.of(context);
-    if (scope.club.categories.isEmpty) return;
-    final category = scope.club.categories.first;
+    final category = _activeCategory(scope);
+    if (category == null) return;
     final key = '${scope.fullClub.id}|${category.id}';
     if (force || _standingsKey != key || _standingsFuture == null) {
       _standingsKey = key;
@@ -100,6 +100,21 @@ class _HomeScreenState extends State<HomeScreen> {
       _resultsKey = key;
       _resultsFuture = _loadResults(category, force: force);
     }
+  }
+
+  CategorySquad? _activeCategory(AppScope scope) {
+    final selectedId = scope.club.categories.any(
+      (category) => category.id == scope.selectedCategoryId,
+    )
+        ? scope.selectedCategoryId
+        : scope.club.categories.isEmpty
+        ? null
+        : scope.club.categories.first.id;
+    return selectedId == null
+        ? null
+        : scope.club.categories.firstWhere(
+            (category) => category.id == selectedId,
+          );
   }
 
   void _reloadLeague() {
@@ -181,9 +196,12 @@ class _HomeScreenState extends State<HomeScreen> {
       final scope = AppScope.of(context);
       final club = scope.club;
       final visibleCategoryIds = club.categories.map((item) => item.id).toSet();
+      final activeCategoryId = _activeCategory(scope)?.id ?? '';
       final remoteSessions = <TrainingSession>[];
       final remoteReports = <TrainingReport>[];
       final remoteMatchPlans = <TrainingSession>[];
+      final remoteMatchPreparationsById = <String, MatchPreparation>{};
+      List<Exercise>? remoteExercises;
       for (final record in records) {
         try {
           if (record.type == 'session') {
@@ -201,6 +219,24 @@ class _HomeScreenState extends State<HomeScreen> {
             if (report.categoryId.isNotEmpty && report.date.isNotEmpty) {
               remoteReports.add(report);
             }
+          } else if (record.type == 'match_preparation') {
+            final prep = MatchPreparation.fromJson(record.content);
+            if (prep.id.isNotEmpty && prep.categoryId.isNotEmpty) {
+              remoteMatchPreparationsById.putIfAbsent(prep.id, () => prep);
+            }
+          } else if (record.type == 'exercise_library' &&
+              remoteExercises == null) {
+            final rawExercises =
+                record.content['exercises'] as List<dynamic>? ?? const [];
+            remoteExercises = rawExercises
+                .whereType<Map>()
+                .map(
+                  (item) => Exercise.fromJson(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
+                .where((exercise) => exercise.id.isNotEmpty)
+                .toList();
           }
         } catch (_) {
           // Ignore one malformed shared record without hiding the dashboard.
@@ -210,6 +246,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final reportKeys = remoteReports
           .map((item) => '${item.categoryId}|${item.date}')
           .toSet();
+      final remoteMatchPreparations =
+          remoteMatchPreparationsById.values.toList();
+      final prepIds = remoteMatchPreparationsById.keys.toSet();
       scope.updateClub(
         club.copyWith(
           players: applyRemotePlayerProfiles(
@@ -226,6 +265,13 @@ class _HomeScreenState extends State<HomeScreen> {
               (item) => !reportKeys.contains('${item.categoryId}|${item.date}'),
             ),
           ],
+          matchPreparations: [
+            ...remoteMatchPreparations,
+            ...club.matchPreparations.where(
+              (item) => !prepIds.contains(item.id),
+            ),
+          ],
+          savedExercises: remoteExercises ?? club.savedExercises,
         ),
       );
       setState(() {
@@ -233,7 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
             .where(
               (plan) =>
                   visibleCategoryIds.contains(plan.categoryId) &&
-                  !_isWrongCategorySeminarioPlan(plan),
+                  _isActiveCategoryPlan(plan, activeCategoryId),
             )
             .toList();
         _planningSyncedAt = DateTime.now();
@@ -248,14 +294,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  bool _isWrongCategorySeminarioPlan(TrainingSession plan) {
-    final text = [
-      plan.title,
-      plan.objective,
-      ...plan.blocks.map((block) => block.description),
-    ].join(' ').toLowerCase();
-    return text.contains('seminario');
-  }
+  bool _isActiveCategoryPlan(TrainingSession plan, String activeCategoryId) =>
+      activeCategoryId.isEmpty || plan.categoryId == activeCategoryId;
 
   @override
   Widget build(BuildContext context) {
@@ -286,8 +326,8 @@ class _HomeScreenState extends State<HomeScreen> {
         .where(_hasAiReadyPlayerProfile)
         .length;
     final isExternal = club.isManualClub;
-    final selectedCategoryId = scope.selectedCategoryId ??
-        (club.categories.isEmpty ? '' : club.categories.first.id);
+    final category = _activeCategory(scope);
+    final selectedCategoryId = category?.id ?? '';
     final hasPlayer =
         club.players.isNotEmpty || club.categories.any((c) => c.playerCount > 0);
     final hasSession = club.sessions.isNotEmpty;
@@ -361,6 +401,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       sectionGap,
                       _MatchCenterPanel(
                         club: club,
+                        category: category,
                         standingsFuture: _standingsFuture,
                         fixtureFuture: _fixtureFuture,
                         onRefresh: _reloadLeague,
@@ -440,9 +481,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       SizedBox(height: narrow ? 8 : 12),
                       _StandingsPanel(
                         future: _standingsFuture,
-                        categoryName: club.categories.isEmpty
-                            ? ''
-                            : club.categories.first.name,
+                        categoryName: category?.name ?? '',
                       ),
                       SizedBox(height: narrow ? 8 : 12),
                       _RecentResultsPanel(
@@ -1293,6 +1332,7 @@ class _HealthPill extends StatelessWidget {
 
 class _MatchCenterPanel extends StatelessWidget {
   final CanteraClub club;
+  final CategorySquad? category;
   final Future<LudStandingsTable?>? standingsFuture;
   final Future<List<LudFixtureMatch>>? fixtureFuture;
   final VoidCallback onRefresh;
@@ -1302,6 +1342,7 @@ class _MatchCenterPanel extends StatelessWidget {
 
   const _MatchCenterPanel({
     required this.club,
+    required this.category,
     required this.standingsFuture,
     required this.fixtureFuture,
     required this.onRefresh,
@@ -1312,9 +1353,9 @@ class _MatchCenterPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final category = club.categories.isEmpty ? null : club.categories.first;
+    final activeCategory = category;
     final narrow = MediaQuery.sizeOf(context).width < 700;
-    if (category == null) {
+    if (activeCategory == null) {
       return Container(
         padding: EdgeInsets.all(narrow ? 12 : 18),
         decoration: CX.panelDecoration(
@@ -1328,7 +1369,7 @@ class _MatchCenterPanel extends StatelessWidget {
     }
 
     final players = club.players
-        .where((player) => player.categoryId == category.id)
+        .where((player) => player.categoryId == activeCategory.id)
         .toList();
     final available = players
         .where((player) => player.status.toLowerCase() != 'lesionado')
@@ -1359,7 +1400,7 @@ class _MatchCenterPanel extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${category.name} / datos listos para planificar',
+                      '${activeCategory.name} / datos listos para planificar',
                       style: const TextStyle(color: CX.faint, fontSize: 11),
                     ),
                   ],
@@ -1389,7 +1430,7 @@ class _MatchCenterPanel extends StatelessWidget {
                   flex: 4,
                   child: _LeagueSnapshotCard(
                     future: standingsFuture,
-                    categoryName: category.name,
+                    categoryName: activeCategory.name,
                   ),
                 ),
                 SizedBox(width: compact ? 0 : 10, height: compact ? 10 : 0),
@@ -1414,7 +1455,7 @@ class _MatchCenterPanel extends StatelessWidget {
             },
           ),
           SizedBox(height: narrow ? 10 : 14),
-          _PracticeWeekCard(category: category),
+          _PracticeWeekCard(category: activeCategory),
           SizedBox(height: narrow ? 10 : 14),
           Wrap(
             spacing: 8,

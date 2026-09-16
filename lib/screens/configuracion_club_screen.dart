@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
@@ -5,6 +7,7 @@ import '../services/account_identity_service.dart';
 import '../services/club_access_service.dart';
 import '../services/club_backup_service.dart';
 import '../services/club_collaborators_service.dart';
+import '../services/offline_mutation_service.dart';
 import '../services/plantel_service.dart';
 import '../services/supabase_auth_service.dart';
 import '../ui/ui_kit.dart';
@@ -387,15 +390,24 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
 
   void _saveMethodology() {
     final scope = AppScope.of(context);
+    final methodology = scope.club.methodology.copyWith(
+      playingStyle: _playingStyleController.text.trim(),
+      offensivePrinciples: _lines(_offensiveController.text),
+      defensivePrinciples: _lines(_defensiveController.text),
+      ageObjectives: _lines(_ageObjectivesController.text),
+      evaluationCriteria: _lines(_evaluationController.text),
+    );
     scope.updateClub(
       scope.club.copyWith(
-        methodology: scope.club.methodology.copyWith(
-          playingStyle: _playingStyleController.text.trim(),
-          offensivePrinciples: _lines(_offensiveController.text),
-          defensivePrinciples: _lines(_defensiveController.text),
-          ageObjectives: _lines(_ageObjectivesController.text),
-          evaluationCriteria: _lines(_evaluationController.text),
-        ),
+        methodology: methodology,
+      ),
+    );
+    unawaited(
+      OfflineMutationService.instance.saveTacticalDataOfflineFirst(
+        type: 'methodology',
+        title: 'Forma de jugar',
+        categoryId: scope.selectedCategoryId,
+        content: {'methodology': methodology.toJson()},
       ),
     );
   }

@@ -32,6 +32,7 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
   final _space = TextEditingController();
   int _playerCount = 18;
   String? _categoryId;
+  bool _prefilledFromMatchPrep = false;
   DateTime _sessionDate = DateTime.now().add(const Duration(days: 1));
   final List<Exercise> _blocks = [];
 
@@ -76,6 +77,7 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
       builder: (context) => ExerciseEditDialog(
         categories: club.categories,
         defaultCategoryId: category.id,
+        prefill: _matchPrepBlockPrefill(club, category),
       ),
     );
     if (result == null || !mounted) return;
@@ -111,6 +113,62 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
       '${date.year.toString().padLeft(4, '0')}-'
       '${date.month.toString().padLeft(2, '0')}-'
       '${date.day.toString().padLeft(2, '0')}';
+
+  Exercise? _matchPrepBlockPrefill(CanteraClub club, CategorySquad category) {
+    if (widget.calendarEventId.isEmpty) return null;
+    MatchPreparation? prep;
+    for (final item in club.matchPreparations) {
+      if (item.calendarEventId == widget.calendarEventId &&
+          item.categoryId == category.id) {
+        prep = item;
+        break;
+      }
+    }
+    if (prep == null) return null;
+    TrainingSession? linkedSession;
+    if (prep.linkedSessionId.isNotEmpty) {
+      for (final session in club.sessions) {
+        if (session.id == prep.linkedSessionId) {
+          linkedSession = session;
+          break;
+        }
+      }
+    }
+    final objective = [
+      if (prep.planObjective.trim().isNotEmpty) prep.planObjective.trim(),
+      if (prep.offensiveKeys.trim().isNotEmpty)
+        'Claves ofensivas: ${prep.offensiveKeys.trim()}',
+      if (prep.defensiveKeys.trim().isNotEmpty)
+        'Claves defensivas: ${prep.defensiveKeys.trim()}',
+    ].join(' ');
+    final players = linkedSession?.playerCount ??
+        club.players.where((player) => player.categoryId == category.id).length;
+    return Exercise(
+      id: '',
+      name: '',
+      objective: objective,
+      space: linkedSession?.space ?? _space.text.trim(),
+      players: players,
+      categoryId: category.id,
+      source: 'manual',
+    );
+  }
+
+  void _prefillSessionFromMatchPrep(CanteraClub club, CategorySquad category) {
+    if (_prefilledFromMatchPrep || widget.calendarEventId.isEmpty) return;
+    final prefill = _matchPrepBlockPrefill(club, category);
+    if (prefill == null) return;
+    _prefilledFromMatchPrep = true;
+    if (_objective.text.trim().isEmpty && prefill.objective.trim().isNotEmpty) {
+      _objective.text = prefill.objective.trim();
+    }
+    if (_space.text.trim().isEmpty && prefill.space.trim().isNotEmpty) {
+      _space.text = prefill.space.trim();
+    }
+    if (prefill.players > 0) {
+      _playerCount = prefill.players;
+    }
+  }
 
   void _removeBlock(int index) {
     final removed = _blocks[index];
@@ -264,9 +322,14 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
         ),
       );
     }
+    final scopedCategoryId = club.categories.any(
+      (item) => item.id == scope.selectedCategoryId,
+    )
+        ? scope.selectedCategoryId
+        : null;
     final selectedId = club.categories.any((item) => item.id == _categoryId)
         ? _categoryId
-        : club.categories.first.id;
+        : scopedCategoryId ?? club.categories.first.id;
     if (_categoryId != selectedId) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() => _categoryId = selectedId);
@@ -275,6 +338,7 @@ class _SessionBuilderScreenState extends State<SessionBuilderScreen> {
     final category = club.categories.firstWhere(
       (item) => item.id == selectedId,
     );
+    _prefillSessionFromMatchPrep(club, category);
     final totalDuration = totalMinutes(_blocks.map((block) => block.duration));
 
     return Scaffold(

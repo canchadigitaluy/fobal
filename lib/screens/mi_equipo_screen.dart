@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_web_libraries_in_flutter
 
+import 'dart:async';
 import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/export_download_service.dart';
 import '../services/export_text_service.dart';
+import '../services/offline_mutation_service.dart';
 import '../services/player_profile_service.dart';
 import '../services/plantel_service.dart';
 import '../services/squad_report_service.dart';
@@ -83,6 +85,17 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
         ],
       ),
     );
+    unawaited(
+      OfflineMutationService.instance.saveTacticalDataOfflineFirst(
+        type: 'staff_note',
+        title: 'Perfil ${updated.fullName.trim()}',
+        content: {
+          'kind': 'player_profile_update',
+          'player': updated.toJson(),
+        },
+        categoryId: updated.categoryId,
+      ),
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Disponibilidad actualizada: ${updated.availability.label}')),
     );
@@ -90,8 +103,13 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
 
   void _generateSquadReport(CanteraClub club, List<Player> players) {
     final scope = AppScope.of(context);
-    final categoryId = scope.selectedCategoryId ??
-        (club.categories.isEmpty ? '' : club.categories.first.id);
+    final categoryId = club.categories.any(
+      (category) => category.id == scope.selectedCategoryId,
+    )
+        ? scope.selectedCategoryId!
+        : club.categories.isEmpty
+        ? ''
+        : club.categories.first.id;
     var categoryName = '';
     for (final item in club.categories) {
       if (item.id == categoryId) {
@@ -128,8 +146,13 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
   Future<void> _addPlayer() async {
     final scope = AppScope.of(context);
     final cats = scope.fullClub.categories;
-    final categoryId = scope.selectedCategoryId ??
-        (cats.isNotEmpty ? cats.first.id : 'plantel');
+    final categoryId = cats.any(
+      (category) => category.id == scope.selectedCategoryId,
+    )
+        ? scope.selectedCategoryId!
+        : cats.isNotEmpty
+        ? cats.first.id
+        : 'plantel';
     final player = await showAddPlayerDialog(
       context,
       categoryId: categoryId,
@@ -158,8 +181,20 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
     final club = scope.fullClub;
-    final categoryId = scope.selectedCategoryId ??
-        (scope.club.categories.isEmpty ? '' : scope.club.categories.first.id);
+    final categoryId = scope.club.categories.any(
+      (category) => category.id == scope.selectedCategoryId,
+    )
+        ? scope.selectedCategoryId!
+        : scope.club.categories.isEmpty
+        ? ''
+        : scope.club.categories.first.id;
+    var categoryName = 'Plantel';
+    for (final category in scope.club.categories) {
+      if (category.id == categoryId) {
+        categoryName = category.name;
+        break;
+      }
+    }
     final planteles = club.isManualClub
         ? plantelesForCategory(club, categoryId)
         : const <Plantel>[];
@@ -167,7 +202,10 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
         !planteles.any((item) => item.id == _plantelFilter)) {
       _plantelFilter = '';
     }
-    final players = playersForPlantel(scope.club.players, _plantelFilter);
+    final categoryPlayers = scope.club.players
+        .where((player) => player.categoryId == categoryId)
+        .toList();
+    final players = playersForPlantel(categoryPlayers, _plantelFilter);
     final narrow = MediaQuery.sizeOf(context).width < 700;
     return Scaffold(
       appBar: AppBar(title: const Text('Mi equipo')),
@@ -245,7 +283,7 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${scope.club.categories.isEmpty ? "Plantel" : scope.club.categories.first.name} | Año ${club.seasonYear.isEmpty ? DateTime.now().year.toString() : club.seasonYear}',
+                        '$categoryName | Año ${club.seasonYear.isEmpty ? DateTime.now().year.toString() : club.seasonYear}',
                         style: const TextStyle(color: CX.muted, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 10),

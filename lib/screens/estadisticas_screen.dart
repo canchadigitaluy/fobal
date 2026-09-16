@@ -72,11 +72,32 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
         category: category,
         forceRefresh: force,
       ).catchError((_) => <LudFixtureMatch>[]),
+      _loadLudPlayers(membership, category, players).catchError(
+        (_) => players,
+      ),
     ]);
     return _StatsData(
       standings: values[0] as LudStandingsTable?,
       results: values[1] as List<LudFixtureMatch>,
-      players: _playerStats(players),
+      players: _playerStats(values[2] as List<Player>),
+    );
+  }
+
+  Future<List<Player>> _loadLudPlayers(
+    ClubMembership membership,
+    CategorySquad category,
+    List<Player> currentPlayers,
+  ) async {
+    if (LudCategoryRef.teamIdOf(category.id) == null) return currentPlayers;
+    final context = await ClubAccessService.loadClubContext(membership);
+    if (context == null) return currentPlayers;
+    final incoming = context.players
+        .where((player) => player.categoryId == category.id)
+        .toList();
+    if (incoming.isEmpty) return currentPlayers;
+    return preservePlayerProfiles(
+      incoming: incoming,
+      existing: currentPlayers,
     );
   }
 

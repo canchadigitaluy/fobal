@@ -154,8 +154,11 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
   /// [_load] writes to text controllers whose listeners call setState, which
   /// is illegal during build and was leaving the screen blank.
   void _syncCategory() {
-    final club = AppScope.of(context).club;
-    final next = club.categories.any((c) => c.id == _categoryId)
+    final scope = AppScope.of(context);
+    final club = scope.club;
+    final next = club.categories.any((c) => c.id == scope.selectedCategoryId)
+        ? scope.selectedCategoryId
+        : club.categories.any((c) => c.id == _categoryId)
         ? _categoryId
         : club.categories.isEmpty
         ? null
@@ -355,6 +358,14 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
       item,
     ];
     AppScope.of(context).updateClub(club.copyWith(callUps: next));
+    unawaited(
+      OfflineMutationService.instance.saveTacticalDataOfflineFirst(
+        type: 'call_up',
+        title: 'Citacion ${category.name} ${item.opponent}'.trim(),
+        content: item.toJson(),
+        categoryId: category.id,
+      ),
+    );
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Citación guardada.')));

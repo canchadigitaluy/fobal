@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../data/cantera_data.dart';
 import '../main.dart';
+import '../services/club_access_service.dart';
 import '../services/offline_mutation_service.dart';
 import '../services/player_match_stats_service.dart';
 import '../state/calendar_events.dart';
@@ -49,6 +50,8 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
   final Map<String, List<_CalendarEvent>> _events = {};
   DateTime? _selectedDay;
   String? _pendingEditEventId;
+  String? _loadedStorageKey;
+  String? _remoteLoadedStorageKey;
 
   String get _storageKey {
     final scope = AppScope.of(context);
@@ -58,8 +61,9 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
 
   String _activeCategoryId(AppScope scope) {
     final cats = scope.fullClub.categories;
-    return scope.selectedCategoryId ??
-        (cats.isNotEmpty ? cats.first.id : 'plantel');
+    return cats.any((category) => category.id == scope.selectedCategoryId)
+        ? scope.selectedCategoryId!
+        : (cats.isNotEmpty ? cats.first.id : 'plantel');
   }
 
   @override
@@ -69,29 +73,97 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
   }
 
   void _load() {
-    final raw = html.window.localStorage[_storageKey];
-    if (raw == null || raw.isEmpty || _events.isNotEmpty) return;
-    try {
-      final data = jsonDecode(raw) as Map<String, dynamic>;
-      _events
-        ..clear()
-        ..addAll(
-          data.map(
-            (key, value) => MapEntry(
-              key,
-              (value as List<dynamic>)
-                  .map(
-                    (item) => _CalendarEvent.fromJson(
-                      normalizeEventJson(item as Map<String, dynamic>, key),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-        );
-    } catch (_) {
-      html.window.localStorage.remove(_storageKey);
+    final key = _storageKey;
+    if (_loadedStorageKey != key) {
+      _loadedStorageKey = key;
+      _events.clear();
+      _selectedDay = null;
+      _pendingEditEventId = null;
+      _remoteLoadedStorageKey = null;
     }
+    final raw = html.window.localStorage[key];
+    if (raw != null && raw.isNotEmpty && _events.isEmpty) {
+      try {
+        final data = jsonDecode(raw) as Map<String, dynamic>;
+        _events
+          ..clear()
+          ..addAll(_eventsFromJson(data));
+      } catch (_) {
+        html.window.localStorage.remove(key);
+      }
+    }
+    if (_remoteLoadedStorageKey != key) {
+      _remoteLoadedStorageKey = key;
+      unawaited(_loadRemoteCalendar(key));
+    }
+  }
+
+  Map<String, List<_CalendarEvent>> _eventsFromJson(
+    Map<String, dynamic> data,
+  ) {
+    return data.map(
+      (key, value) => MapEntry(
+        key,
+        (value as List<dynamic>)
+            .whereType<Map>()
+            .map(
+              (item) => _CalendarEvent.fromJson(
+                normalizeEventJson(Map<String, dynamic>.from(item), key),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  Future<void> _loadRemoteCalendar(String storageKey) async {
+    try {
+      final scope = AppScope.of(context);
+      final categoryId = _activeCategoryId(scope);
+      final records = await ClubAccessService.loadTacticalData(limit: 100);
+      if (!mounted || storageKey != _storageKey) return;
+      final merged = <String, List<_CalendarEvent>>{
+        for (final entry in _events.entries) entry.key: [...entry.value],
+      };
+      var changed = false;
+      for (final record in records) {
+        if (record.type != 'calendar') continue;
+        if ((record.content['categoryId']?.toString() ?? '') != categoryId) {
+          continue;
+        }
+        final rawEvents = record.content['events'];
+        if (rawEvents is! Map) continue;
+        final remote = _eventsFromJson(Map<String, dynamic>.from(rawEvents));
+        for (final entry in remote.entries) {
+          final existingIds = {
+            for (final event in merged[entry.key] ?? const <_CalendarEvent>[])
+              event.id,
+          };
+          for (final event in entry.value) {
+            if (existingIds.add(event.id)) {
+              merged.update(
+                entry.key,
+                (items) => [...items, event],
+                ifAbsent: () => [event],
+              );
+              changed = true;
+            }
+          }
+        }
+      }
+      if (!changed) return;
+      setState(() {
+        _events
+          ..clear()
+          ..addAll(merged);
+      });
+      html.window.localStorage[storageKey] = jsonEncode(
+        _events.map(
+          (key, value) =>
+              MapEntry(key, value.map((item) => item.toJson()).toList()),
+        ),
+      );
+    } catch (_) {}
   }
 
   void _save() {

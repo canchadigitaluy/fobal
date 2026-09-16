@@ -794,6 +794,37 @@ class OpponentAnalysis {
     this.goalMinuteSampleSize = 0,
   });
 
+  Map<String, dynamic> toJson() => {
+    'tableContext': tableContext,
+    'styleSummary': styleSummary,
+    'dangerPlayers': dangerPlayers,
+    'memorySummary': memorySummary,
+    'squadSummary': squadSummary,
+    'recentMatches': recentMatches,
+    'homeAwaySplit': homeAwaySplit.toJson(),
+    'avgGoalsPerMatch': {
+      'for': avgGoalsFor,
+      'against': avgGoalsAgainst,
+    },
+    'biggestWin': {
+      if (biggestWinScore != null) 'score': biggestWinScore,
+      if (biggestWinOpponent != null) 'opponent': biggestWinOpponent,
+    },
+    'biggestLoss': {
+      if (biggestLossScore != null) 'score': biggestLossScore,
+      if (biggestLossOpponent != null) 'opponent': biggestLossOpponent,
+    },
+    'currentStreak': {
+      if (streakType != null) 'type': streakType,
+      'count': streakCount,
+    },
+    'cleanSheets': cleanSheets,
+    'goalMinuteBuckets': goalMinuteBuckets
+        .map((bucket) => bucket.toJson())
+        .toList(),
+    'goalMinuteSampleSize': goalMinuteSampleSize,
+  };
+
   factory OpponentAnalysis.fromJson(Map<String, dynamic> json) {
     final avg = _mapOf(json['avgGoalsPerMatch']);
     final biggestWin = _mapOf(json['biggestWin']);
@@ -863,6 +894,11 @@ class OpponentHomeAwaySplit {
 
   const OpponentHomeAwaySplit({required this.home, required this.away});
 
+  Map<String, dynamic> toJson() => {
+    'home': home.toJson(),
+    'away': away.toJson(),
+  };
+
   factory OpponentHomeAwaySplit.fromJson(Map<String, dynamic> json) {
     return OpponentHomeAwaySplit(
       home: OpponentSplitSide.fromJson(OpponentAnalysis._mapOf(json['home'])),
@@ -897,6 +933,15 @@ class OpponentSplitSide {
     required this.ga,
   });
 
+  Map<String, dynamic> toJson() => {
+    'played': played,
+    'won': won,
+    'drawn': drawn,
+    'lost': lost,
+    'gf': gf,
+    'ga': ga,
+  };
+
   factory OpponentSplitSide.fromJson(Map<String, dynamic> json) {
     return OpponentSplitSide(
       played: OpponentAnalysis._intOf(json['played']),
@@ -919,6 +964,12 @@ class OpponentGoalBucket {
     required this.goalsFor,
     required this.goalsAgainst,
   });
+
+  Map<String, dynamic> toJson() => {
+    'range': range,
+    'goalsFor': goalsFor,
+    'goalsAgainst': goalsAgainst,
+  };
 
   factory OpponentGoalBucket.fromJson(Map<String, dynamic> json) {
     return OpponentGoalBucket(
@@ -1466,12 +1517,20 @@ List<Player> applyRemotePlayerProfiles({
     final update = updates[player.id];
     if (update == null) return player;
     return player.copyWith(
+      categoryId: update.categoryId.isNotEmpty
+          ? update.categoryId
+          : player.categoryId,
+      plantelId: update.plantelId,
       position: update.position,
       secondaryPositions: update.secondaryPositions,
       dominantFoot: update.dominantFoot,
       status: update.status,
+      statusDetail: update.statusDetail,
+      suspensionDates: update.suspensionDates,
+      expectedReturnDate: update.expectedReturnDate,
       attendanceRate: update.attendanceRate,
       note: _mergePlayerNote(player.note, update.note),
+      developmentGoals: update.developmentGoals,
     );
   }).toList();
 }

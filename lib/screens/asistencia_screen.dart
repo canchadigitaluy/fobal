@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/attendance_stats_service.dart';
+import '../services/club_access_service.dart';
 import '../services/export_download_service.dart';
 import '../services/export_text_service.dart';
 import '../services/offline_mutation_service.dart';
@@ -34,6 +35,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   String? _loadedKey;
   String _search = '';
   final Set<String> _migrationChecked = {};
+  final Set<String> _remoteHydrationChecked = {};
   final Set<String> _selectedPlantelIds = {};
   bool _savedFlash = false;
 
@@ -117,6 +119,10 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
         stored = record;
         break;
       }
+    }
+    final remoteKey = '${club.id}|${category.id}';
+    if (_remoteHydrationChecked.add(remoteKey)) {
+      unawaited(_loadRemoteAttendance(club, category, players, key));
     }
     if (stored != null) {
       _selectedPlantelIds
@@ -211,18 +217,11 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
           existing,
       record,
     ];
-    final payload = {
-      'date': day,
-      'presentIds': record.presentIds,
-      'absentIds': rosterIds
-          .where((id) => !_statusOf(id).attended)
-          .toList(),
-    };
     unawaited(
       OfflineMutationService.instance.saveTacticalDataOfflineFirst(
         type: 'attendance',
         title: 'Asistencia ${category.name}',
-        content: payload,
+        content: record.toJson(),
         categoryId: category.id,
       ),
     );
@@ -234,6 +233,46 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     Future.delayed(const Duration(milliseconds: 900), () {
       if (mounted) setState(() => _savedFlash = false);
     });
+  }
+
+  Future<void> _loadRemoteAttendance(
+    CanteraClub club,
+    CategorySquad category,
+    List<Player> players,
+    String activeKey,
+  ) async {
+    try {
+      final records = await ClubAccessService.loadTacticalData(limit: 100);
+      if (!mounted) return;
+      final remoteByKey = <String, AttendanceRecord>{};
+      for (final record in records) {
+        if (record.type != 'attendance') continue;
+        try {
+          final attendance = AttendanceRecord.fromJson(record.content);
+          if (attendance.categoryId == category.id &&
+              attendance.date.trim().isNotEmpty) {
+            remoteByKey.putIfAbsent(
+              '${attendance.categoryId}|${attendance.date}',
+              () => attendance,
+            );
+          }
+        } catch (_) {}
+      }
+      if (remoteByKey.isEmpty) return;
+      final byKey = {
+        ...remoteByKey,
+        for (final item in club.attendanceRecords)
+          if (!remoteByKey.containsKey('${item.categoryId}|${item.date}'))
+            '${item.categoryId}|${item.date}': item,
+      };
+      final nextRecords = byKey.values.toList();
+      _persistAttendance(club, category, nextRecords);
+      if (_loadedKey == activeKey) {
+        _loadedKey = null;
+        _load(club.copyWith(attendanceRecords: nextRecords), category, players);
+        if (mounted) setState(() {});
+      }
+    } catch (_) {}
   }
 
   void _persistAttendance(
@@ -467,7 +506,18 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final narrow = MediaQuery.of(context).size.width < 700;
     final scope = AppScope.of(context);
     final club = scope.club;
-    final category = club.categories.isEmpty ? null : club.categories.first;
+    final selectedCategoryId = club.categories.any(
+      (category) => category.id == scope.selectedCategoryId,
+    )
+        ? scope.selectedCategoryId
+        : club.categories.isEmpty
+        ? null
+        : club.categories.first.id;
+    final category = selectedCategoryId == null
+        ? null
+        : club.categories.firstWhere(
+            (category) => category.id == selectedCategoryId,
+          );
     if (category == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Asistencia')),

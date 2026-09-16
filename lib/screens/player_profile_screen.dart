@@ -1,4 +1,5 @@
 // ignore_for_file: avoid_web_libraries_in_flutter
+import 'dart:async';
 import 'dart:convert';
 import 'dart:html' as html;
 
@@ -10,6 +11,7 @@ import '../services/club_access_service.dart';
 import '../services/attendance_stats_service.dart';
 import '../services/export_download_service.dart';
 import '../services/export_text_service.dart';
+import '../services/offline_mutation_service.dart';
 import '../services/player_profile_service.dart';
 import '../state/section_handoff.dart';
 import '../ui/export_preview_dialog.dart';
@@ -48,10 +50,25 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
     );
   }
 
+  void _savePlayerProfileOfflineFirst(Player player) {
+    unawaited(
+      OfflineMutationService.instance.saveTacticalDataOfflineFirst(
+        type: 'staff_note',
+        title: 'Perfil ${player.fullName.trim()}',
+        content: {
+          'kind': 'player_profile_update',
+          'player': player.toJson(),
+        },
+        categoryId: player.categoryId,
+      ),
+    );
+  }
+
   Future<void> _editAvailability(CanteraClub club, Player player) async {
     final updated = await showPlayerAvailabilityDialog(context, player: player);
     if (updated == null || !mounted) return;
     _updatePlayer(club, updated);
+    _savePlayerProfileOfflineFirst(updated);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -89,7 +106,9 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
     );
     controller.dispose();
     if (result == null || !mounted) return;
-    _updatePlayer(club, player.copyWith(note: result));
+    final updated = player.copyWith(note: result);
+    _updatePlayer(club, updated);
+    _savePlayerProfileOfflineFirst(updated);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Notas guardadas.')));
@@ -109,7 +128,9 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
       result,
       ...player.developmentGoals.where((item) => item.id != result.id),
     ];
-    _updatePlayer(club, player.copyWith(developmentGoals: next));
+    final updated = player.copyWith(developmentGoals: next);
+    _updatePlayer(club, updated);
+    _savePlayerProfileOfflineFirst(updated);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(

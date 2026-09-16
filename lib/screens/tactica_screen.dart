@@ -46,6 +46,14 @@ class TacticaScreenState extends State<TacticaScreen> {
   }
 
   void _selectPlannerCategory(String? categoryId) {
+    final scope = AppScope.of(context);
+    if (categoryId != null &&
+        !scope.fullClub.categories.any((item) => item.id == categoryId)) {
+      return;
+    }
+    if (categoryId != scope.selectedCategoryId) {
+      scope.selectCategory(categoryId);
+    }
     if (categoryId == _plannerCategoryId) return;
     setState(() => _plannerCategoryId = categoryId);
   }

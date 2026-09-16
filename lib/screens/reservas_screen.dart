@@ -339,6 +339,35 @@ class _ReservasScreenState extends State<ReservasScreen> {
       final generated = await TrainingAiService().generateTactic(request);
       final tactic = generated.copyWith(scheduledDate: _isoDate(_matchDate));
       if (!mounted) return;
+      final linkedPreparations = _linkedMatchPreparationsForTactic(
+        club,
+        category,
+        tactic.id,
+      );
+      if (linkedPreparations != club.matchPreparations) {
+        AppScope.of(context).updateClub(
+          club.copyWith(matchPreparations: linkedPreparations),
+        );
+        MatchPreparation? linkedPrep;
+        for (final prep in linkedPreparations) {
+          if (prep.linkedSessionId == tactic.id) {
+            linkedPrep = prep;
+            break;
+          }
+        }
+        if (linkedPrep != null) {
+          unawaited(
+            OfflineMutationService.instance.saveTacticalDataOfflineFirst(
+              type: 'match_preparation',
+              title:
+                  'Plan de partido ${category.name}${linkedPrep.rival.isEmpty ? '' : ' vs ${linkedPrep.rival}'}',
+              content: linkedPrep.toJson(),
+              relatedLudTeamId: _ludTeamIdFromCategory(category.id),
+              categoryId: category.id,
+            ),
+          );
+        }
+      }
       final writeResult =
           await OfflineMutationService.instance.saveTacticalDataOfflineFirst(
         type: 'match_plan',
@@ -381,6 +410,35 @@ class _ReservasScreenState extends State<ReservasScreen> {
         _generatingTactic = false;
       });
     }
+  }
+
+  List<MatchPreparation> _linkedMatchPreparationsForTactic(
+    CanteraClub club,
+    CategorySquad category,
+    String tacticId,
+  ) {
+    if (tacticId.isEmpty) return club.matchPreparations;
+    var linked = false;
+    final matchDate = _isoDate(_matchDate);
+    final rival = _rivalName.trim().toLowerCase();
+    final next = <MatchPreparation>[];
+    for (final prep in club.matchPreparations) {
+      final prepRival = prep.rival.trim().toLowerCase();
+      final matchesContext = prep.categoryId == category.id &&
+          (_handoffCalendarEventId.isNotEmpty
+              ? prep.calendarEventId == _handoffCalendarEventId
+              : prep.date == matchDate &&
+                  rival.isNotEmpty &&
+                  prepRival.isNotEmpty &&
+                  (prepRival.contains(rival) || rival.contains(prepRival)));
+      if (matchesContext) {
+        linked = true;
+        next.add(prep.copyWith(linkedSessionId: tacticId));
+      } else {
+        next.add(prep);
+      }
+    }
+    return linked ? next : club.matchPreparations;
   }
 
   @override
@@ -881,6 +939,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
         _squadProfile = draft.squadProfile;
         _rivalMemory = draft.rivalMemory;
         _rivalDangerPlayers = draft.rivalDangerPlayers;
+        _opponentAnalysis = draft.opponentAnalysis;
         _previousMatchNotes = draft.previousMatchNotes;
         _objective = draft.objective;
         _problem = draft.problem;
@@ -3825,10 +3884,15 @@ class _FixtureMemory {
 
   factory _FixtureMemory.fromDraftJson(Map<String, dynamic> json) {
     final parsedDate = DateTime.tryParse(json['matchDate'] as String? ?? '');
+    final rawOpponentAnalysis = json['opponentAnalysis'];
     return _FixtureMemory(
       matches: const [],
       error: null,
-      opponentAnalysis: null,
+      opponentAnalysis: rawOpponentAnalysis is Map
+          ? OpponentAnalysis.fromJson(
+              Map<String, dynamic>.from(rawOpponentAnalysis),
+            )
+          : null,
       fixtureContext: json['fixtureContext'] as String? ?? '',
       rivalName: json['rivalName'] as String? ?? '',
       rivalTableContext: json['rivalTableContext'] as String? ?? '',
@@ -3878,6 +3942,7 @@ class _FixtureMemory {
     'players': players,
     'sessionDate': sessionDate.toUtc().toIso8601String(),
     'matchDate': matchDate.toUtc().toIso8601String(),
+    if (opponentAnalysis != null) 'opponentAnalysis': opponentAnalysis!.toJson(),
   };
 }
 

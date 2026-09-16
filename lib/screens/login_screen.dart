@@ -28,7 +28,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _googleLoading = false;
   bool _emailLoading = false;
   bool _ludMode = true;
-  bool _remember = true;
   bool _creatingAccount = false;
   int _signupStep = 0;
   bool _passwordVisible = false;
@@ -247,7 +246,6 @@ class _LoginScreenState extends State<LoginScreen> {
       ludMode: _ludMode,
       emailController: _emailController,
       passwordController: _passwordController,
-      remember: _remember,
       loading: _emailLoading,
       googleLoading: _googleLoading,
       message: _authMessage,
@@ -256,7 +254,6 @@ class _LoginScreenState extends State<LoginScreen> {
         _ludMode = value;
         _authMessage = null;
       }),
-      onRememberChanged: (value) => setState(() => _remember = value ?? true),
       onTogglePassword: () =>
           setState(() => _passwordVisible = !_passwordVisible),
       onSubmit: _emailLoading ? null : _signInWithPassword,
@@ -317,13 +314,11 @@ class _ModernLoginView extends StatelessWidget {
   final bool ludMode;
   final TextEditingController emailController;
   final TextEditingController passwordController;
-  final bool remember;
   final bool loading;
   final bool googleLoading;
   final bool passwordVisible;
   final String? message;
   final ValueChanged<bool> onModeChanged;
-  final ValueChanged<bool?> onRememberChanged;
   final VoidCallback onTogglePassword;
   final VoidCallback? onSubmit;
   final VoidCallback? onGoogle;
@@ -333,13 +328,11 @@ class _ModernLoginView extends StatelessWidget {
     required this.ludMode,
     required this.emailController,
     required this.passwordController,
-    required this.remember,
     required this.loading,
     required this.googleLoading,
     required this.passwordVisible,
     required this.message,
     required this.onModeChanged,
-    required this.onRememberChanged,
     required this.onTogglePassword,
     required this.onSubmit,
     required this.onGoogle,
@@ -405,18 +398,7 @@ class _ModernLoginView extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-              CheckboxListTile(
-                value: remember,
-                onChanged: onRememberChanged,
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text(
-                  'Recordarme',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
+              const SizedBox(height: 6),
               ElevatedButton(
                 onPressed: onSubmit,
                 style: ElevatedButton.styleFrom(

@@ -646,6 +646,17 @@ class _OnboardingChecklistState extends State<_OnboardingChecklist> {
                           'Primeros pasos',
                           style: TextStyle(fontWeight: FontWeight.w900),
                         ),
+                        const SizedBox(height: 5),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: requiredDone / 2,
+                            minHeight: 4,
+                            backgroundColor: CX.line,
+                            color: CX.green,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
                         Text(
                           '$requiredDone de 2 esenciales completos',
                           style: const TextStyle(

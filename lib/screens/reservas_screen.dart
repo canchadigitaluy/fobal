@@ -25,7 +25,14 @@ const _fixtureStylePlaceholder =
     'Fixture detectado desde la liga. Completar observaciones del rival sin inventar: sistema, presion, salida, zonas fuertes y debilidades vistas.';
 
 class ReservasScreen extends StatefulWidget {
-  const ReservasScreen({super.key});
+  final String? initialCategoryOverride;
+  final ValueChanged<String?>? onCategoryChanged;
+
+  const ReservasScreen({
+    super.key,
+    this.initialCategoryOverride,
+    this.onCategoryChanged,
+  });
 
   @override
   State<ReservasScreen> createState() => _ReservasScreenState();
@@ -105,6 +112,21 @@ class _ReservasScreenState extends State<ReservasScreen> {
       _handoffOrigin = prep.origin.isEmpty ? 'Estadísticas' : prep.origin;
       _handoffContext = prep.rivalContext.trim();
       _handoffCalendarEventId = prep.calendarEventId;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ReservasScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = widget.initialCategoryOverride;
+    if (next == oldWidget.initialCategoryOverride ||
+        next == null ||
+        next == _selectedCategoryId) {
+      return;
+    }
+    final categories = AppScope.of(context).fullClub.categories;
+    if (categories.any((item) => item.id == next)) {
+      _selectCategory(next, notifyParent: false);
     }
   }
 
@@ -368,10 +390,13 @@ class _ReservasScreenState extends State<ReservasScreen> {
     final club = scope.fullClub;
     final canGenerate = scope.role != UserRole.viewer;
     final scopeSelectedId = scope.selectedCategoryId;
-    final selectedId = club.categories.any((item) => item.id == scopeSelectedId)
-        ? scopeSelectedId
+    final overrideSelectedId = widget.initialCategoryOverride;
+    final selectedId = club.categories.any((item) => item.id == overrideSelectedId)
+        ? overrideSelectedId
         : club.categories.any((item) => item.id == _selectedCategoryId)
         ? _selectedCategoryId
+        : club.categories.any((item) => item.id == scopeSelectedId)
+        ? scopeSelectedId
         : club.categories.isEmpty
         ? null
         : club.categories.first.id;
@@ -472,7 +497,8 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   ),
                   SizedBox(height: narrow ? 8 : 12),
                 ],
-                if (club.categories.isNotEmpty) ...[
+                if (club.categories.isNotEmpty &&
+                    widget.onCategoryChanged == null) ...[
                   DropdownButtonFormField<String>(
                     key: ValueKey('tactical-category-$selectedId'),
                     initialValue: selectedId,
@@ -745,10 +771,10 @@ class _ReservasScreenState extends State<ReservasScreen> {
         .trim();
   }
 
-  void _selectCategory(String? value) {
+  void _selectCategory(String? value, {bool notifyParent = true}) {
     if (value == _selectedCategoryId) return;
-    AppScope.of(context).selectCategory(value);
     _rememberFixtureState(_selectedCategoryId);
+    if (notifyParent) widget.onCategoryChanged?.call(value);
     final nextKey = _fixtureMemoryKey(value);
     final remembered = _fixtureMemoryByCategory[nextKey];
     setState(() {

@@ -16,6 +16,7 @@ class TacticaScreen extends StatefulWidget {
 
 class TacticaScreenState extends State<TacticaScreen> {
   int _section = 0;
+  String? _plannerCategoryId;
 
   void selectSection(int index) {
     final external = _isExternal(context);
@@ -28,10 +29,38 @@ class TacticaScreenState extends State<TacticaScreen> {
   bool _isExternal(BuildContext context) =>
       AppScope.of(context).fullClub.isManualClub;
 
+  bool _isPlannerSection(int selectedSection, bool external) =>
+      selectedSection == (external ? 1 : 2);
+
+  String? _effectivePlannerCategoryId(
+    List<CategorySquad> categories,
+    String? scopeSelectedId,
+  ) {
+    if (categories.any((item) => item.id == _plannerCategoryId)) {
+      return _plannerCategoryId;
+    }
+    if (categories.any((item) => item.id == scopeSelectedId)) {
+      return scopeSelectedId;
+    }
+    return categories.isEmpty ? null : categories.first.id;
+  }
+
+  void _selectPlannerCategory(String? categoryId) {
+    if (categoryId == _plannerCategoryId) return;
+    setState(() => _plannerCategoryId = categoryId);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
     final external = _isExternal(context);
     final selectedSection = _section.clamp(0, external ? 2 : 3);
+    final categories = scope.fullClub.categories;
+    final planning = _isPlannerSection(selectedSection, external);
+    final plannerCategoryId = _effectivePlannerCategoryId(
+      categories,
+      scope.selectedCategoryId,
+    );
     if (selectedSection != _section) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() => _section = selectedSection);
@@ -47,7 +76,9 @@ class TacticaScreenState extends State<TacticaScreen> {
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child: SegmentedButton<int>(
+                child: Row(
+                  children: [
+                    SegmentedButton<int>(
                   segments: [
                     ButtonSegment(
                       value: 0,
@@ -73,7 +104,19 @@ class TacticaScreenState extends State<TacticaScreen> {
                   ],
                   selected: {selectedSection},
                   showSelectedIcon: false,
-                  onSelectionChanged: (value) => selectSection(value.first),
+                      onSelectionChanged: (value) => selectSection(value.first),
+                    ),
+                    if (planning &&
+                        categories.isNotEmpty &&
+                        plannerCategoryId != null) ...[
+                      const SizedBox(width: 10),
+                      _PlannerCategorySelector(
+                        categories: categories,
+                        selectedCategoryId: plannerCategoryId,
+                        onChanged: _selectPlannerCategory,
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -116,15 +159,90 @@ class TacticaScreenState extends State<TacticaScreen> {
               child: switch (selectedSection) {
                 0 => const CuotaScreen(),
                 1 => external
-                    ? const ReservasScreen()
+                    ? ReservasScreen(
+                        initialCategoryOverride: plannerCategoryId,
+                        onCategoryChanged: _selectPlannerCategory,
+                      )
                     : const AsistenciaScreen(),
-                2 => external ? const PerfilScreen() : const ReservasScreen(),
+                2 => external
+                    ? const PerfilScreen()
+                    : ReservasScreen(
+                        initialCategoryOverride: plannerCategoryId,
+                        onCategoryChanged: _selectPlannerCategory,
+                      ),
                 _ => const PerfilScreen(),
               },
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PlannerCategorySelector extends StatelessWidget {
+  final List<CategorySquad> categories;
+  final String selectedCategoryId;
+  final ValueChanged<String?> onChanged;
+
+  const _PlannerCategorySelector({
+    required this.categories,
+    required this.selectedCategoryId,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 40,
+      constraints: const BoxConstraints(minWidth: 190, maxWidth: 260),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: CX.bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.line),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedCategoryId,
+          isExpanded: true,
+          icon: const Icon(Icons.expand_more, size: 18),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: CX.white,
+                fontWeight: FontWeight.w700,
+              ),
+          selectedItemBuilder: (context) => categories
+              .map(
+                (item) => Row(
+                  children: [
+                    const Icon(Icons.groups_2_outlined, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        item.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+              .toList(),
+          items: categories
+              .map(
+                (item) => DropdownMenuItem(
+                  value: item.id,
+                  child: Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
+        ),
+      ),
     );
   }
 }

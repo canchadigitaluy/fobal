@@ -2194,7 +2194,13 @@ class _MainShellState extends State<MainShell> {
     final label = external
         ? labels![next]
         : _labelForInternalIndex(scope.role, next);
-    await _loadDeferredScreen(label);
+    try {
+      await _loadDeferredScreen(label);
+    } catch (_) {
+      // Chunk deferred pudo fallar (cache vieja tras deploy); la pantalla
+      // destino reintenta su propia carga en el FutureBuilder, no bloqueamos
+      // el cambio de tab por esto.
+    }
     if (!mounted) return;
     setState(() {
       _currentIndex = next;
@@ -2418,11 +2424,6 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (role != UserRole.coordinator &&
-              ClubAccessService.accessibleCategories(
-                AppScope.of(context).fullClub.categories,
-              ).isNotEmpty)
-            _MobileCategoryScopeBar(),
           if (SupabaseAuthService.currentEmail != null)
             _MobileClubContextBar(
               onSwitchClub: _switchClub,
@@ -3257,45 +3258,6 @@ class ClubCrest extends StatelessWidget {
       return '/api/club-crest?url=${Uri.encodeComponent(clean)}';
     }
     return clean;
-  }
-}
-
-class _MobileCategoryScopeBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final scope = AppScope.of(context);
-    final categories = ClubAccessService.accessibleCategories(
-      scope.fullClub.categories,
-    );
-    final selected =
-        categories.any((item) => item.id == scope.selectedCategoryId)
-        ? scope.selectedCategoryId
-        : categories.first.id;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      decoration: const BoxDecoration(
-        color: CX.bg,
-        border: Border(top: BorderSide(color: CX.line)),
-      ),
-      child: DropdownButtonFormField<String>(
-        value: selected,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          labelText: 'Mi categoría',
-          isDense: true,
-          prefixIcon: Icon(Icons.groups_2_outlined),
-        ),
-        items: categories
-            .map(
-              (category) => DropdownMenuItem(
-                value: category.id,
-                child: Text(category.name, overflow: TextOverflow.ellipsis),
-              ),
-            )
-            .toList(),
-        onChanged: scope.selectCategory,
-      ),
-    );
   }
 }
 

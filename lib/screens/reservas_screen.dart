@@ -406,9 +406,6 @@ class _ReservasScreenState extends State<ReservasScreen> {
     final sessions = club.sessions
         .where((item) => item.categoryId == category.id)
         .toList();
-    final plannedSessions = sessions
-        .where((session) => session.status != 'completed')
-        .toList();
     final completedSessions = sessions
         .where((session) => session.status == 'completed')
         .toList();
@@ -495,68 +492,17 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   ),
                 ],
                 SizedBox(height: narrow ? 11 : 16),
-                if (matchPlans.isNotEmpty) ...[
-                  _SectionTitle('Plan de partido guardado', compact: narrow),
-                  SizedBox(height: narrow ? 7 : 10),
-                  _MatchPlanPanel(plans: matchPlans),
-                  SizedBox(height: narrow ? 11 : 16),
-                ] else if (nextPreparation != null) ...[
-                  _SectionTitle('Proximo partido guardado', compact: narrow),
-                  SizedBox(height: narrow ? 7 : 10),
-                  _MatchPreparationSummaryPanel(prep: nextPreparation),
-                  SizedBox(height: narrow ? 11 : 16),
-                ],
-                _SectionTitle('Proximas sesiones', compact: narrow),
-                SizedBox(height: narrow ? 7 : 10),
-                if (plannedSessions.isEmpty)
-                  const _PlanningEmptyPanel(
-                    icon: Icons.event_note_outlined,
-                    title: 'Sin sesiones planificadas',
-                    message:
-                        'Arma una sesion con el generador o desde el builder manual.',
-                  )
-                else
-                  _SessionTimeline(
-                    sessions: plannedSessions,
-                    canEdit: canGenerate,
-                    onChanged: (session) => _updateSession(club, session),
+                PremiumSectionHeader(
+                  eyebrow: 'PARTIDO',
+                  title: 'Próximo partido',
+                  compact: narrow,
+                  trailing: OutlinedButton.icon(
+                    onPressed: () =>
+                        openMatchPreparation(context, rival: _rivalName),
+                    icon: const Icon(Icons.assignment_outlined, size: 16),
+                    label: const Text('Panel completo'),
                   ),
-                if (completedSessions.isNotEmpty) ...[
-                  SizedBox(height: narrow ? 11 : 16),
-                  _SectionTitle('Sesiones completadas', compact: narrow),
-                  SizedBox(height: narrow ? 7 : 10),
-                  _CompletedSessionsList(
-                    sessions: completedSessions,
-                    canEdit: canGenerate,
-                    onReopen: (session) => _updateSession(
-                      club,
-                      session.copyWith(status: 'planned'),
-                    ),
-                  ),
-                ],
-                if (reports.isNotEmpty) ...[
-                  SizedBox(height: narrow ? 11 : 16),
-                  _SectionTitle('Ultima lectura de campo', compact: narrow),
-                  SizedBox(height: narrow ? 7 : 10),
-                  for (final report in reports.take(2)) ...[
-                    _ReportCard(report: report),
-                    const SizedBox(height: 10),
-                  ],
-                ],
-                SizedBox(height: narrow ? 12 : 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _SectionTitle('Próximo partido', compact: narrow),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => openMatchPreparation(context, rival: _rivalName),
-                      icon: const Icon(Icons.assignment_outlined, size: 16),
-                      label: const Text('Panel de partido completo'),
-                    ),
-                  ],
                 ),
-                SizedBox(height: narrow ? 7 : 10),
                 _MatchPrepForm(
                   rivalName: _rivalName,
                   rivalTableContext: _rivalTableContext,
@@ -607,6 +553,40 @@ class _ReservasScreenState extends State<ReservasScreen> {
                     clubName: club.name,
                     categoryName: category.name,
                   ),
+                ],
+                SizedBox(height: narrow ? 12 : 18),
+                if (matchPlans.isNotEmpty) ...[
+                  _SectionTitle('Plan de partido guardado', compact: narrow),
+                  SizedBox(height: narrow ? 7 : 10),
+                  _MatchPlanPanel(plans: matchPlans),
+                  SizedBox(height: narrow ? 11 : 16),
+                ] else if (nextPreparation != null) ...[
+                  _SectionTitle('Proximo partido guardado', compact: narrow),
+                  SizedBox(height: narrow ? 7 : 10),
+                  _MatchPreparationSummaryPanel(prep: nextPreparation),
+                  SizedBox(height: narrow ? 11 : 16),
+                ],
+                if (completedSessions.isNotEmpty) ...[
+                  SizedBox(height: narrow ? 11 : 16),
+                  _SectionTitle('Sesiones completadas', compact: narrow),
+                  SizedBox(height: narrow ? 7 : 10),
+                  _CompletedSessionsList(
+                    sessions: completedSessions,
+                    canEdit: canGenerate,
+                    onReopen: (session) => _updateSession(
+                      club,
+                      session.copyWith(status: 'planned'),
+                    ),
+                  ),
+                ],
+                if (reports.isNotEmpty) ...[
+                  SizedBox(height: narrow ? 11 : 16),
+                  _SectionTitle('Ultima lectura de campo', compact: narrow),
+                  SizedBox(height: narrow ? 7 : 10),
+                  for (final report in reports.take(2)) ...[
+                    _ReportCard(report: report),
+                    const SizedBox(height: 10),
+                  ],
                 ],
                 SizedBox(height: narrow ? 11 : 16),
                 _SectionTitle('Preparar entrenamiento', compact: narrow),
@@ -1198,90 +1178,6 @@ class _ReservasScreenState extends State<ReservasScreen> {
 
 }
 
-class _SessionTimeline extends StatelessWidget {
-  final List<TrainingSession> sessions;
-  final bool canEdit;
-  final ValueChanged<TrainingSession> onChanged;
-
-  const _SessionTimeline({
-    required this.sessions,
-    required this.canEdit,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final ordered = [...sessions]
-      ..sort((a, b) {
-        final aDate = DateTime.tryParse(a.scheduledDate);
-        final bDate = DateTime.tryParse(b.scheduledDate);
-        if (aDate == null && bDate == null) return 0;
-        if (aDate == null) return 1;
-        if (bDate == null) return -1;
-        return aDate.compareTo(bDate);
-      });
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: CX.greenDark.withValues(alpha: .45),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CX.green.withValues(alpha: .24)),
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: Column(
-        children: ordered
-            .take(3)
-            .map(
-              (session) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _SessionTimelineItem(
-                  session: session,
-                  overdue: _isOverdue(session),
-                  formattedDate: _formatDate(session.scheduledDate),
-                  canEdit: canEdit,
-                  onChanged: onChanged,
-                ),
-              ),
-            )
-            .toList(),
-        ),
-      ),
-    );
-  }
-
-  String _formatDate(String value) {
-    final date = DateTime.tryParse(value);
-    if (date == null) return value;
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-  }
-
-  bool _isOverdue(TrainingSession session) {
-    final date = DateTime.tryParse(session.scheduledDate);
-    if (date == null) return false;
-    final today = DateTime.now();
-    final startOfToday = DateTime(today.year, today.month, today.day);
-    return date.isBefore(startOfToday);
-  }
-}
-
-class _PlanningEmptyPanel extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String message;
-
-  const _PlanningEmptyPanel({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return EmptyStatePanel(icon: icon, title: title, message: message);
-  }
-}
-
 class _ReportCard extends StatelessWidget {
   final TrainingReport report;
   const _ReportCard({required this.report});
@@ -1339,382 +1235,7 @@ class _ReportCard extends StatelessWidget {
       );
 }
 
-class _SessionTimelineItem extends StatelessWidget {
-  final TrainingSession session;
-  final bool overdue;
-  final String formattedDate;
-  final bool canEdit;
-  final ValueChanged<TrainingSession> onChanged;
 
-  const _SessionTimelineItem({
-    required this.session,
-    required this.overdue,
-    required this.formattedDate,
-    required this.canEdit,
-    required this.onChanged,
-  });
-
-  void _showBlockAnimation(
-    BuildContext context,
-    TrainingSession session,
-    TrainingBlock block,
-  ) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => Dialog(
-        insetPadding: const EdgeInsets.all(20),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        block.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ExerciseAnimationPreview(
-                  scene: block.sceneOrFallback(
-                    space: session.space,
-                    playerCount: session.playerCount,
-                  ),
-                  title: '${session.title} ${block.name}',
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final body = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          session.objective,
-          style: const TextStyle(color: CX.muted, fontSize: 12, height: 1.4),
-        ),
-        const SizedBox(height: 13),
-        _SessionActionHint(session: session),
-        if (session.coachCues.isNotEmpty ||
-            session.successIndicators.isNotEmpty ||
-            session.limitations.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          _SessionStaffBrief(session: session),
-        ],
-        const SizedBox(height: 13),
-        Wrap(
-          spacing: 7,
-          runSpacing: 7,
-          children: [
-            _Tag('${session.duration} min'),
-            _Tag(session.space),
-            _Tag('${session.playerCount} jugadores'),
-            if (session.scheduledDate.isNotEmpty) _Tag(formattedDate),
-            _Tag(overdue ? 'Pasada' : 'Planificada'),
-          ],
-        ),
-        if (session.blocks.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          ...session.blocks
-              .take(4)
-              .map(
-                (block) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 5,
-                        height: 5,
-                        margin: const EdgeInsets.only(top: 6),
-                        decoration: const BoxDecoration(
-                          color: CX.green,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Text(
-                          '${block.name}  -  ${block.duration}\n${block.description}',
-                          style: const TextStyle(fontSize: 11, height: 1.45),
-                        ),
-                      ),
-                      TextButton.icon(
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: const Size(0, 30),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        icon: const Icon(Icons.animation, size: 15),
-                        label: const Text(
-                          'Animación',
-                          style: TextStyle(fontSize: 11),
-                        ),
-                        onPressed: () =>
-                            _showBlockAnimation(context, session, block),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-        ],
-      ],
-    );
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: const EdgeInsets.only(top: 8),
-        initiallyExpanded: !overdue,
-        leading: const Icon(
-          Icons.event_note_outlined,
-          color: CX.green,
-          size: 18,
-        ),
-        title: Text(
-          session.title,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-        ),
-        subtitle: overdue
-            ? Text(
-                session.objective,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: CX.faint, fontSize: 11),
-              )
-            : null,
-        trailing: canEdit
-            ? PopupMenuButton<String>(
-                tooltip: 'Gestionar sesion',
-                icon: const Icon(Icons.more_vert, size: 20),
-                onSelected: (action) async {
-                  if (action == 'date') {
-                    final initial =
-                        DateTime.tryParse(session.scheduledDate) ??
-                        DateTime.now();
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: initial,
-                      firstDate: DateTime.now().subtract(
-                        const Duration(days: 30),
-                      ),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                    );
-                    if (picked != null) {
-                      onChanged(
-                        session.copyWith(
-                          scheduledDate: picked
-                              .toIso8601String()
-                              .split('T')
-                              .first,
-                          status: 'planned',
-                        ),
-                      );
-                    }
-                  } else if (action == 'complete') {
-                    onChanged(session.copyWith(status: 'completed'));
-                  }
-                },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'date', child: Text('Elegir fecha')),
-                  PopupMenuItem(
-                    value: 'complete',
-                    child: Text('Marcar completada'),
-                  ),
-                ],
-              )
-            : null,
-        children: [body],
-      ),
-    );
-  }
-}
-
-class _SessionStaffBrief extends StatelessWidget {
-  final TrainingSession session;
-
-  const _SessionStaffBrief({required this.session});
-
-  @override
-  Widget build(BuildContext context) {
-    final cue = session.coachCues.isEmpty ? '' : session.coachCues.first;
-    final indicator = session.successIndicators.isEmpty
-        ? ''
-        : session.successIndicators.first;
-    final limitation = session.limitations.isEmpty
-        ? ''
-        : session.limitations.first;
-    final items = [
-      if (cue.isNotEmpty)
-        _StaffBriefItem(Icons.record_voice_over_outlined, 'Decir', cue),
-      if (indicator.isNotEmpty)
-        _StaffBriefItem(Icons.track_changes_outlined, 'Mirar', indicator),
-      if (limitation.isNotEmpty)
-        _StaffBriefItem(Icons.warning_amber_outlined, 'Cuidar', limitation),
-    ];
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: CX.panel2.withValues(alpha: .65),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CX.line),
-      ),
-      child: Column(
-        children: items
-            .map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(item.icon, color: CX.green, size: 15),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 44,
-                      child: Text(
-                        item.label,
-                        style: const TextStyle(
-                          color: CX.faint,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        item.text,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: CX.muted,
-                          fontSize: 10,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
-}
-
-class _StaffBriefItem {
-  final IconData icon;
-  final String label;
-  final String text;
-
-  const _StaffBriefItem(this.icon, this.label, this.text);
-}
-
-class _SessionActionHint extends StatelessWidget {
-  final TrainingSession session;
-
-  const _SessionActionHint({required this.session});
-
-  @override
-  Widget build(BuildContext context) {
-    final date = DateTime.tryParse(session.scheduledDate);
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final dateOnly = date == null
-        ? null
-        : DateTime(date.year, date.month, date.day);
-    final overdue = dateOnly != null && dateOnly.isBefore(today);
-    final todaySession = dateOnly != null && dateOnly.isAtSameMomentAs(today);
-    final missingDate = session.scheduledDate.trim().isEmpty || date == null;
-    final color = overdue || missingDate
-        ? CX.amber
-        : todaySession
-        ? CX.green
-        : CX.blue;
-    final icon = overdue
-        ? Icons.update_outlined
-        : missingDate
-        ? Icons.event_busy_outlined
-        : todaySession
-        ? Icons.play_circle_outline
-        : Icons.event_available_outlined;
-    final title = overdue
-        ? 'Reprogramar o cerrar'
-        : missingDate
-        ? 'Asignar fecha'
-        : todaySession
-        ? 'Ejecutar hoy'
-        : 'Preparada';
-    final detail = overdue
-        ? 'Esta sesion quedo vencida; conviene marcarla completada o elegir una nueva fecha.'
-        : missingDate
-        ? 'Sin fecha clara, la agenda no puede ordenar prioridades del cuerpo tecnico.'
-        : todaySession
-        ? 'Abrir consignas y checklist antes de salir a cancha.'
-        : 'La sesion esta ordenada para una fecha futura.';
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: .2)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 17),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  detail,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: CX.muted,
-                    fontSize: 10,
-                    height: 1.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _MatchPreparationSummaryPanel extends StatelessWidget {
   final MatchPreparation prep;

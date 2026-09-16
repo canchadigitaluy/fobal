@@ -667,6 +667,7 @@ class _CanteraAppState extends State<CanteraApp> {
         scrollBehavior: const CanteraScrollBehavior(),
         theme: ThemeData(
           useMaterial3: true,
+          visualDensity: VisualDensity.compact,
           brightness: Brightness.light,
           scaffoldBackgroundColor: CX.canvas,
           canvasColor: CX.panel,
@@ -738,13 +739,14 @@ class _CanteraAppState extends State<CanteraApp> {
             style: ElevatedButton.styleFrom(
               backgroundColor: CX.green,
               foregroundColor: const Color(0xFF07100B),
-              minimumSize: const Size(double.infinity, 50),
+              minimumSize: const Size(double.infinity, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
               textStyle: const TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w800,
               ),
               animationDuration: CX.motionFast,
@@ -757,7 +759,9 @@ class _CanteraAppState extends State<CanteraApp> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
-              minimumSize: const Size(0, 46),
+              minimumSize: const Size(0, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              textStyle: const TextStyle(fontSize: 13),
               animationDuration: CX.motionFast,
             ),
           ),
@@ -848,8 +852,8 @@ class _CanteraAppState extends State<CanteraApp> {
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              minimumSize: const Size(0, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: const Size(0, 36),
             ),
           ),
           // Form toggles: green when on, sober neutral track/outline when off.

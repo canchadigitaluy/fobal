@@ -168,10 +168,16 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
       _plantelFilter = '';
     }
     final players = playersForPlantel(scope.club.players, _plantelFilter);
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     return Scaffold(
       appBar: AppBar(title: const Text('Mi equipo')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 8, 18, 36),
+        padding: EdgeInsets.fromLTRB(
+          narrow ? 12 : 18,
+          narrow ? 6 : 8,
+          narrow ? 12 : 18,
+          narrow ? 24 : 36,
+        ),
         children: [
           if (planteles.isNotEmpty) ...[
             Wrap(
@@ -192,10 +198,10 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: narrow ? 8 : 12),
           ],
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: EdgeInsets.all(narrow ? 10 : 14),
             decoration: CX.panelDecoration(),
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -259,7 +265,7 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [logo, const SizedBox(width: 14), info]),
-                      const SizedBox(height: 14),
+                      SizedBox(height: narrow ? 10 : 14),
                       photo,
                     ],
                   );
@@ -276,10 +282,10 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
               },
             ),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: narrow ? 12 : 18),
           if (players.isNotEmpty) ...[
             _SquadProgress(players: players),
-            const SizedBox(height: 12),
+            SizedBox(height: narrow ? 8 : 12),
             Align(
               alignment: Alignment.centerLeft,
               child: OutlinedButton.icon(
@@ -288,18 +294,20 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
                 label: const Text('Generar reporte del plantel'),
               ),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: narrow ? 12 : 18),
           ],
           if (squadGoalTracker(players).isNotEmpty) ...[
-            const PremiumSectionHeader(
+            PremiumSectionHeader(
+              compact: narrow,
               eyebrow: 'Seguimiento',
               title: 'Objetivos del plantel',
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: narrow ? 7 : 10),
             _SquadGoalsPanel(entries: squadGoalTracker(players)),
-            const SizedBox(height: 18),
+            SizedBox(height: narrow ? 12 : 18),
           ],
-          const PremiumSectionHeader(
+          PremiumSectionHeader(
+            compact: narrow,
             eyebrow: 'Plantel',
             title: 'Jugadores',
           ),

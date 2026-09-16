@@ -1,3 +1,6 @@
+// ignore_for_file: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
 
 import '../main.dart';
@@ -8,13 +11,27 @@ import 'admin_accounts_screen.dart';
 /// shortcut, not the real security boundary — every privileged action still
 /// goes through /api/admin-accounts, which re-checks the caller's own
 /// Supabase session against the platform_admins table server-side.
+///
+/// Signing in with Google from the admin screen requires a full-page OAuth
+/// redirect back to /#/admin, which would otherwise show this PIN pad again
+/// right after the DT just proved they belong here. A sessionStorage flag
+/// set on PIN success (survives that same-tab redirect, cleared when the
+/// tab closes) lets a second visit this session skip straight past it.
 class AdminPinScreen extends StatelessWidget {
   const AdminPinScreen({super.key});
 
   static const _pin = '200717';
+  static const _flagKey = 'fobal_admin_pin_ok';
 
   @override
   Widget build(BuildContext context) {
+    bool alreadyVerified = false;
+    try {
+      alreadyVerified = html.window.sessionStorage[_flagKey] == '1';
+    } catch (_) {}
+    if (alreadyVerified) {
+      return const AdminAccountsScreen();
+    }
     return Scaffold(
       backgroundColor: CX.bg,
       body: SafeArea(
@@ -25,11 +42,16 @@ class AdminPinScreen extends StatelessWidget {
               padding: const EdgeInsets.all(24),
               child: _PinPad(
                 expected: _pin,
-                onSuccess: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (_) => const AdminAccountsScreen(),
-                  ),
-                ),
+                onSuccess: () {
+                  try {
+                    html.window.sessionStorage[_flagKey] = '1';
+                  } catch (_) {}
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (_) => const AdminAccountsScreen(),
+                    ),
+                  );
+                },
               ),
             ),
           ),

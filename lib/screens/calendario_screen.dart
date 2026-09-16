@@ -220,6 +220,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
   @override
   Widget build(BuildContext context) {
     final first = DateTime(_month.year, _month.month, 1);
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
     final offset = (first.weekday + 6) % 7;
     final cells = List<DateTime?>.filled(offset, null, growable: true)
@@ -236,7 +237,12 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
       color: CX.canvas,
       child: SingleChildScrollView(
         key: const PageStorageKey('calendario-screen'),
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
+        padding: EdgeInsets.fromLTRB(
+          narrow ? 12 : 18,
+          narrow ? 12 : 18,
+          narrow ? 12 : 18,
+          narrow ? 20 : 30,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -249,13 +255,13 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
               'Entrenamientos, partidos y eventos',
               style: TextStyle(color: CX.faint, fontSize: 11),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: narrow ? 12 : 18),
             Align(
               alignment: Alignment.centerLeft,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 680),
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(narrow ? 11 : 16),
                   decoration: CX.panelDecoration(),
                   child: Column(
                     children: [
@@ -291,7 +297,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: narrow ? 6 : 8),
                       Row(
                         children:
                             const [
@@ -319,15 +325,15 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                                 )
                                 .toList(),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: narrow ? 6 : 8),
                       GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: cells.length,
                         gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
+                            SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 7,
-                              childAspectRatio: 1.55,
+                              childAspectRatio: narrow ? 1.35 : 1.55,
                             ),
                         itemBuilder: (context, index) {
                           final day = cells[index];
@@ -344,7 +350,7 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                             onTap: () => _openDay(day),
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
-                              margin: const EdgeInsets.all(3),
+                              margin: EdgeInsets.all(narrow ? 2 : 3),
                               decoration: BoxDecoration(
                                 color: selected
                                     ? CX.green.withValues(alpha: .12)

@@ -264,8 +264,14 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
             );
           }
 
+          final narrow = MediaQuery.sizeOf(context).width < 700;
           return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+            padding: EdgeInsets.fromLTRB(
+              narrow ? 14 : 20,
+              narrow ? 8 : 12,
+              narrow ? 14 : 20,
+              narrow ? 24 : 36,
+            ),
             children: [
               _WeekReading(
                 clubName: club.name,
@@ -273,7 +279,7 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
                 data: data,
                 isLud: isLud,
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: narrow ? 10 : 14),
               Align(
                 alignment: Alignment.centerLeft,
                 child: OutlinedButton.icon(
@@ -289,8 +295,9 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
                   label: const Text('Generar reporte del plantel'),
                 ),
               ),
-              const SizedBox(height: 20),
-              const PremiumSectionHeader(
+              SizedBox(height: narrow ? 14 : 20),
+              PremiumSectionHeader(
+                compact: narrow,
                 eyebrow: 'Panorama',
                 title: 'Números de la categoría',
               ),
@@ -311,8 +318,9 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
                   label: const Text('Ver historial de asistencia'),
                 ),
               ),
-              const SizedBox(height: 20),
-              const PremiumSectionHeader(
+              SizedBox(height: narrow ? 14 : 20),
+              PremiumSectionHeader(
+                compact: narrow,
                 eyebrow: 'Rendimiento',
                 title: 'Forma y goles',
               ),
@@ -338,13 +346,14 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
                   );
                 },
               ),
-              const SizedBox(height: 20),
-              const PremiumSectionHeader(
+              SizedBox(height: narrow ? 14 : 20),
+              PremiumSectionHeader(
+                compact: narrow,
                 eyebrow: 'Detalle',
                 title: 'Lectura, plantel y tabla',
               ),
               _AutomaticReading(data: data),
-              const SizedBox(height: 14),
+              SizedBox(height: narrow ? 10 : 14),
               _PlayerLeaders(
                 players: data.players,
                 onTapPlayer: (id) {
@@ -356,7 +365,7 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
                   }
                 },
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: narrow ? 10 : 14),
               _TablePanel(table: data.standings),
             ],
           );
@@ -1417,8 +1426,9 @@ class _Panel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(narrow ? 12 : 18),
       decoration: CX.panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1535,9 +1545,15 @@ class _NoLudStatsBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final summary = MatchStats.forCategory(allResults, categoryId);
+    final narrow = MediaQuery.sizeOf(context).width < 700;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
+      padding: EdgeInsets.fromLTRB(
+        narrow ? 14 : 20,
+        narrow ? 8 : 12,
+        narrow ? 14 : 20,
+        narrow ? 24 : 36,
+      ),
       children: [
         Row(
           children: [
@@ -1575,8 +1591,9 @@ class _NoLudStatsBody extends StatelessWidget {
           _NoLudEmpty(onAdd: () => _add(context))
         else ...[
           _NoLudReading(summary: summary),
-          const SizedBox(height: 20),
-          const PremiumSectionHeader(
+          SizedBox(height: narrow ? 14 : 20),
+          PremiumSectionHeader(
+            compact: narrow,
             eyebrow: 'Panorama',
             title: 'Números del equipo',
           ),
@@ -1593,14 +1610,19 @@ class _NoLudStatsBody extends StatelessWidget {
               label: const Text('Ver historial de asistencia'),
             ),
           ),
-          const SizedBox(height: 20),
-          const PremiumSectionHeader(
+          SizedBox(height: narrow ? 14 : 20),
+          PremiumSectionHeader(
+            compact: narrow,
             eyebrow: 'Rendimiento',
             title: 'Forma reciente',
           ),
           _NoLudForm(summary: summary),
-          const SizedBox(height: 20),
-          const PremiumSectionHeader(eyebrow: 'Plantel', title: 'Goleadores'),
+          SizedBox(height: narrow ? 14 : 20),
+          PremiumSectionHeader(
+            compact: narrow,
+            eyebrow: 'Plantel',
+            title: 'Goleadores',
+          ),
           _PlayerLeaders(
             showFullColumns: false,
             players: [
@@ -1625,8 +1647,9 @@ class _NoLudStatsBody extends StatelessWidget {
               }
             },
           ),
-          const SizedBox(height: 20),
-          const PremiumSectionHeader(
+          SizedBox(height: narrow ? 14 : 20),
+          PremiumSectionHeader(
+            compact: narrow,
             eyebrow: 'Historial',
             title: 'Resultados cargados',
           ),

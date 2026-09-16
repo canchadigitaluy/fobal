@@ -333,6 +333,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
       playerIds: [resolvedPlayer.id],
     )[resolvedPlayer.id];
 
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -346,7 +347,12 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 760),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
+              padding: EdgeInsets.fromLTRB(
+                narrow ? 12 : 18,
+                narrow ? 8 : 12,
+                narrow ? 12 : 18,
+                narrow ? 20 : 30,
+              ),
               children: [
                 _ProfileHeader(
                   player: resolvedPlayer,
@@ -354,8 +360,9 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                   onEditAvailability: () =>
                       _editAvailability(club, resolvedPlayer),
                 ),
-                const SizedBox(height: 20),
-                const PremiumSectionHeader(
+                SizedBox(height: narrow ? 14 : 20),
+                PremiumSectionHeader(
+                  compact: narrow,
                   eyebrow: 'Rendimiento',
                   title: 'Cómo viene jugando',
                 ),
@@ -424,8 +431,9 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                         ? 'La liga no publicó minutos/goles para este jugador todavía.'
                         : 'Al cargar un resultado en Estadísticas o Calendario, marcá quién jugó y quién anotó.',
                   ),
-                const SizedBox(height: 20),
-                const PremiumSectionHeader(
+                SizedBox(height: narrow ? 14 : 20),
+                PremiumSectionHeader(
+                  compact: narrow,
                   eyebrow: 'Participación',
                   title: 'Asistencia y citaciones',
                 ),
@@ -454,7 +462,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                   ],
                 ),
                 if (attendanceRecords.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  SizedBox(height: narrow ? 6 : 8),
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
@@ -481,11 +489,16 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                     ],
                   ),
                 ],
-                const SizedBox(height: 20),
-                Row(
+                SizedBox(height: narrow ? 14 : 20),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Expanded(
+                    SizedBox(
+                      width: narrow ? double.infinity : 430,
                       child: PremiumSectionHeader(
+                        compact: narrow,
                         eyebrow: 'Plan individual',
                         title: 'Objetivos',
                       ),
@@ -512,11 +525,12 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                           _addOrEditGoal(club, resolvedPlayer, existing: goal),
                       onDelete: () => _deleteGoal(club, resolvedPlayer, goal),
                     ),
-                const SizedBox(height: 20),
+                SizedBox(height: narrow ? 14 : 20),
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: PremiumSectionHeader(
+                        compact: narrow,
                         eyebrow: 'Seguimiento',
                         title: 'Notas del cuerpo técnico',
                       ),
@@ -530,7 +544,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                 ),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(14),
+                  padding: EdgeInsets.all(narrow ? 10 : 14),
                   decoration: CX.panelDecoration(),
                   child: Text(
                     resolvedPlayer.note.trim().isEmpty
@@ -544,7 +558,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: narrow ? 14 : 20),
                 ActionStrip(
                   actions: [
                     ActionSpec(
@@ -593,12 +607,13 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     final initials = [
       if (player.firstName.isNotEmpty) player.firstName[0],
       if (player.lastName.isNotEmpty) player.lastName[0],
     ].join().toUpperCase();
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(narrow ? 11 : 16),
       decoration: CX.panelDecoration(),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -606,7 +621,7 @@ class _ProfileHeader extends StatelessWidget {
           Hero(
             tag: 'player-avatar-${player.id}',
             child: CircleAvatar(
-              radius: 32,
+              radius: narrow ? 28 : 32,
               backgroundColor: CX.greenDark,
               child: Text(
                 initials.isEmpty ? '?' : initials,
@@ -618,7 +633,7 @@ class _ProfileHeader extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: narrow ? 11 : 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -641,7 +656,7 @@ class _ProfileHeader extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: narrow ? 7 : 10),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -654,7 +669,7 @@ class _ProfileHeader extends StatelessWidget {
                       _tag('Pie ${player.dominantFoot.toLowerCase()}'),
                   ],
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: narrow ? 7 : 10),
                 InkWell(
                   onTap: onEditAvailability,
                   borderRadius: BorderRadius.circular(999),

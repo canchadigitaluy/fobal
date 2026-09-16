@@ -313,16 +313,27 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1260),
-            child: CustomScrollView(
-              slivers: [
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 700;
+                final pagePadding = EdgeInsets.fromLTRB(
+                  narrow ? 14 : 20,
+                  narrow ? 14 : 22,
+                  narrow ? 14 : 20,
+                  narrow ? 20 : 30,
+                );
+                final sectionGap = SizedBox(height: narrow ? 9 : 14);
+                final largeGap = SizedBox(height: narrow ? 16 : 26);
+                return CustomScrollView(
+                  slivers: [
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 22, 20, 8),
+                  padding: pagePadding.copyWith(bottom: narrow ? 5 : 8),
                   sliver: SliverToBoxAdapter(
                     child: _TopBar(club: club, role: scope.role),
                   ),
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+                  padding: pagePadding.copyWith(top: narrow ? 7 : 10),
                   sliver: SliverList.list(
                     children: CanteraMotion.stagger([
                       _CommandBoard(
@@ -333,7 +344,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         standingsFuture: _standingsFuture,
                       ),
                       if (showOnboarding) ...[
-                        const SizedBox(height: 14),
+                        sectionGap,
                         _OnboardingChecklist(
                           club: club,
                           hasPlayer: hasPlayer,
@@ -347,7 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                         ),
                       ],
-                      const SizedBox(height: 14),
+                      sectionGap,
                       _MatchCenterPanel(
                         club: club,
                         standingsFuture: _standingsFuture,
@@ -359,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           scope.role == UserRole.coordinator ? 5 : 4,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      sectionGap,
                       _CommandHero(
                         club: club,
                         readiness: readiness,
@@ -372,7 +383,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               : 2,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: narrow ? 10 : 16),
                       LayoutBuilder(
                         builder: (context, constraints) {
                           final compact = constraints.maxWidth < 720;
@@ -426,25 +437,26 @@ class _HomeScreenState extends State<HomeScreen> {
                           );
                         },
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: narrow ? 8 : 12),
                       _StandingsPanel(
                         future: _standingsFuture,
                         categoryName: club.categories.isEmpty
                             ? ''
                             : club.categories.first.name,
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: narrow ? 8 : 12),
                       _RecentResultsPanel(
                         future: _resultsFuture,
                         clubName: club.name,
                         onRefresh: _reloadLeague,
                       ),
-                      const SizedBox(height: 26),
-                      const _SectionHeader(
+                      largeGap,
+                      _SectionHeader(
                         eyebrow: 'TU SEMANA',
                         title: 'Lo importante, en un solo lugar',
+                        compact: narrow,
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: narrow ? 8 : 12),
                       LayoutBuilder(
                         builder: (context, constraints) {
                           final desktop = constraints.maxWidth >= 820;
@@ -469,7 +481,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             return Column(
                               children: [
                                 primary,
-                                const SizedBox(height: 12),
+                                SizedBox(height: narrow ? 8 : 12),
                                 secondary,
                               ],
                             );
@@ -484,12 +496,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           );
                         },
                       ),
-                      const SizedBox(height: 26),
-                      const _SectionHeader(
+                      largeGap,
+                      _SectionHeader(
+                        compact: narrow,
                         eyebrow: 'LECTURA DEL CUERPO TECNICO',
                         title: 'Qué mirar esta semana',
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: narrow ? 8 : 12),
                       _IntelligenceStrip(
                         club: club,
                         onOpen: () => widget.onNavigate(3),
@@ -497,7 +510,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     ]),
                   ),
                 ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -757,16 +772,18 @@ class _CommandHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final configured = readiness == 100;
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: CX.panel,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CX.line),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final narrow = constraints.maxWidth < 650;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 650;
+        return Container(
+          padding: EdgeInsets.all(narrow ? 15 : 22),
+          decoration: BoxDecoration(
+            color: CX.panel,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: CX.line),
+          ),
+          child: Builder(
+            builder: (context) {
           final content = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -796,7 +813,7 @@ class _CommandHero extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: narrow ? 11 : 16),
               Text(
                 configured
                     ? 'Todo el club, bajo una misma idea.'
@@ -807,7 +824,7 @@ class _CommandHero extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: narrow ? 7 : 10),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 620),
                 child: Text(
@@ -821,7 +838,7 @@ class _CommandHero extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: narrow ? 14 : 20),
               SizedBox(
                 width: narrow ? double.infinity : 220,
                 child: ElevatedButton.icon(
@@ -852,8 +869,10 @@ class _CommandHero extends StatelessWidget {
               ),
             ],
           );
-        },
-      ),
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -910,8 +929,9 @@ class _MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(narrow ? 10 : 14),
       decoration: CX.panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -929,8 +949,8 @@ class _MetricTile extends StatelessWidget {
             children: [
               Text(
                 metric.value,
-                style: const TextStyle(
-                  fontSize: 24,
+                style: TextStyle(
+                  fontSize: narrow ? 21 : 24,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -969,8 +989,9 @@ class _RecentResultsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(narrow ? 12 : 16),
       decoration: CX.panelDecoration(
         borderColor: CX.blue.withValues(alpha: .2),
       ),
@@ -994,7 +1015,7 @@ class _RecentResultsPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: narrow ? 8 : 12),
           FutureBuilder<List<LudFixtureMatch>>(
             future: future,
             builder: (context, snapshot) {
@@ -1281,9 +1302,10 @@ class _MatchCenterPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final category = club.categories.isEmpty ? null : club.categories.first;
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     if (category == null) {
       return Container(
-        padding: const EdgeInsets.all(18),
+        padding: EdgeInsets.all(narrow ? 12 : 18),
         decoration: CX.panelDecoration(
           borderColor: CX.amber.withValues(alpha: .25),
         ),
@@ -1303,7 +1325,7 @@ class _MatchCenterPanel extends StatelessWidget {
     final profiled = players.where(_hasCompleteProfile).length;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(narrow ? 12 : 18),
       decoration: CX.panelDecoration(
         borderColor: CX.green.withValues(alpha: .26),
       ),
@@ -1339,7 +1361,7 @@ class _MatchCenterPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: narrow ? 10 : 16),
           LayoutBuilder(
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 850;
@@ -1380,9 +1402,9 @@ class _MatchCenterPanel extends StatelessWidget {
               return Row(children: content);
             },
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: narrow ? 10 : 14),
           _PracticeWeekCard(category: category),
-          const SizedBox(height: 14),
+          SizedBox(height: narrow ? 10 : 14),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -1964,6 +1986,7 @@ class _TodayPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     final planned =
         club.sessions.where((session) => session.status != 'completed').toList()
           ..sort((a, b) {
@@ -2006,7 +2029,7 @@ class _TodayPanel extends StatelessWidget {
       nextPreparation ??= preps.isEmpty ? null : preps.last;
     }
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(narrow ? 12 : 18),
       decoration: CX.panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2021,21 +2044,21 @@ class _TodayPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: narrow ? 6 : 8),
           _SharedPlanningStatus(
             syncing: syncing,
             failed: syncFailed,
             syncedAt: syncedAt,
             onRefresh: onRefresh,
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: narrow ? 12 : 18),
           if (nextMatchPlan != null) ...[
             _NextMatchPlanCard(
               plan: nextMatchPlan,
               categoryName: _categoryName(nextMatchPlan.categoryId),
               onOpenAssistant: onOpenAssistant,
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: narrow ? 10 : 14),
           ] else if (nextPreparation != null) ...[
             Builder(
               builder: (context) {
@@ -2052,7 +2075,7 @@ class _TodayPanel extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: narrow ? 10 : 14),
           ],
           if (next == null) ...[
             const Text(
@@ -2064,7 +2087,7 @@ class _TodayPanel extends StatelessWidget {
               'Definí el objetivo y fobal arma una sesión aplicable al plantel.',
               style: TextStyle(color: CX.muted, height: 1.4, fontSize: 13),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: narrow ? 12 : 18),
             Row(
               children: [
                 Expanded(
@@ -2615,6 +2638,7 @@ class _SetupPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     final configTarget = role == UserRole.coordinator ? 4 : 3;
     final items = [
       (
@@ -2632,7 +2656,7 @@ class _SetupPanel extends StatelessWidget {
       ('Equipo de trabajo', club.users.isNotEmpty, configTarget),
     ];
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(narrow ? 12 : 18),
       decoration: CX.panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2654,7 +2678,7 @@ class _SetupPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: narrow ? 10 : 14),
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
             child: LinearProgressIndicator(
@@ -2664,7 +2688,7 @@ class _SetupPanel extends StatelessWidget {
               color: CX.green,
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: narrow ? 10 : 14),
           ...items.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 7),
@@ -2722,8 +2746,9 @@ class _IntelligenceStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasContext =
         club.players.isNotEmpty && club.methodology.playingStyle.isNotEmpty;
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(narrow ? 12 : 18),
       decoration: BoxDecoration(
         color: CX.greenDark.withValues(alpha: 0.58),
         borderRadius: BorderRadius.circular(8),
@@ -2733,15 +2758,15 @@ class _IntelligenceStrip extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: narrow ? 32 : 38,
+            height: narrow ? 32 : 38,
             decoration: BoxDecoration(
               color: CX.green.withValues(alpha: 0.13),
               borderRadius: BorderRadius.circular(7),
             ),
             child: const Icon(Icons.auto_graph, color: CX.green, size: 20),
           ),
-          const SizedBox(width: 13),
+          SizedBox(width: narrow ? 9 : 13),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2755,7 +2780,7 @@ class _IntelligenceStrip extends StatelessWidget {
                     fontSize: 15,
                   ),
                 ),
-                const SizedBox(height: 5),
+                SizedBox(height: narrow ? 3 : 5),
                 Text(
                   hasContext
                       ? 'fobal ya cruza tu forma de jugar, las categorías y los perfiles del plantel para orientar decisiones.'
@@ -2783,11 +2808,16 @@ class _IntelligenceStrip extends StatelessWidget {
 class _SectionHeader extends StatelessWidget {
   final String eyebrow;
   final String title;
-  const _SectionHeader({required this.eyebrow, required this.title});
+  final bool compact;
+  const _SectionHeader({
+    required this.eyebrow,
+    required this.title,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) =>
-      PremiumSectionHeader(eyebrow: eyebrow, title: title);
+      PremiumSectionHeader(eyebrow: eyebrow, title: title, compact: compact);
 }
 
 class _Tag extends StatelessWidget {
@@ -3373,11 +3403,20 @@ class _ExternalHome extends StatelessWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1000),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 30),
-              children: CanteraMotion.stagger([
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 700;
+                final sectionGap = SizedBox(height: narrow ? 10 : 14);
+                return ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    narrow ? 14 : 20,
+                    narrow ? 14 : 22,
+                    narrow ? 14 : 20,
+                    narrow ? 20 : 30,
+                  ),
+                  children: CanteraMotion.stagger([
                 _TopBar(club: club, role: role),
-                const SizedBox(height: 16),
+                SizedBox(height: narrow ? 10 : 16),
                 _BoardShell(
                   title: '${club.name} · panel de mando',
                   nextLine: event == null
@@ -3416,7 +3455,7 @@ class _ExternalHome extends StatelessWidget {
                   ],
                 ),
                 if (showOnboarding) ...[
-                  const SizedBox(height: 14),
+                  sectionGap,
                   _OnboardingChecklist(
                     club: club,
                     hasPlayer: club.players.isNotEmpty ||
@@ -3428,7 +3467,7 @@ class _ExternalHome extends StatelessWidget {
                   ),
                 ],
                 if (pendingResults.isNotEmpty) ...[
-                  const SizedBox(height: 14),
+                  sectionGap,
                   _PendingResultsCard(
                     count: pendingResults.length,
                     firstTitle: pendingResults.first.title,
@@ -3436,7 +3475,7 @@ class _ExternalHome extends StatelessWidget {
                   ),
                 ],
                 if (todaySession != null) ...[
-                  const SizedBox(height: 14),
+                  sectionGap,
                   _ExternalTodayCard(
                     session: todaySession,
                     attendanceTaken: _attendanceTakenToday(),
@@ -3447,10 +3486,12 @@ class _ExternalHome extends StatelessWidget {
                   ),
                 ],
                 if (!bootstrapping) ...[
-                  const SizedBox(height: 14),
+                  sectionGap,
                   _ExternalMetrics(club: club, stats: stats, planned: planned),
                 ],
               ]),
+                );
+              },
             ),
           ),
         ),
@@ -3516,12 +3557,13 @@ class _ExternalTodayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     return InkWell(
       onTap: onOpenSession,
       borderRadius: BorderRadius.circular(10),
       child: Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(narrow ? 12 : 16),
       decoration: BoxDecoration(
         color: CX.greenDark.withValues(alpha: .42),
         borderRadius: BorderRadius.circular(10),
@@ -3540,7 +3582,7 @@ class _ExternalTodayCard extends StatelessWidget {
               const Icon(Icons.chevron_right, color: CX.muted, size: 18),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: narrow ? 6 : 8),
           Text(
             session.title,
             maxLines: 2,
@@ -3556,7 +3598,7 @@ class _ExternalTodayCard extends StatelessWidget {
               style: const TextStyle(color: CX.muted, fontSize: 12, height: 1.35),
             ),
           ],
-          const SizedBox(height: 12),
+          SizedBox(height: narrow ? 8 : 12),
           if (attendanceTaken)
             const Row(
               children: [

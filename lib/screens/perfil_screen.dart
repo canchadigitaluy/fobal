@@ -33,9 +33,17 @@ class PerfilScreen extends StatelessWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1120),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
-              children: CanteraMotion.stagger([
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 700;
+                return ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    narrow ? 12 : 18,
+                    narrow ? 6 : 8,
+                    narrow ? 12 : 18,
+                    narrow ? 20 : 30,
+                  ),
+                  children: CanteraMotion.stagger([
                 _SignalTile(
                   metric: _SignalMetric(
                     'Plantel',
@@ -45,14 +53,16 @@ class PerfilScreen extends StatelessWidget {
                     CX.green,
                   ),
                 ),
-                const SizedBox(height: 24),
-                const PremiumSectionHeader(
+                SizedBox(height: narrow ? 16 : 24),
+                PremiumSectionHeader(
+                  compact: narrow,
                   eyebrow: 'Identidad',
                   title: 'Impronta futbolística',
                 ),
                 _MethodologyBoard(methodology: club.methodology),
-                const SizedBox(height: 24),
-                const PremiumSectionHeader(
+                SizedBox(height: narrow ? 16 : 24),
+                PremiumSectionHeader(
+                  compact: narrow,
                   eyebrow: 'Jugadores',
                   title: 'Seguimiento individual',
                 ),
@@ -65,7 +75,9 @@ class PerfilScreen extends StatelessWidget {
                   )
                 else
                   _PlayerRadar(players: club.players),
-              ]),
+                  ]),
+                );
+              },
             ),
           ),
         ),
@@ -79,14 +91,16 @@ class _SignalTile extends StatelessWidget {
   final _SignalMetric metric;
   const _SignalTile({required this.metric});
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
+  Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 700;
+    return Container(
+    padding: EdgeInsets.all(narrow ? 10 : 14),
     decoration: CX.panelDecoration(),
     child: Row(
       children: [
         Container(
-          width: 36,
-          height: 36,
+          width: narrow ? 32 : 36,
+          height: narrow ? 32 : 36,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: metric.color.withValues(alpha: .12),
@@ -120,6 +134,7 @@ class _SignalTile extends StatelessWidget {
       ],
     ),
   );
+  }
 }
 
 class _MethodologyBoard extends StatelessWidget {

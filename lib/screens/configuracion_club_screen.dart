@@ -765,6 +765,7 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
     ];
 
     final completed = steps.where((s) => s.completed).length;
+    final narrow = MediaQuery.sizeOf(context).width < 700;
 
     final sections = <Widget>[
       _BasicDataForm(
@@ -800,8 +801,9 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
               ),
             ),
           if (club.isManualClub && club.categories.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            const PremiumSectionHeader(
+            SizedBox(height: narrow ? 12 : 18),
+            PremiumSectionHeader(
+              compact: narrow,
               eyebrow: 'SUBGRUPOS',
               title: 'Planteles por categoría',
             ),
@@ -856,7 +858,7 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
               );
             }),
           ],
-          const SizedBox(height: 18),
+          SizedBox(height: narrow ? 12 : 18),
           _PlayerForm(
             categories: club.categories,
             selectedCategoryId: _selectedPlayerCategoryId,
@@ -935,7 +937,12 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1080),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+              padding: EdgeInsets.fromLTRB(
+                narrow ? 12 : 18,
+                narrow ? 6 : 8,
+                narrow ? 12 : 18,
+                narrow ? 20 : 28,
+              ),
               children: [
                 _Header(
                   clubName: club.name,
@@ -945,13 +952,13 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
                       ? _resetDemo
                       : null,
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: narrow ? 10 : 14),
                 _SetupNavigation(
                   steps: steps,
                   selectedIndex: _sectionIndex,
                   onSelected: (index) => setState(() => _sectionIndex = index),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: narrow ? 11 : 16),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 180),
                   child: KeyedSubtree(
@@ -959,7 +966,7 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
                     child: sections[_sectionIndex],
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: narrow ? 11 : 16),
                 _ClubDataCard(
                   onExport: () => ClubBackupService.downloadJson(
                     AppScope.of(context).fullClub,
@@ -2065,8 +2072,9 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(narrow ? 12 : 18),
       decoration: CX.panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2077,12 +2085,12 @@ class _Header extends StatelessWidget {
                 : clubName,
             style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: narrow ? 6 : 8),
           Text(
             'Completa estos bloques para operar fobal con datos reales del club.',
             style: TextStyle(color: CX.muted, height: 1.35),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: narrow ? 11 : 16),
           LinearProgressIndicator(
             value: total == 0 ? 0 : completed / total,
             minHeight: 8,
@@ -2090,7 +2098,7 @@ class _Header extends StatelessWidget {
             backgroundColor: CX.panel2,
             color: CX.green,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: narrow ? 6 : 8),
           Text(
             '$completed de $total bloques completos',
             style: TextStyle(color: CX.faint, fontSize: 12),

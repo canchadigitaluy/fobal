@@ -613,6 +613,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
     final visiblePlayers = _plantelFilter.isEmpty
         ? players
         : players.where((p) => p.plantelId == _plantelFilter).toList();
+    final narrow = MediaQuery.sizeOf(context).width < 700;
 
     return Scaffold(
       appBar: AppBar(
@@ -636,14 +637,19 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
+          padding: EdgeInsets.fromLTRB(
+            narrow ? 12 : 18,
+            narrow ? 6 : 8,
+            narrow ? 12 : 18,
+            narrow ? 20 : 30,
+          ),
           children: [
             if (_hint != null) ...[
               _LineupHintBanner(
                 hint: _hint!,
                 onDismiss: () => setState(() => _hint = null),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: narrow ? 8 : 12),
             ],
             if (category != null) ...[
               SegmentedButton<bool>(
@@ -668,7 +674,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                   }
                 },
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: narrow ? 8 : 12),
             ],
             if (category == null)
               const EmptyStatePanel(
@@ -971,17 +977,19 @@ class _CallUpEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final plantelNames = {for (final p in planteles) p.id: p.name};
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(narrow ? 11 : 16),
       decoration: CX.panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const PremiumSectionHeader(
+          PremiumSectionHeader(
+            compact: narrow,
             eyebrow: 'CITACIÓN',
             title: 'Listado del partido',
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: narrow ? 6 : 8),
           for (final player in players)
             Material(
               type: MaterialType.transparency,
@@ -1193,8 +1201,9 @@ class _AlignmentHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(narrow ? 10 : 14),
       decoration: CX.panelDecoration(),
       child: Column(
         children: [
@@ -1206,7 +1215,7 @@ class _AlignmentHeader extends StatelessWidget {
                 .toList(),
             onChanged: onCategory,
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: narrow ? 7 : 10),
           DropdownButtonFormField<String>(
             value: formation,
             decoration: const InputDecoration(labelText: 'Formación'),
@@ -1215,7 +1224,7 @@ class _AlignmentHeader extends StatelessWidget {
                 .toList(),
             onChanged: onFormation,
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: narrow ? 7 : 10),
           TextField(
             controller: titleController,
             decoration: const InputDecoration(
@@ -1362,8 +1371,9 @@ class _AlignmentStart extends StatelessWidget {
             ],
           ),
         ],
-        const SizedBox(height: 18),
-        const PremiumSectionHeader(
+        SizedBox(height: MediaQuery.sizeOf(context).width < 700 ? 12 : 18),
+        PremiumSectionHeader(
+          compact: MediaQuery.sizeOf(context).width < 700,
           eyebrow: 'Historial',
           title: 'Alineaciones guardadas',
         ),
@@ -1416,7 +1426,7 @@ class _LineupPlayerPanel extends StatelessWidget {
         .where((player) => !usedIds.contains(player.id))
         .toList();
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 700 ? 10 : 14),
       decoration: CX.panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

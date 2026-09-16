@@ -163,6 +163,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
       minPlayers: _playersRange.min,
       maxPlayers: _playersRange.max,
     )..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final narrow = MediaQuery.sizeOf(context).width < 700;
 
     return Scaffold(
       appBar: AppBar(
@@ -177,7 +178,12 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
           : null,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 90),
+          padding: EdgeInsets.fromLTRB(
+            narrow ? 12 : 18,
+            narrow ? 8 : 12,
+            narrow ? 12 : 18,
+            narrow ? 70 : 90,
+          ),
           children: [
             TextField(
               controller: _search,
@@ -188,10 +194,10 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                 prefixIcon: Icon(Icons.search),
               ),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: narrow ? 8 : 10),
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: narrow ? 6 : 8,
+              runSpacing: narrow ? 6 : 8,
               children: [
                 _FilterDropdown(
                   label: 'Categoría',
@@ -249,7 +255,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: narrow ? 12 : 18),
             if (club.savedExercises.isEmpty)
               EmptyStatePanel(
                 icon: Icons.auto_awesome_motion_outlined,
@@ -268,7 +274,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
             else
               for (final exercise in filtered)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                  padding: EdgeInsets.only(bottom: narrow ? 8 : 10),
                   child: _ExerciseCard(
                     exercise: exercise,
                     pickMode: widget.pickMode,
@@ -303,8 +309,9 @@ class _FilterDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final safeValue = items.any((item) => item.$1 == value) ? value : '';
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     return SizedBox(
-      width: 168,
+      width: narrow ? 150 : 168,
       child: DropdownButtonFormField<String>(
         initialValue: safeValue,
         isDense: true,
@@ -338,11 +345,12 @@ class _ExerciseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 700;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(9),
       child: Container(
-        padding: const EdgeInsets.all(13),
+        padding: EdgeInsets.all(narrow ? 10 : 13),
         decoration: CX.panelDecoration(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -387,7 +395,7 @@ class _ExerciseCard extends StatelessWidget {
               ],
             ),
             if (exercise.description.trim().isNotEmpty) ...[
-              const SizedBox(height: 4),
+              SizedBox(height: narrow ? 3 : 4),
               Text(
                 exercise.description,
                 maxLines: 2,
@@ -395,7 +403,7 @@ class _ExerciseCard extends StatelessWidget {
                 style: const TextStyle(color: CX.muted, fontSize: 12, height: 1.35),
               ),
             ],
-            const SizedBox(height: 8),
+            SizedBox(height: narrow ? 6 : 8),
             Wrap(
               spacing: 6,
               runSpacing: 6,

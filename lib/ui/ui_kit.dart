@@ -863,3 +863,91 @@ class QuickValueRow extends StatelessWidget {
     );
   }
 }
+
+/// One-shot fade + upward-slide entrance for content that just got
+/// generated/inserted (an AI result card, a new item at the top of a list).
+/// Plays once when this widget instance first builds — give it a `key` tied
+/// to the data (e.g. `ValueKey(session.id)`) so a NEW result re-triggers it
+/// instead of animating on every unrelated rebuild.
+class FadeSlideIn extends StatelessWidget {
+  final Widget child;
+  final Duration duration;
+  final double offset;
+
+  const FadeSlideIn({
+    super.key,
+    required this.child,
+    this.duration = const Duration(milliseconds: 320),
+    this.offset = 14,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: duration,
+      curve: CX.curve,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, offset * (1 - t)),
+          child: child,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Wraps a tappable row/card so it scales down slightly on press,
+/// confirming the tap registered before navigation/async work lands.
+/// Purely visual — [onTap]/[onLongPress] behave exactly like an [InkWell].
+class TappableScale extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final BorderRadius? borderRadius;
+
+  const TappableScale({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.onLongPress,
+    this.borderRadius,
+  });
+
+  @override
+  State<TappableScale> createState() => _TappableScaleState();
+}
+
+class _TappableScaleState extends State<TappableScale> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: widget.onTap == null ? null : (_) => _setPressed(true),
+      onTapUp: widget.onTap == null ? null : (_) => _setPressed(false),
+      onTapCancel: widget.onTap == null ? null : () => _setPressed(false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.97 : 1,
+        duration: CX.motionFast,
+        curve: CX.curve,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: widget.borderRadius,
+            onTap: widget.onTap,
+            onLongPress: widget.onLongPress,
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
+}

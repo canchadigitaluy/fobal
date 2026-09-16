@@ -574,10 +574,13 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   SizedBox(height: narrow ? 12 : 18),
                   _SectionTitle('Plan de partido', compact: narrow),
                   SizedBox(height: narrow ? 7 : 10),
-                  _GeneratedSessionCard(
-                    session: _generatedTactic!,
-                    clubName: club.name,
-                    categoryName: category.name,
+                  FadeSlideIn(
+                    key: ValueKey('tactic-${_generatedTactic!.id}'),
+                    child: _GeneratedSessionCard(
+                      session: _generatedTactic!,
+                      clubName: club.name,
+                      categoryName: category.name,
+                    ),
                   ),
                 ],
                 SizedBox(height: narrow ? 12 : 18),
@@ -684,10 +687,13 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   const SizedBox(height: 18),
                   _SectionTitle('Sesión generada'),
                   const SizedBox(height: 10),
-                  _GeneratedSessionCard(
-                    session: _generatedSession!,
-                    clubName: club.name,
-                    categoryName: category.name,
+                  FadeSlideIn(
+                    key: ValueKey('session-${_generatedSession!.id}'),
+                    child: _GeneratedSessionCard(
+                      session: _generatedSession!,
+                      clubName: club.name,
+                      categoryName: category.name,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 18),
@@ -2814,7 +2820,7 @@ class _GoalBucketBar extends StatelessWidget {
   }
 }
 
-class _MinuteBar extends StatelessWidget {
+class _MinuteBar extends StatefulWidget {
   final double height;
   final Color color;
   final int value;
@@ -2826,16 +2832,35 @@ class _MinuteBar extends StatelessWidget {
   });
 
   @override
+  State<_MinuteBar> createState() => _MinuteBarState();
+}
+
+class _MinuteBarState extends State<_MinuteBar> {
+  bool _grown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start at zero height and grow on the next frame so the bar visibly
+    // rises instead of popping straight to its final size.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _grown = true);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: '$value goles',
+      message: '${widget.value} goles',
       child: AnimatedContainer(
         duration: CX.motion,
         curve: CX.curve,
         width: 9,
-        height: height,
+        height: _grown ? widget.height : 0,
         decoration: BoxDecoration(
-          color: value == 0 ? color.withValues(alpha: .18) : color,
+          color: widget.value == 0
+              ? widget.color.withValues(alpha: .18)
+              : widget.color,
           borderRadius: BorderRadius.circular(4),
         ),
       ),

@@ -35,6 +35,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   String _search = '';
   final Set<String> _migrationChecked = {};
   final Set<String> _selectedPlantelIds = {};
+  bool _savedFlash = false;
 
   @override
   void dispose() {
@@ -229,6 +230,10 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Asistencia guardada.')));
+    setState(() => _savedFlash = true);
+    Future.delayed(const Duration(milliseconds: 900), () {
+      if (mounted) setState(() => _savedFlash = false);
+    });
   }
 
   void _persistAttendance(
@@ -536,9 +541,20 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                 onPressed: () => _saveAttendance(club, category),
                 style: ElevatedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: narrow ? 11 : 14),
+                  backgroundColor: _savedFlash ? CX.green : null,
                 ),
-                icon: const Icon(Icons.check_circle_outline),
-                label: Text(saveLabel),
+                icon: AnimatedSwitcher(
+                  duration: CX.motionFast,
+                  transitionBuilder: (child, animation) =>
+                      ScaleTransition(scale: animation, child: child),
+                  child: Icon(
+                    _savedFlash
+                        ? Icons.check_circle
+                        : Icons.check_circle_outline,
+                    key: ValueKey(_savedFlash),
+                  ),
+                ),
+                label: Text(_savedFlash ? '¡Guardado!' : saveLabel),
               ),
             ),
       body: categoryPlayers.isEmpty
@@ -967,7 +983,7 @@ class _AttendanceRow extends StatelessWidget {
       if (position.isNotEmpty) position,
       if (absenceStreak >= 2) '$absenceStreakª falta seguida',
     ].join(' · ');
-    return InkWell(
+    return TappableScale(
       onTap: () => onChanged(
         status.attended
             ? AttendanceStatus.ausenteSinAviso

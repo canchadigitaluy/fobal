@@ -363,7 +363,7 @@ class _AgendaRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final badgeSize = compact ? 32.0 : 38.0;
-    return InkWell(
+    return TappableScale(
       onTap: onTap,
       child: Padding(
         padding: EdgeInsets.symmetric(

@@ -1080,7 +1080,7 @@ class _PostAuthRedirectState extends State<_PostAuthRedirect> {
 
   @override
   Widget build(BuildContext context) {
-    return const _CalmLoadingScaffold();
+    return const BrandedLoadingScreen();
   }
 }
 

@@ -58,12 +58,24 @@ export default async function handler(req, res) {
 async function handleClubMembershipAction({ req, res, action, payload, userClient, authData }) {
   const clubId = String(payload?.clubId || "");
   const targetUserId = String(payload?.userId || "");
-  const categoryIds = Array.isArray(payload?.categoryIds)
-    ? [...new Set(payload.categoryIds.map(String).filter(Boolean))].slice(0, 2)
+  const MAX_CATEGORY_IDS = 2;
+  const requestedCategoryIds = Array.isArray(payload?.categoryIds)
+    ? [...new Set(payload.categoryIds.map(String).filter(Boolean))]
     : [];
   if (!clubId || !targetUserId) {
     return res.status(400).json({ error: "invalid_request", message: "Faltan datos para revisar la solicitud." });
   }
+  // Truncar en silencio hacia category_ids hacia dejaba al admin creyendo que
+  // guardo todas las categorias pedidas cuando en verdad el DT perdia acceso
+  // a las que sobraban. Mejor rechazar explicito que perder datos sin avisar.
+  if (requestedCategoryIds.length > MAX_CATEGORY_IDS) {
+    return res.status(400).json({
+      error: "too_many_categories",
+      message: `Un DT puede tener hasta ${MAX_CATEGORY_IDS} categorias asignadas.`,
+      max: MAX_CATEGORY_IDS,
+    });
+  }
+  const categoryIds = requestedCategoryIds;
 
   const { data: reviewer, error: reviewerError } = await userClient
     .from("club_memberships")

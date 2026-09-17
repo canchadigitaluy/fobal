@@ -45,24 +45,13 @@ class ClubAccessService {
     final userId = SupabaseAuthService.currentUserId;
     if (userId == null) return [];
 
-    List<Map<String, dynamic>> rows;
-    try {
-      rows = await _client
-          .from('club_memberships')
-          .select(
-            'club_id, role, status, category_ids, cantera_clubs(display_name, lud_team_id)',
-          )
-          .eq('user_id', userId)
-          .eq('status', 'active');
-    } catch (_) {
-      rows = await _client
-          .from('club_memberships')
-          .select(
-            'club_id, role, status, cantera_clubs(display_name, lud_team_id)',
-          )
-          .eq('user_id', userId)
-          .eq('status', 'active');
-    }
+    final rows = await _client
+        .from('club_memberships')
+        .select(
+          'club_id, role, status, category_ids, cantera_clubs(display_name, lud_team_id)',
+        )
+        .eq('user_id', userId)
+        .eq('status', 'active');
     return rows.map(ClubMembership.fromJson).toList()
       ..sort((a, b) => a.clubName.compareTo(b.clubName));
   }
@@ -259,6 +248,9 @@ class ClubAccessService {
         if (target.categoryId != null) 'categoryId': '${target.categoryId}',
         'categoryName': target.categoryName,
         'history': '1',
+        // 5 alcanzaba para "ultimos resultados" pero Estadisticas necesita
+        // comparar los ultimos 5 contra los 5 anteriores (10 minimo).
+        'limit': '10',
         if (forceRefresh) '_ts': '${DateTime.now().millisecondsSinceEpoch}',
       },
     );
@@ -291,10 +283,11 @@ class ClubAccessService {
               match.isPlayedResult,
         )
         .toList();
-    // Real results only, newest first, capped at five. No 0-0 padding for
-    // rounds that were never played (isPlayedResult already excludes them).
+    // Real results only, newest first. No 0-0 padding for rounds that were
+    // never played (isPlayedResult already excludes them). 10 so screens
+    // that compare "ultimos 5 vs 5 anteriores" have enough to work with.
     played.sort((a, b) => b.date.compareTo(a.date));
-    return played.take(5).toList();
+    return played.take(10).toList();
   }
 
   static Future<LudStandingsTable?> loadStandings({
@@ -445,6 +438,12 @@ class ClubAccessService {
 
   static Future<List<ClubTacticalRecord>> loadTacticalData({
     int limit = 12,
+    // When the caller only cares about one record type (calendario,
+    // asistencia, etc), pass it so the row limit applies WITHIN that type
+    // instead of across every type sharing this table — otherwise enough
+    // records of other types can push older rows of the type you want past
+    // the limit before you ever get to filter by type client-side.
+    String? type,
   }) async {
     if (!SupabaseAuthService.isConfigured ||
         SupabaseAuthService.currentUserId == null) {
@@ -458,6 +457,7 @@ class ClubAccessService {
         .from('club_tactical_data')
         .select('id, type, title, content, created_at, created_by, category_id')
         .eq('club_id', membership.clubId);
+    if (type != null) query = query.eq('type', type);
     if (!membership.isClubAdmin && membership.categoryIds.isNotEmpty) {
       query = query.inFilter('category_id', membership.categoryIds);
     }

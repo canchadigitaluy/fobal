@@ -120,7 +120,10 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     try {
       final scope = AppScope.of(context);
       final categoryId = _activeCategoryId(scope);
-      final records = await ClubAccessService.loadTacticalData(limit: 100);
+      final records = await ClubAccessService.loadTacticalData(
+        limit: 100,
+        type: 'calendar',
+      );
       if (!mounted || storageKey != _storageKey) return;
       final merged = <String, List<_CalendarEvent>>{
         for (final entry in _events.entries) entry.key: [...entry.value],

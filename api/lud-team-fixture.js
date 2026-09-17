@@ -32,6 +32,7 @@ export default async function handler(req, res) {
   const clubName = String(req.query.clubName ?? "").trim();
   const horizonDays = clamp(Number(req.query.horizonDays) || 90, 7, 240);
   const historyOnly = String(req.query.history ?? "") === "1";
+  const historyLimit = clamp(Number(req.query.limit) || 5, 1, 50);
   const hasCategoryFilter = Number.isInteger(categoryId) || Boolean(categoryName);
 
   const errors = [];
@@ -64,7 +65,7 @@ export default async function handler(req, res) {
             isPlayedResult(match)
           )
           .sort((a, b) => b.date.localeCompare(a.date))
-          .slice(0, 5)
+          .slice(0, historyLimit)
           .map(publicMatch);
         mode = "history";
       } else {
@@ -114,6 +115,7 @@ export default async function handler(req, res) {
     categoryName,
     horizonDays,
     historyOnly,
+    historyLimit,
     upstreamErrors: errors,
   });
   if (fallback) {
@@ -146,6 +148,7 @@ async function loadPublicFixtureFallback({
   categoryName,
   horizonDays,
   historyOnly,
+  historyLimit = 5,
   upstreamErrors,
 }) {
   if (!isPlayaHondaClub(clubName)) return null;
@@ -199,7 +202,7 @@ async function loadPublicFixtureFallback({
           match.date && match.homeScore !== null && match.awayScore !== null
         )
         .sort((a, b) => b.date.localeCompare(a.date))
-        .slice(0, 5)
+        .slice(0, historyLimit)
         .map(publicMatch);
       fallbackMode = "ultimos-resultados";
     }
@@ -689,8 +692,8 @@ function categoryMatches(source, requestedCategory) {
 
   if (requested.includes("reserva")) return haystack.includes("reserva");
   if (requested.includes("master")) return haystack.includes("master");
-  if (requested.includes("presenior")) {
-    return haystack.includes("presenior") || haystack.includes("pre-senior");
+  if (withoutCategorySeparators(requested).includes("presenior")) {
+    return withoutCategorySeparators(haystack).includes("presenior");
   }
 
   return haystack.includes(requested);
@@ -773,6 +776,10 @@ function normalizeCategoryName(value) {
     .replace(/\bmayor(?:es)?\b/g, "mayores")
     .replace(/categoria-/g, "")
     .replace(/division-/g, "");
+}
+
+function withoutCategorySeparators(value) {
+  return String(value ?? "").replace(/-/g, "");
 }
 
 function clamp(value, min, max) {

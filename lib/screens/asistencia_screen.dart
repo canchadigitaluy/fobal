@@ -242,7 +242,10 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     String activeKey,
   ) async {
     try {
-      final records = await ClubAccessService.loadTacticalData(limit: 100);
+      final records = await ClubAccessService.loadTacticalData(
+        limit: 100,
+        type: 'attendance',
+      );
       if (!mounted) return;
       final remoteByKey = <String, AttendanceRecord>{};
       for (final record in records) {

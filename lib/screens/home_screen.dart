@@ -1060,9 +1060,9 @@ class _RecentResultsPanel extends StatelessWidget {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const LinearProgressIndicator(minHeight: 2);
               }
-              // loadResults already returns only real played matches (<=5,
-              // newest first). isPlayedResult is the belt-and-braces guard so
-              // an unplayed 0-0 can never slip into "recent form".
+              // loadResults returns up to 10 real played matches, newest
+              // first; trim to 5 here for the visual. isPlayedResult is the
+              // belt-and-braces guard so an unplayed 0-0 can never slip in.
               final results =
                   (snapshot.data ?? const <LudFixtureMatch>[])
                       .where((match) => match.isPlayedResult)

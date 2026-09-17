@@ -61,25 +61,38 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
     if (membership == null) {
       return _StatsData(players: _playerStats(players));
     }
+    var standingsError = false;
+    var resultsError = false;
+    var playersError = false;
     final values = await Future.wait<dynamic>([
       ClubAccessService.loadStandings(
         membership: membership,
         category: category,
         forceRefresh: force,
-      ).catchError((_) => null),
+      ).catchError((_) {
+        standingsError = true;
+        return null;
+      }),
       ClubAccessService.loadResults(
         membership: membership,
         category: category,
         forceRefresh: force,
-      ).catchError((_) => <LudFixtureMatch>[]),
-      _loadLudPlayers(membership, category, players).catchError(
-        (_) => players,
-      ),
+      ).catchError((_) {
+        resultsError = true;
+        return <LudFixtureMatch>[];
+      }),
+      _loadLudPlayers(membership, category, players).catchError((_) {
+        playersError = true;
+        return players;
+      }),
     ]);
     return _StatsData(
       standings: values[0] as LudStandingsTable?,
       results: values[1] as List<LudFixtureMatch>,
       players: _playerStats(values[2] as List<Player>),
+      standingsError: standingsError,
+      resultsError: resultsError,
+      playersError: playersError,
     );
   }
 
@@ -350,8 +363,14 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
                   final form = _FormPanel(
                     results: data.results,
                     clubName: club.name,
+                    hasError: data.resultsError,
+                    onRetry: _refresh,
                   );
-                  final goals = _GoalsPanel(row: data.ownRow);
+                  final goals = _GoalsPanel(
+                    row: data.ownRow,
+                    hasError: data.standingsError,
+                    onRetry: _refresh,
+                  );
                   if (constraints.maxWidth < 760) {
                     return Column(
                       children: [form, const SizedBox(height: 12), goals],
@@ -373,10 +392,12 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
                 eyebrow: 'Detalle',
                 title: 'Lectura, plantel y tabla',
               ),
-              _AutomaticReading(data: data),
+              _AutomaticReading(data: data, onRetry: _refresh),
               SizedBox(height: narrow ? 10 : 14),
               _PlayerLeaders(
                 players: data.players,
+                hasError: data.playersError,
+                onRetry: _refresh,
                 onTapPlayer: (id) {
                   for (final player in scope.fullClub.players) {
                     if (player.id == id) {
@@ -387,7 +408,11 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
                 },
               ),
               SizedBox(height: narrow ? 10 : 14),
-              _TablePanel(table: data.standings),
+              _TablePanel(
+                table: data.standings,
+                hasError: data.standingsError,
+                onRetry: _refresh,
+              ),
             ],
           );
         },
@@ -400,14 +425,21 @@ class _StatsData {
   final LudStandingsTable? standings;
   final List<LudFixtureMatch> results;
   final List<_PlayerStat> players;
+  final bool standingsError;
+  final bool resultsError;
+  final bool playersError;
 
   const _StatsData({
     this.standings,
     this.results = const [],
     this.players = const [],
+    this.standingsError = false,
+    this.resultsError = false,
+    this.playersError = false,
   });
 
   LudStandingRow? get ownRow => standings?.ownRow;
+  bool get hasAnyError => standingsError || resultsError || playersError;
 }
 
 class _PlayerStat {
@@ -938,7 +970,14 @@ class _MetricGrid extends StatelessWidget {
 class _FormPanel extends StatelessWidget {
   final List<LudFixtureMatch> results;
   final String clubName;
-  const _FormPanel({required this.results, required this.clubName});
+  final bool hasError;
+  final VoidCallback? onRetry;
+  const _FormPanel({
+    required this.results,
+    required this.clubName,
+    this.hasError = false,
+    this.onRetry,
+  });
 
   bool _sameClub(String value) {
     String clean(String text) =>
@@ -958,7 +997,7 @@ class _FormPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // loadResults already returns the last five real results, newest first.
+    // Show only the last five for the visual, even if loadResults returns more.
     final recent = results
         .where((match) => match.isPlayedResult)
         .take(5)
@@ -966,10 +1005,10 @@ class _FormPanel extends StatelessWidget {
         .reversed
         .toList();
     if (recent.isEmpty) {
-      return const _Panel(
+      return _Panel(
         title: 'Forma reciente',
         icon: Icons.timeline,
-        child: _NoData(),
+        child: hasError ? _LoadError(onRetry: onRetry) : const _NoData(),
       );
     }
     var points = 0;
@@ -1038,7 +1077,13 @@ class _FormPanel extends StatelessWidget {
 
 class _GoalsPanel extends StatelessWidget {
   final LudStandingRow? row;
-  const _GoalsPanel({required this.row});
+  final bool hasError;
+  final VoidCallback? onRetry;
+  const _GoalsPanel({
+    required this.row,
+    this.hasError = false,
+    this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1048,7 +1093,9 @@ class _GoalsPanel extends StatelessWidget {
       title: 'Balance de goles',
       icon: Icons.balance,
       child: row == null
-          ? const _NoData()
+          ? hasError
+                ? _LoadError(onRetry: onRetry)
+                : const _NoData()
           : Column(
               children: [
                 Row(
@@ -1089,7 +1136,8 @@ class _GoalsPanel extends StatelessWidget {
 
 class _AutomaticReading extends StatelessWidget {
   final _StatsData data;
-  const _AutomaticReading({required this.data});
+  final VoidCallback? onRetry;
+  const _AutomaticReading({required this.data, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -1179,7 +1227,9 @@ class _AutomaticReading extends StatelessWidget {
       icon: Icons.insights,
       accent: CX.green,
       child: messages.isEmpty
-          ? const _NoData()
+          ? data.hasAnyError
+                ? _LoadError(onRetry: onRetry)
+                : const _NoData()
           : Column(
               children: messages
                   .map(
@@ -1208,16 +1258,20 @@ class _AutomaticReading extends StatelessWidget {
 
 class _PlayerLeaders extends StatelessWidget {
   final List<_PlayerStat> players;
+  final bool hasError;
 
   /// False for No-LUD categories: minutos/asistencias/amarillas nunca se
   /// cargan a mano ahí, así que mostrarlas sería un 0 que parece un dato
   /// real cuando en verdad nunca se registró. Solo Goles/PJ, que desde esta
   /// ronda sí son reales para categorías manuales.
   final bool showFullColumns;
+  final VoidCallback? onRetry;
   final void Function(String playerId)? onTapPlayer;
   const _PlayerLeaders({
     required this.players,
+    this.hasError = false,
     this.showFullColumns = true,
+    this.onRetry,
     this.onTapPlayer,
   });
 
@@ -1229,10 +1283,10 @@ class _PlayerLeaders extends StatelessWidget {
         )
         .toList();
     if (withData.isEmpty) {
-      return const _Panel(
+      return _Panel(
         title: 'Jugadores',
         icon: Icons.groups_2_outlined,
-        child: _NoData(),
+        child: hasError ? _LoadError(onRetry: onRetry) : const _NoData(),
       );
     }
     // Goal contributions first, then minutes as the tiebreaker / participation
@@ -1371,7 +1425,13 @@ class _Cell extends StatelessWidget {
 
 class _TablePanel extends StatelessWidget {
   final LudStandingsTable? table;
-  const _TablePanel({required this.table});
+  final bool hasError;
+  final VoidCallback? onRetry;
+  const _TablePanel({
+    required this.table,
+    this.hasError = false,
+    this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1379,7 +1439,9 @@ class _TablePanel extends StatelessWidget {
       title: 'Tabla de la categoría',
       icon: Icons.leaderboard_outlined,
       child: table == null || table!.rows.isEmpty
-          ? const _NoData()
+          ? hasError
+                ? _LoadError(onRetry: onRetry)
+                : const _NoData()
           : Column(
               children: table!.rows.map((row) {
                 return Container(
@@ -1482,6 +1544,28 @@ class _NoData extends StatelessWidget {
   Widget build(BuildContext context) => const Text(
     'La liga todavía no publicó datos suficientes para esta lectura.',
     style: TextStyle(color: CX.muted, fontSize: 12),
+  );
+}
+
+class _LoadError extends StatelessWidget {
+  final VoidCallback? onRetry;
+  const _LoadError({this.onRetry});
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'No se pudo cargar esta información.',
+        style: TextStyle(color: CX.muted, fontSize: 12),
+      ),
+      const SizedBox(height: 8),
+      TextButton.icon(
+        onPressed: onRetry,
+        icon: const Icon(Icons.refresh, size: 16),
+        label: const Text('Reintentar'),
+      ),
+    ],
   );
 }
 

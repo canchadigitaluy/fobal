@@ -246,7 +246,9 @@ function categoryMatches(source, requestedCategory) {
   }
   if (requested.includes("reserva")) return haystack.includes("reserva");
   if (requested.includes("master")) return haystack.includes("master");
-  if (requested.includes("presenior")) return haystack.includes("presenior");
+  if (withoutCategorySeparators(requested).includes("presenior")) {
+    return withoutCategorySeparators(haystack).includes("presenior");
+  }
   return haystack.includes(requested);
 }
 
@@ -275,6 +277,10 @@ function normalize(value) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, "-");
+}
+
+function withoutCategorySeparators(value) {
+  return String(value ?? "").replace(/-/g, "");
 }
 
 function number(value) {

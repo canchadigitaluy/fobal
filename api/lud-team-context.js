@@ -146,7 +146,7 @@ export default async function handler(req, res) {
     a.fullName.localeCompare(b.fullName),
   );
 
-  await cacheContext(teamId, team, rawCategories, currentEntries, players).catch(
+  await cacheContext(teamId, team, categorySource, currentEntries, players).catch(
     () => {},
   );
 
@@ -206,7 +206,7 @@ function categorySortValue(name) {
   return 99;
 }
 
-async function cacheContext(teamId, team, rawCategories, entries, players) {
+async function cacheContext(teamId, team, categorySource, entries, players) {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return;
   }
@@ -230,7 +230,7 @@ async function cacheContext(teamId, team, rawCategories, entries, players) {
   );
 
   await supabase.from("lud_team_categories").upsert(
-    rawCategories.map((category) => ({
+    categorySource.map((category) => ({
       lud_team_id: teamId,
       lud_category_id: category.id ?? null,
       name: category.name,
@@ -239,16 +239,22 @@ async function cacheContext(teamId, team, rawCategories, entries, players) {
     { onConflict: "lud_team_id,name" },
   );
 
-  await supabase.from("lud_players").upsert(
+  // Requires a Supabase unique key on (lud_team_id, category_key, lud_player_id)
+  // and a category_key column so multi-category players do not overwrite each
+  // other in cache. Without that migration, Supabase will reject this upsert and
+  // live data remains the source of truth.
+  const playersResult = await supabase.from("lud_players").upsert(
     players.map((player) => ({
       lud_player_id: player.ludPlayerId,
       lud_team_id: teamId,
+      category_key: normalize(player.categoryId || player.id),
       full_name: player.fullName,
       season: entries[0]?.season_year?.toString() ?? null,
       source_payload: player,
     })),
-    { onConflict: "lud_player_id" },
+    { onConflict: "lud_team_id,category_key,lud_player_id" },
   );
+  if (playersResult.error) throw playersResult.error;
 }
 
 async function loadCachedContext(teamId) {
@@ -279,14 +285,22 @@ async function loadCachedContext(teamId) {
     seasonYear: Number(teamResult.data.season) || 0,
   }));
   const validCategoryIds = new Set(categories.map((category) => category.id));
+  const categoryNameById = new Map(
+    categories.map((category) => [category.id, category.name]),
+  );
   const players = playersResult.data.map((player) => {
     const payload = player.source_payload ?? {};
+    const categoryId = validCategoryIds.has(payload.categoryId) ? payload.categoryId : "";
+    const categoryName = categoryNameById.get(categoryId) ?? "";
+    const cachedId = categoryName
+      ? `lud-player-${player.lud_player_id}-${normalize(categoryName)}`
+      : payload.id ?? `lud-player-${player.lud_player_id}`;
     return {
       ...payload,
-      id: `lud-player-${player.lud_player_id}`,
+      id: cachedId,
       ludPlayerId: player.lud_player_id,
       fullName: player.full_name,
-      categoryId: validCategoryIds.has(payload.categoryId) ? payload.categoryId : "",
+      categoryId,
     };
   });
   for (const category of categories) {

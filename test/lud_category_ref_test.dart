@@ -30,13 +30,24 @@ void main() {
       for (final id in [
         'externo-mi-club-plantel',
         'lud-cat-1',
-        'lud-cat-1-6-extra',
         'lud-cat-a-b',
         'cat-1699999999999',
         '',
       ]) {
         expect(LudCategoryRef.tryParse(_cat(id)), isNull, reason: id);
       }
+    });
+
+    test('accepts a slugified category name when LUD has no numeric id', () {
+      // api/lud-team-context.js falls back to normalize(category.name) —
+      // e.g. "lud-cat-1-sub-20" — when /teams/{id}/categories/ doesn't
+      // expose a real numeric category id. teamId must still parse even
+      // though categoryId can't.
+      final ref = LudCategoryRef.tryParse(_cat('lud-cat-1-sub-20', 'Sub 20'));
+      expect(ref, isNotNull);
+      expect(ref!.teamId, 1);
+      expect(ref.categoryId, isNull);
+      expect(ref.categoryName, 'Sub 20');
     });
   });
 

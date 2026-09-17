@@ -618,18 +618,6 @@ class _TopBar extends StatelessWidget {
             ],
           ),
         ),
-        IconButton.filledTonal(
-          tooltip: 'Notificaciones',
-          onPressed: () {},
-          icon: const Icon(Icons.notifications_none, size: 20),
-          style: IconButton.styleFrom(
-            backgroundColor: CX.panel,
-            foregroundColor: CX.muted,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(7),
-            ),
-          ),
-        ),
       ],
     );
   }

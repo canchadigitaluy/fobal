@@ -321,7 +321,8 @@ class _AccountTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final clubLabels = <String>[
-      for (final c in account.manualClubs) c.name,
+      for (final c in account.manualClubs)
+        c.categories.isEmpty ? c.name : '${c.name} — ${c.categories.join(', ')}',
       for (final m in account.ludMemberships) '${m.name} · ${m.role}',
     ];
     return Container(

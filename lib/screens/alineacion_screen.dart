@@ -36,7 +36,8 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
   final _callUpCaptureKey = GlobalKey();
   final _callUpNoteController = TextEditingController();
   final List<String?> _xi = List<String?>.filled(11, null);
-  final List<String?> _subs = List<String?>.filled(7, null);
+  // LUD no tiene tope de suplentes: arranca en 7 espacios pero crece.
+  final List<String?> _subs = List<String?>.filled(7, null, growable: true);
   final Map<int, Offset> _customSpots = {};
   List<_SavedAlignment> _savedAlignments = const [];
   String? _categoryId;
@@ -227,11 +228,20 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
       for (var i = 0; i < _xi.length; i++) {
         _xi[i] = i < xi.length ? xi[i] : null;
       }
-      for (var i = 0; i < _subs.length; i++) {
-        _subs[i] = i < subs.length ? subs[i] : null;
-      }
+      _restoreSubs(subs);
     } catch (_) {
       html.window.localStorage.remove(_storageKey(club, category));
+    }
+  }
+
+  /// Suplentes ilimitados (LUD no tiene tope): siempre conserva al menos 7
+  /// espacios, pero crece si lo guardado tiene mas.
+  void _restoreSubs(List<String?> subs) {
+    _subs
+      ..clear()
+      ..addAll(subs);
+    while (_subs.length < 7) {
+      _subs.add(null);
     }
   }
 
@@ -539,9 +549,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
       for (var i = 0; i < _xi.length; i++) {
         _xi[i] = i < saved.xi.length ? saved.xi[i] : null;
       }
-      for (var i = 0; i < _subs.length; i++) {
-        _subs[i] = i < saved.subs.length ? saved.subs[i] : null;
-      }
+      _restoreSubs(saved.subs);
       _customSpots
         ..clear()
         ..addAll(saved.customSpots);
@@ -575,8 +583,14 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
       return;
     }
     final subIndex = _subs.indexWhere((id) => id == null);
-    if (subIndex != -1) setState(() => _subs[subIndex] = player.id);
+    if (subIndex != -1) {
+      setState(() => _subs[subIndex] = player.id);
+      return;
+    }
+    setState(() => _subs.add(player.id));
   }
+
+  void _addSubSlot() => setState(() => _subs.add(null));
 
   Future<void> _pickPlayer({
     required List<Player> players,
@@ -668,12 +682,12 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                   ButtonSegment(
                     value: false,
                     icon: Icon(Icons.stadium_outlined),
-                    label: Text('Cancha'),
+                    label: Text('Crear XI'),
                   ),
                   ButtonSegment(
                     value: true,
                     icon: Icon(Icons.format_list_bulleted),
-                    label: Text('Listado'),
+                    label: Text('Citación'),
                   ),
                 ],
                 selected: {_listMode},
@@ -920,6 +934,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                   title: 'Elegir suplente',
                   onPick: (value) => setState(() => _subs[index] = value),
                 ),
+                onAddSlot: _addSubSlot,
               ),
               const SizedBox(height: 14),
               Wrap(
@@ -1845,11 +1860,13 @@ class _Bench extends StatelessWidget {
   final List<String?> subs;
   final Map<String, Player> players;
   final ValueChanged<int> onTap;
+  final VoidCallback onAddSlot;
 
   const _Bench({
     required this.subs,
     required this.players,
     required this.onTap,
+    required this.onAddSlot,
   });
 
   @override
@@ -1865,18 +1882,28 @@ class _Bench extends StatelessWidget {
           Wrap(
             spacing: 10,
             runSpacing: 10,
-            children: List.generate(subs.length, (index) {
-              final player = players[subs[index]];
-              return SizedBox(
+            children: [
+              ...List.generate(subs.length, (index) {
+                final player = players[subs[index]];
+                return SizedBox(
+                  width: 118,
+                  child: _PlayerDisc(
+                    label: 'SUP ${index + 1}',
+                    player: player,
+                    goalkeeper: false,
+                    onTap: () => onTap(index),
+                  ),
+                );
+              }),
+              SizedBox(
                 width: 118,
-                child: _PlayerDisc(
-                  label: 'SUP ${index + 1}',
-                  player: player,
-                  goalkeeper: false,
-                  onTap: () => onTap(index),
+                child: OutlinedButton.icon(
+                  onPressed: onAddSlot,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Suplente'),
                 ),
-              );
-            }),
+              ),
+            ],
           ),
         ],
       ),

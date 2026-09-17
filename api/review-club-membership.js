@@ -209,8 +209,11 @@ async function handlePlatformAction({ req, res, action, userClient, authData }) 
       const manualByUser = new Map();
       for (const row of manualClubs.data || []) {
         const name = row.data?.name || "Club sin nombre";
+        const categories = (row.data?.categories || [])
+          .map((category) => category?.name)
+          .filter((value) => typeof value === "string" && value.trim());
         const list = manualByUser.get(row.user_id) || [];
-        list.push({ clubId: row.club_id, name, updatedAt: row.updated_at });
+        list.push({ clubId: row.club_id, name, updatedAt: row.updated_at, categories });
         manualByUser.set(row.user_id, list);
       }
       const ludByUser = new Map();

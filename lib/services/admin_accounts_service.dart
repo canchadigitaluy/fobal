@@ -16,10 +16,12 @@ class AdminManualClub {
   final String clubId;
   final String name;
   final String updatedAt;
+  final List<String> categories;
   const AdminManualClub({
     required this.clubId,
     required this.name,
     required this.updatedAt,
+    this.categories = const [],
   });
 
   factory AdminManualClub.fromJson(Map<String, dynamic> json) =>
@@ -27,6 +29,9 @@ class AdminManualClub {
         clubId: json['clubId'] as String? ?? '',
         name: json['name'] as String? ?? '',
         updatedAt: json['updatedAt'] as String? ?? '',
+        categories: (json['categories'] as List<dynamic>? ?? [])
+            .map((e) => e.toString())
+            .toList(),
       );
 }
 

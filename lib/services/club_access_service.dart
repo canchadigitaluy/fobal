@@ -1250,7 +1250,11 @@ class LudStandingRow {
 /// category.
 class LudCategoryRef {
   final int teamId;
-  final int categoryId;
+  // Null when the category has no real numeric LUD category id (the backend
+  // falls back to a slugified category name — e.g. "lud-cat-1-sub-20" — when
+  // /teams/{id}/categories/ doesn't expose one). teamId + categoryName still
+  // identify the category; callers must not assume this is always set.
+  final int? categoryId;
   final String categoryName;
 
   const LudCategoryRef({
@@ -1259,7 +1263,10 @@ class LudCategoryRef {
     required this.categoryName,
   });
 
-  static final RegExp _pattern = RegExp(r'^lud-cat-(\d+)-(\d+)$');
+  // Suffix after the team id can be a real LUD category id (digits) or a
+  // normalized category name (letters/digits/hyphens) — see normalize() in
+  // api/lud-team-context.js. Only the team id needs to be numeric.
+  static final RegExp _pattern = RegExp(r'^lud-cat-(\d+)-(.+)$');
 
   /// Null when [category] is not a Liga Universitaria category. Callers must
   /// treat null as "no LUD data for this selection" and must not substitute
@@ -1268,11 +1275,10 @@ class LudCategoryRef {
     final match = _pattern.firstMatch(category.id.trim());
     if (match == null) return null;
     final teamId = int.tryParse(match.group(1)!);
-    final categoryId = int.tryParse(match.group(2)!);
-    if (teamId == null || categoryId == null) return null;
+    if (teamId == null) return null;
     return LudCategoryRef(
       teamId: teamId,
-      categoryId: categoryId,
+      categoryId: int.tryParse(match.group(2)!),
       categoryName: category.name.trim(),
     );
   }

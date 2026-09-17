@@ -972,6 +972,36 @@ async function authenticateClubRequest(req, payload) {
     };
   }
   if (isIndependentClub) {
+    // isIndependentClub is derived from fields the CLIENT sends in the
+    // request body (club.data_source/league, or a clubId prefix), so it
+    // must not be trusted on its own. Verify the caller actually owns or
+    // collaborates on this manual club before granting access, otherwise
+    // anyone can claim an arbitrary clubId as "manual" and both read the
+    // generation endpoint and, via persistGeneratedContext(), write RAG
+    // memory under a club_id they have no real relationship to.
+    const [{ data: ownedDoc }, { data: collaboration }] = await Promise.all([
+      supabase
+        .from("club_documents")
+        .select("club_id")
+        .eq("club_id", clubId)
+        .eq("user_id", userData.user.id)
+        .maybeSingle(),
+      supabase
+        .from("club_collaborators")
+        .select("club_id")
+        .eq("club_id", clubId)
+        .eq("user_id", userData.user.id)
+        .eq("status", "active")
+        .maybeSingle(),
+    ]);
+    if (!ownedDoc && !collaboration) {
+      return {
+        ok: false,
+        status: 403,
+        error: "club_access_denied",
+        message: "No tenes acceso a este club.",
+      };
+    }
     return {
       ok: true,
       role: "independent_coach",
@@ -987,11 +1017,14 @@ async function authenticateClubRequest(req, payload) {
     .eq("status", "active")
     .maybeSingle();
   if (membershipError || !membership) {
+    // Used to fall through as "authenticated_guest" and still generate. Any
+    // authenticated user could point clubId at a LUD club they don't belong
+    // to and use the assistant on it. No membership = no access.
     return {
-      ok: true,
-      role: "authenticated_guest",
-      userId: userData.user.id,
-      clubId,
+      ok: false,
+      status: 403,
+      error: "club_access_denied",
+      message: "No tenes acceso a este club.",
     };
   }
   const writerRoles = new Set([
@@ -1052,6 +1085,7 @@ async function loadRagContext({ payload, access, genAI }) {
       match_count: 8,
       filter_user_id: access.userId,
       filter_club_id: access.clubId,
+      filter_category_id: String(payload?.category?.id || ""),
     });
     if (error || !Array.isArray(data)) return [];
     return data.map((item) => ({
@@ -1094,21 +1128,31 @@ async function persistGeneratedContext({ payload, access, data, mode, genAI }) {
       process.env.SUPABASE_SERVICE_ROLE_KEY,
       { auth: { persistSession: false } },
     );
-    await supabase.from("training_context_documents").insert({
-      club_id: access.clubId,
-      user_id: access.userId,
-      category_id: String(payload?.category?.id || ""),
-      source_type: mode,
-      content,
-      metadata: {
-        title: data?.title || "",
-        confidence: data?.confidence || "",
-        generated_at: new Date().toISOString(),
-      },
-      embedding: embedding.embedding.values,
-    });
-  } catch (_) {
-    return;
+    const { error: insertError } = await supabase
+      .from("training_context_documents")
+      .insert({
+        club_id: access.clubId,
+        user_id: access.userId,
+        category_id: String(payload?.category?.id || ""),
+        source_type: mode,
+        content,
+        metadata: {
+          title: data?.title || "",
+          confidence: data?.confidence || "",
+          generated_at: new Date().toISOString(),
+        },
+        embedding: embedding.embedding.values,
+      });
+    // The Supabase client does not throw on a rejected insert (bad
+    // constraint, RLS denial, etc) — it returns { error }. Not checking it
+    // let every failed RAG write look like a success: the plan generated
+    // fine, but the memory silently never saved. Logging at least makes a
+    // recurring failure visible in Vercel logs instead of invisible.
+    if (insertError) {
+      console.error("persistGeneratedContext insert failed:", insertError.message);
+    }
+  } catch (error) {
+    console.error("persistGeneratedContext failed:", error?.message || error);
   }
 }
 

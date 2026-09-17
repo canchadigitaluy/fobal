@@ -1473,9 +1473,9 @@ class CanteraClubContext {
     ].join(' - ');
   }
 
-  static String _playerNote(Map<String, dynamic> item) {
-    return 'Importado desde la liga';
-  }
+  // Nota manual del DT, no un texto generado — un placeholder identico para
+  // los 26 jugadores del plantel no aporta nada al contexto del plantel.
+  static String _playerNote(Map<String, dynamic> item) => '';
 }
 
 List<Player> preservePlayerProfiles({

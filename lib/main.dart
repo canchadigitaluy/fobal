@@ -1971,16 +1971,22 @@ class _DeferredCalendarioScreen extends StatelessWidget {
 }
 
 class _DeferredEstadisticasScreen extends StatelessWidget {
+  // Set once the deferred chunk has loaded, so revisiting this tab never
+  // flashes the loading scaffold again for a sub-second, already-cached load.
+  static bool _loaded = false;
+
   const _DeferredEstadisticasScreen();
 
   @override
   Widget build(BuildContext context) {
+    if (_loaded) return estadisticas_screen.EstadisticasScreen();
     return FutureBuilder<void>(
       future: estadisticas_screen.loadLibrary(),
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const _CalmLoadingScaffold();
         }
+        _loaded = true;
         return estadisticas_screen.EstadisticasScreen();
       },
     );
@@ -1988,18 +1994,22 @@ class _DeferredEstadisticasScreen extends StatelessWidget {
 }
 
 class _DeferredAlineacionScreen extends StatelessWidget {
+  static bool _loaded = false;
+
   final VoidCallback onBack;
 
   const _DeferredAlineacionScreen({required this.onBack});
 
   @override
   Widget build(BuildContext context) {
+    if (_loaded) return alineacion_screen.AlineacionScreen(onBack: onBack);
     return FutureBuilder<void>(
       future: alineacion_screen.loadLibrary(),
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const _CalmLoadingScaffold();
         }
+        _loaded = true;
         return alineacion_screen.AlineacionScreen(onBack: onBack);
       },
     );

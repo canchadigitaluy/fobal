@@ -1261,7 +1261,7 @@ class _PlayerLeaders extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          ...ranked.take(10).map((player) {
+          ...ranked.map((player) {
             final risk = player.yellowCards >= 4;
             final canTap = onTapPlayer != null && player.id.isNotEmpty;
             return InkWell(

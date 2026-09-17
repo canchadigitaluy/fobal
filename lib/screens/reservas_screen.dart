@@ -796,8 +796,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
     return [
       if (category.currentFocus.trim().isNotEmpty)
         'Foco actual: ${category.currentFocus.trim()}',
-      if (category.playerCount > 0)
-        'Cantidad registrada: ${category.playerCount}',
+      if (players.isNotEmpty) 'Cantidad registrada: ${players.length}',
       if (positions.isNotEmpty) 'Posiciones cargadas: $positions',
       if (notes.isNotEmpty) 'Notas: ${notes.map(_cleanStaffNote).join('; ')}',
       if (trends.isNotEmpty) 'Tendencias de la liga: ${trends.join('; ')}',

@@ -1541,9 +1541,18 @@ List<Player> applyRemotePlayerProfiles({
   }).toList();
 }
 
+// Placeholder que una version anterior de _playerNote() escribia para TODOS
+// los jugadores LUD por igual (ver historial). Quedo guardado como si fuera
+// una nota real del DT; hay que tratarlo como vacio para que se autolimpie
+// en cualquier club, sin necesitar una migracion aparte.
+const _staleLudPlaceholderNote = 'Importado desde la liga';
+
+String _stripStalePlaceholder(String note) =>
+    note.trim() == _staleLudPlaceholderNote ? '' : note.trim();
+
 String _mergePlayerNote(String ludNote, String currentNote) {
-  final cleanLud = ludNote.trim();
-  final cleanCurrent = currentNote.trim();
+  final cleanLud = _stripStalePlaceholder(ludNote);
+  final cleanCurrent = _stripStalePlaceholder(currentNote);
   if (cleanCurrent.isEmpty) return cleanLud;
   if (cleanLud.isEmpty || cleanCurrent.contains(cleanLud)) return cleanCurrent;
   if (cleanLud.contains(cleanCurrent)) return cleanLud;

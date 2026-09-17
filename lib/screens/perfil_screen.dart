@@ -10,21 +10,6 @@ class PerfilScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scope = AppScope.of(context);
-    final club = scope.club;
-    final selectedCategoryId = club.categories.any(
-      (category) => category.id == scope.selectedCategoryId,
-    )
-        ? scope.selectedCategoryId
-        : club.categories.isEmpty
-        ? null
-        : club.categories.first.id;
-    final players = selectedCategoryId == null
-        ? <Player>[]
-        : club.players
-            .where((player) => player.categoryId == selectedCategoryId)
-            .toList();
-
     return Scaffold(
       appBar: AppBar(
         title: const Column(
@@ -56,39 +41,7 @@ class PerfilScreen extends StatelessWidget {
                     narrow ? 12 : 18,
                     narrow ? 20 : 30,
                   ),
-                  children: CanteraMotion.stagger([
-                _SignalTile(
-                  metric: _SignalMetric(
-                    'Plantel',
-                    '${players.length} '
-                        '${players.length == 1 ? 'jugador' : 'jugadores'}',
-                    Icons.groups_2_outlined,
-                    CX.green,
-                  ),
-                ),
-                SizedBox(height: narrow ? 16 : 24),
-                PremiumSectionHeader(
-                  compact: narrow,
-                  eyebrow: 'Identidad',
-                  title: 'Impronta futbolística',
-                ),
-                _MethodologyBoard(methodology: club.methodology),
-                SizedBox(height: narrow ? 16 : 24),
-                PremiumSectionHeader(
-                  compact: narrow,
-                  eyebrow: 'Jugadores',
-                  title: 'Seguimiento individual',
-                ),
-                if (players.isEmpty)
-                  const _IntelligenceEmpty(
-                    icon: Icons.person_search_outlined,
-                    title: 'Sin jugadores para comparar',
-                    description:
-                        'Carga el plantel para comenzar el seguimiento de asistencia, estado y evolucion.',
-                  )
-                else
-                  _PlayerRadar(players: players),
-                  ]),
+                  children: const [PerfilBody()],
                 );
               },
             ),
@@ -97,7 +50,68 @@ class PerfilScreen extends StatelessWidget {
       ),
     );
   }
+}
 
+/// Contenido de "Impronta futbolística" sin Scaffold propio, para poder
+/// incrustarlo al final de otra pantalla (ver reservas_screen.dart).
+class PerfilBody extends StatelessWidget {
+  const PerfilBody({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = AppScope.of(context);
+    final club = scope.club;
+    final selectedCategoryId = club.categories.any(
+      (category) => category.id == scope.selectedCategoryId,
+    )
+        ? scope.selectedCategoryId
+        : club.categories.isEmpty
+        ? null
+        : club.categories.first.id;
+    final players = selectedCategoryId == null
+        ? <Player>[]
+        : club.players
+            .where((player) => player.categoryId == selectedCategoryId)
+            .toList();
+    final narrow = MediaQuery.sizeOf(context).width < 700;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: CanteraMotion.stagger([
+        _SignalTile(
+          metric: _SignalMetric(
+            'Plantel',
+            '${players.length} '
+                '${players.length == 1 ? 'jugador' : 'jugadores'}',
+            Icons.groups_2_outlined,
+            CX.green,
+          ),
+        ),
+        SizedBox(height: narrow ? 16 : 24),
+        PremiumSectionHeader(
+          compact: narrow,
+          eyebrow: 'Identidad',
+          title: 'Impronta futbolística',
+        ),
+        _MethodologyBoard(methodology: club.methodology),
+        SizedBox(height: narrow ? 16 : 24),
+        PremiumSectionHeader(
+          compact: narrow,
+          eyebrow: 'Jugadores',
+          title: 'Seguimiento individual',
+        ),
+        if (players.isEmpty)
+          const _IntelligenceEmpty(
+            icon: Icons.person_search_outlined,
+            title: 'Sin jugadores para comparar',
+            description:
+                'Carga el plantel para comenzar el seguimiento de asistencia, estado y evolucion.',
+          )
+        else
+          _PlayerRadar(players: players),
+      ]),
+    );
+  }
 }
 
 class _SignalTile extends StatelessWidget {

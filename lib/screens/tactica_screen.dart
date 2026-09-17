@@ -4,7 +4,6 @@ import '../data/cantera_data.dart';
 import '../main.dart';
 import 'asistencia_screen.dart';
 import 'cuota_screen.dart';
-import 'perfil_screen.dart';
 import 'reservas_screen.dart';
 
 class TacticaScreen extends StatefulWidget {
@@ -20,7 +19,7 @@ class TacticaScreenState extends State<TacticaScreen> {
 
   void selectSection(int index) {
     final external = _isExternal(context);
-    final max = external ? 2 : 3;
+    final max = external ? 1 : 2;
     final next = index.clamp(0, max);
     if (next == _section) return;
     setState(() => _section = next);
@@ -30,7 +29,7 @@ class TacticaScreenState extends State<TacticaScreen> {
       AppScope.of(context).fullClub.isManualClub;
 
   bool _isPlannerSection(int selectedSection, bool external) =>
-      selectedSection == (external ? 1 : 2);
+      selectedSection == 0;
 
   String? _effectivePlannerCategoryId(
     List<CategorySquad> categories,
@@ -62,7 +61,7 @@ class TacticaScreenState extends State<TacticaScreen> {
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
     final external = _isExternal(context);
-    final selectedSection = _section.clamp(0, external ? 2 : 3);
+    final selectedSection = _section.clamp(0, external ? 1 : 2);
     final categories = scope.fullClub.categories;
     final planning = _isPlannerSection(selectedSection, external);
     final plannerCategoryId = _effectivePlannerCategoryId(
@@ -90,25 +89,20 @@ class TacticaScreenState extends State<TacticaScreen> {
                   segments: [
                     ButtonSegment(
                       value: 0,
+                      icon: Icon(Icons.sports_soccer_outlined),
+                      label: Text('Planificar'),
+                    ),
+                    ButtonSegment(
+                      value: 1,
                       icon: Icon(Icons.groups_2_outlined),
                       label: Text('Plantel'),
                     ),
                     if (!external)
                       ButtonSegment(
-                        value: 1,
+                        value: 2,
                         icon: Icon(Icons.fact_check_outlined),
                         label: Text('Asistencia'),
                       ),
-                    ButtonSegment(
-                      value: external ? 1 : 2,
-                      icon: Icon(Icons.sports_soccer_outlined),
-                      label: Text('Planificar'),
-                    ),
-                    ButtonSegment(
-                      value: external ? 2 : 3,
-                      icon: Icon(Icons.account_tree_outlined),
-                      label: Text('Impronta futbolística'),
-                    ),
                   ],
                   selected: {selectedSection},
                   showSelectedIcon: false,
@@ -132,10 +126,10 @@ class TacticaScreenState extends State<TacticaScreen> {
         ),
         const Divider(height: 1),
         // Section -> screen map. The screen classes keep historical names:
+        // ReservasScreen = "Planificar" (match / session planner; also
+        //   renders "Impronta futbolística" at the bottom via PerfilBody)
         // CuotaScreen  = "Plantel" (squad + tracking)
         // AsistenciaScreen = "Asistencia" (LUD profiles only)
-        // ReservasScreen = "Planificar" (match / session planner)
-        // PerfilScreen = "Impronta futbolística" (playing identity)
         // They each render their own Scaffold and a real empty state, so a
         // missing plantel or category never leaves this area blank.
         Expanded(
@@ -165,20 +159,12 @@ class TacticaScreenState extends State<TacticaScreen> {
             child: KeyedSubtree(
               key: ValueKey('tactica-section-$selectedSection-$external'),
               child: switch (selectedSection) {
-                0 => const CuotaScreen(),
-                1 => external
-                    ? ReservasScreen(
-                        initialCategoryOverride: plannerCategoryId,
-                        onCategoryChanged: _selectPlannerCategory,
-                      )
-                    : const AsistenciaScreen(),
-                2 => external
-                    ? const PerfilScreen()
-                    : ReservasScreen(
-                        initialCategoryOverride: plannerCategoryId,
-                        onCategoryChanged: _selectPlannerCategory,
-                      ),
-                _ => const PerfilScreen(),
+                0 => ReservasScreen(
+                    initialCategoryOverride: plannerCategoryId,
+                    onCategoryChanged: _selectPlannerCategory,
+                  ),
+                1 => const CuotaScreen(),
+                _ => const AsistenciaScreen(),
               },
             ),
           ),

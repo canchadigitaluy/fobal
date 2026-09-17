@@ -2089,10 +2089,13 @@ class _MainShellState extends State<MainShell> {
     return index < 0 ? 0 : index;
   }
 
-  /// Planificar sub-tab index inside TacticaScreen (Asistencia is hidden for
-  /// external clubs, shifting the planner one slot left).
-  int _plannerSubSection() =>
-      _isExternalClub(AppScope.of(context).fullClub) ? 1 : 2;
+  /// Sub-tab indices inside TacticaScreen: Planificar / Plantel / Asistencia
+  /// (Asistencia is hidden for external clubs).
+  int _plannerSubSection() => 0;
+
+  int _plantelSubSection() => 1;
+
+  int _asistenciaSubSection() => 2;
 
   void _openTacticaSub(int sub) {
     _setIndex(_indexOfScreen<TacticaScreen>());
@@ -2123,7 +2126,7 @@ class _MainShellState extends State<MainShell> {
         if (external) {
           _setIndex(_indexOfScreen<MiEquipoScreen>());
         } else {
-          _openTacticaSub(0); // Plantel sub-tab
+          _openTacticaSub(_plantelSubSection());
         }
       case ShellSection.planner:
         _openTacticaSub(_plannerSubSection());
@@ -2133,7 +2136,7 @@ class _MainShellState extends State<MainShell> {
         if (external) {
           _setIndex(_indexOfLabel('Asistencia'));
         } else {
-          _openTacticaSub(1); // Asistencia sub-tab
+          _openTacticaSub(_asistenciaSubSection());
         }
       case ShellSection.stats:
         _setIndex(_indexOfLabel('Estadísticas'));
@@ -2185,7 +2188,12 @@ class _MainShellState extends State<MainShell> {
   void _goTo(int index) {
     final role = AppScope.of(context).role;
     if (index >= 1 && index <= 3) {
-      _tacticaKey.currentState?.selectSection(index - 1);
+      final sub = switch (index) {
+        1 => _plantelSubSection(),
+        2 => _asistenciaSubSection(),
+        _ => _plannerSubSection(),
+      };
+      _tacticaKey.currentState?.selectSection(sub);
     }
     // Semantic index -> screen index. Resolved by widget type (not a literal
     // position) so inserting a screen into _screens() can't silently desync

@@ -19,6 +19,7 @@ import '../ui/exercise_animation_preview.dart';
 import '../ui/export_preview_dialog.dart';
 import 'exercise_library_screen.dart';
 import 'match_preparation_screen.dart';
+import 'perfil_screen.dart';
 import 'session_builder_screen.dart';
 
 const _fixtureStylePlaceholder =
@@ -765,6 +766,8 @@ class _ReservasScreenState extends State<ReservasScreen> {
                       : categoryPlayers.length,
                   onSave: (report) => _saveTrainingReport(club, report),
                 ),
+                const SizedBox(height: 18),
+                const PerfilBody(),
               ]),
             ),
           ),

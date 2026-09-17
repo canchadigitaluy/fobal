@@ -51,6 +51,13 @@ class _SyncRecoveryDialogState extends State<_SyncRecoveryDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (conflicts.isNotEmpty) ...[
+                const Text(
+                  'Hay una copia de este club guardada en este dispositivo que ya no coincide con la version actual (por ejemplo, porque se sincronizaron datos nuevos de la liga desde entonces). Si no reconoces cambios propios sin guardar, lo mas seguro es "Conservar version actual".',
+                  style: TextStyle(color: _muted, fontSize: 12, height: 1.4),
+                ),
+                const SizedBox(height: 12),
+              ],
               if (error != null) ...[
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -171,8 +178,8 @@ class _ConflictCard extends StatelessWidget {
           Text(
             diff == null
                 ? 'La copia no se pudo comparar, pero puede descargarse.'
-                : '${diff.players} jugadores · ${diff.sessions} sesiones · '
-                      '${diff.results} resultados · ${diff.attendanceRecords} asistencias difieren',
+                : 'Difieren: ${diff.players} jugadores · ${diff.sessions} sesiones · '
+                      '${diff.results} resultados · ${diff.attendanceRecords} asistencias',
             style: const TextStyle(color: _muted, fontSize: 12),
           ),
           const SizedBox(height: 12),
@@ -185,11 +192,7 @@ class _ConflictCard extends StatelessWidget {
                 icon: const Icon(Icons.download_outlined, size: 17),
                 label: const Text('Descargar copia'),
               ),
-              TextButton(
-                onPressed: busy ? null : onDiscard,
-                child: const Text('Conservar versión actual'),
-              ),
-              FilledButton.icon(
+              OutlinedButton.icon(
                 onPressed: busy || local == null ? null : onRestore,
                 icon: busy
                     ? const SizedBox(
@@ -199,6 +202,10 @@ class _ConflictCard extends StatelessWidget {
                       )
                     : const Icon(Icons.restore, size: 17),
                 label: const Text('Reemplazar con mi copia'),
+              ),
+              FilledButton(
+                onPressed: busy ? null : onDiscard,
+                child: const Text('Conservar versión actual'),
               ),
             ],
           ),

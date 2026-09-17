@@ -582,8 +582,17 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   title: 'Próximo partido',
                   compact: narrow,
                   trailing: OutlinedButton.icon(
-                    onPressed: () =>
-                        openMatchPreparation(context, rival: _rivalName),
+                    onPressed: () => openMatchPreparation(
+                      context,
+                      calendarEventId: nextPreparation?.calendarEventId ?? '',
+                      rival: nextPreparation?.rival.isNotEmpty == true
+                          ? nextPreparation!.rival
+                          : _rivalName,
+                      date: nextPreparation?.date.isNotEmpty == true
+                          ? nextPreparation!.date
+                          : _isoDate(_matchDate),
+                      time: nextPreparation?.time ?? '',
+                    ),
                     icon: const Icon(Icons.assignment_outlined, size: 16),
                     label: const Text('Panel completo'),
                   ),

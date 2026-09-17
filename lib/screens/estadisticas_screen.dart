@@ -86,10 +86,25 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
         return players;
       }),
     ]);
+    final healedPlayers = values[2] as List<Player>;
+    // _loadLudPlayers() merges fresh LUD data into this category's players
+    // (self-healing stale local fields like the old note placeholder), but
+    // that only lived in this screen's own _playerStats() call — every other
+    // screen kept reading the un-healed players from AppScope. Write the
+    // merge back so it actually sticks club-wide.
+    if (mounted && !playersError) {
+      final scope = AppScope.of(context);
+      final healedById = {for (final player in healedPlayers) player.id: player};
+      final nextPlayers = [
+        for (final player in scope.fullClub.players)
+          healedById[player.id] ?? player,
+      ];
+      scope.updateClub(scope.fullClub.copyWith(players: nextPlayers));
+    }
     return _StatsData(
       standings: values[0] as LudStandingsTable?,
       results: values[1] as List<LudFixtureMatch>,
-      players: _playerStats(values[2] as List<Player>),
+      players: _playerStats(healedPlayers),
       standingsError: standingsError,
       resultsError: resultsError,
       playersError: playersError,

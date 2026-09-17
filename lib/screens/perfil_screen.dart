@@ -199,16 +199,38 @@ class _EditableMethodologyBox extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              children: const [
-                Icon(Icons.edit_note_outlined, color: CX.green, size: 20),
-                SizedBox(width: 8),
-                Expanded(
+              children: [
+                const Icon(Icons.edit_note_outlined, color: CX.green, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
                   child: Text(
                     'Nuestra forma de jugar',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
                   ),
                 ),
-                Icon(Icons.edit_outlined, color: CX.faint, size: 16),
+                if (text.isEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: CX.amber.withValues(alpha: .12),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: CX.amber.withValues(alpha: .3)),
+                    ),
+                    child: const Text(
+                      'Pendiente',
+                      style: TextStyle(
+                        color: CX.amber,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                const Icon(Icons.edit_outlined, color: CX.faint, size: 16),
               ],
             ),
             const SizedBox(height: 10),

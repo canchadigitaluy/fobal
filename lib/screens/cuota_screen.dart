@@ -120,6 +120,27 @@ class _CuotaScreenState extends State<CuotaScreen> {
     );
   }
 
+  /// Opens the same edit dialog one player after another for everyone still
+  /// missing a position, instead of making the DT hunt each one down in the
+  /// list — completing 26 profiles one dialog at a time is the real friction
+  /// the "Posicion pendiente" tags create.
+  Future<void> _completePendingPositions(
+    CanteraClub club,
+    List<Player> players,
+  ) async {
+    final pending = players.where((p) => p.position.trim().isEmpty).toList();
+    for (final player in pending) {
+      if (!mounted) return;
+      final freshClub = AppScope.of(context).club;
+      final current = freshClub.players.firstWhere(
+        (item) => item.id == player.id,
+        orElse: () => player,
+      );
+      if (current.position.trim().isNotEmpty) continue;
+      await _editPlayer(freshClub, current);
+    }
+  }
+
   Future<void> _addManualPlayer(CanteraClub club, CategorySquad category) async {
     final player = await showAddPlayerDialog(
       context,
@@ -245,6 +266,32 @@ class _CuotaScreenState extends State<CuotaScreen> {
                                 'Situación del plantel',
                                 'JUGADORES',
                               ),
+                            ),
+                            Builder(
+                              builder: (context) {
+                                final pendingCount = players
+                                    .where((p) => p.position.trim().isEmpty)
+                                    .length;
+                                if (pendingCount == 0) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => _completePendingPositions(
+                                      club,
+                                      players,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.playlist_add_check,
+                                      size: 17,
+                                    ),
+                                    label: Text(
+                                      'Completar posiciones ($pendingCount)',
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                             if (club.dataSource == 'manual')
                               OutlinedButton.icon(
@@ -1015,6 +1062,14 @@ class _PlayerEditDialogState extends State<_PlayerEditDialog> {
                 ),
                 const SizedBox(height: 12),
               ],
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Posición principal (tocá una)',
+                  style: TextStyle(color: CX.faint, fontSize: 11),
+                ),
+              ),
+              const SizedBox(height: 6),
               _PositionPresetRow(
                 onSelected: (value) => setState(() => _position.text = value),
               ),

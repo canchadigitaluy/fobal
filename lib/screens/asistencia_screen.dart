@@ -38,6 +38,11 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   final Set<String> _remoteHydrationChecked = {};
   final Set<String> _selectedPlantelIds = {};
   bool _savedFlash = false;
+  // Attendance defaults every player to presente (marking exceptions is
+  // faster than marking everyone). But that means a save nobody actually
+  // reviewed silently records 100% attendance. Track whether the coach
+  // touched anything today and confirm before saving blind.
+  bool _touchedToday = false;
 
   @override
   void dispose() {
@@ -104,6 +109,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     final key = _key(club, category);
     if (_loadedKey == key) return;
     _loadedKey = key;
+    _touchedToday = false;
     _scheduleController.text = category.practiceSchedule;
     _noteController.text = '';
     // Default: everyone present until the coach says otherwise.
@@ -125,6 +131,9 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
       unawaited(_loadRemoteAttendance(club, category, players, key));
     }
     if (stored != null) {
+      // Already has a real saved record for today — re-saving isn't a blind
+      // first save.
+      _touchedToday = true;
       _selectedPlantelIds
         ..clear()
         ..addAll(stored.plantelIds);
@@ -166,7 +175,30 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     );
   }
 
-  void _saveAttendance(CanteraClub club, CategorySquad category) {
+  Future<void> _saveAttendance(CanteraClub club, CategorySquad category) async {
+    if (!_touchedToday) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('¿Todos presentes?'),
+          content: const Text(
+            'No marcaste ninguna ausencia hoy. Se va a guardar el plantel completo como presente.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Revisar de nuevo'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Sí, guardar'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      _touchedToday = true;
+    }
     final day = _isoDay(_selectedDate);
     final rosterIds = club.players
         .where(
@@ -690,6 +722,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                       onPressed: present == players.length
                           ? null
                           : () => setState(() {
+                              _touchedToday = true;
                               for (final p in players) {
                                 _statusById[p.id] = AttendanceStatus.presente;
                               }
@@ -701,6 +734,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                       onPressed: present == 0
                           ? null
                           : () => setState(() {
+                              _touchedToday = true;
                               for (final p in players) {
                                 _statusById[p.id] =
                                     AttendanceStatus.ausenteSinAviso;
@@ -784,9 +818,10 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
                                   _statusOf(player.id),
                                   history,
                                 ),
-                                onChanged: (status) => setState(
-                                  () => _statusById[player.id] = status,
-                                ),
+                                onChanged: (status) => setState(() {
+                                  _touchedToday = true;
+                                  _statusById[player.id] = status;
+                                }),
                                 compact: narrow,
                               ),
                           ],

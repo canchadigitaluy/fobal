@@ -1363,6 +1363,14 @@ class _MatchCenterPanel extends StatelessWidget {
         .where((player) => player.status.toLowerCase() != 'lesionado')
         .length;
     final profiled = players.where(_hasCompleteProfile).length;
+    final started = players
+        .where(
+          (player) =>
+              player.position.trim().isNotEmpty ||
+              player.dominantFoot.trim().isNotEmpty ||
+              player.note.trim().isNotEmpty,
+        )
+        .length;
 
     return Container(
       padding: EdgeInsets.all(narrow ? 12 : 18),
@@ -1428,6 +1436,7 @@ class _MatchCenterPanel extends StatelessWidget {
                     players: players.length,
                     available: available,
                     profiled: profiled,
+                    started: started,
                     onOpenField: onOpenField,
                   ),
                 ),
@@ -1590,12 +1599,14 @@ class _SquadSnapshotCard extends StatelessWidget {
   final int players;
   final int available;
   final int profiled;
+  final int started;
   final VoidCallback onOpenField;
 
   const _SquadSnapshotCard({
     required this.players,
     required this.available,
     required this.profiled,
+    required this.started,
     required this.onOpenField,
   });
 
@@ -1613,7 +1624,11 @@ class _SquadSnapshotCard extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            '$profiled perfiles individuales completos',
+            profiled > 0
+                ? '$profiled perfiles individuales completos'
+                : started > 0
+                    ? '$started con datos cargados, ninguno completo aún'
+                    : '0 perfiles individuales completos',
             style: const TextStyle(color: CX.muted, fontSize: 12),
           ),
           const SizedBox(height: 12),

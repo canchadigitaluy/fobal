@@ -81,45 +81,72 @@ class TacticaScreenState extends State<TacticaScreen> {
             bottom: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    SegmentedButton<int>(
-                  segments: [
-                    ButtonSegment(
-                      value: 0,
-                      icon: Icon(Icons.sports_soccer_outlined),
-                      label: Text('Planificar'),
-                    ),
-                    ButtonSegment(
-                      value: 1,
-                      icon: Icon(Icons.groups_2_outlined),
-                      label: Text('Plantel'),
-                    ),
-                    if (!external)
-                      ButtonSegment(
-                        value: 2,
-                        icon: Icon(Icons.fact_check_outlined),
-                        label: Text('Asistencia'),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final segmented = SegmentedButton<int>(
+                    segments: [
+                      const ButtonSegment(
+                        value: 0,
+                        icon: Icon(Icons.sports_soccer_outlined),
+                        label: Text('Planificar'),
                       ),
-                  ],
-                  selected: {selectedSection},
-                  showSelectedIcon: false,
-                      onSelectionChanged: (value) => selectSection(value.first),
-                    ),
-                    if (planning &&
-                        categories.isNotEmpty &&
-                        plannerCategoryId != null) ...[
-                      const SizedBox(width: 10),
-                      _PlannerCategorySelector(
-                        categories: categories,
-                        selectedCategoryId: plannerCategoryId,
-                        onChanged: _selectPlannerCategory,
+                      const ButtonSegment(
+                        value: 1,
+                        icon: Icon(Icons.groups_2_outlined),
+                        label: Text('Plantel'),
                       ),
+                      if (!external)
+                        const ButtonSegment(
+                          value: 2,
+                          icon: Icon(Icons.fact_check_outlined),
+                          label: Text('Asistencia'),
+                        ),
                     ],
-                  ],
-                ),
+                    selected: {selectedSection},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (value) => selectSection(value.first),
+                  );
+                  final showCategory = planning &&
+                      categories.isNotEmpty &&
+                      plannerCategoryId != null;
+                  final categorySelector = showCategory
+                      ? _PlannerCategorySelector(
+                          categories: categories,
+                          selectedCategoryId: plannerCategoryId,
+                          onChanged: _selectPlannerCategory,
+                        )
+                      : null;
+                  // En mobile, tabs + selector de categoria compartiendo
+                  // una fila con scroll horizontal era facil de no
+                  // descubrir. Cada uno va en su propia fila, sin scroll.
+                  if (constraints.maxWidth < 560) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: segmented,
+                        ),
+                        if (categorySelector != null) ...[
+                          const SizedBox(height: 8),
+                          categorySelector,
+                        ],
+                      ],
+                    );
+                  }
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        segmented,
+                        if (categorySelector != null) ...[
+                          const SizedBox(width: 10),
+                          categorySelector,
+                        ],
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ),

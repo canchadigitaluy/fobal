@@ -168,9 +168,11 @@ class ShellActions extends InheritedWidget {
   final void Function(MatchPrepHandoff) openMatchPrep;
   final void Function([LineupHint?]) openLineup;
   final void Function(ShellSection) openSection;
+  final void Function(String isoDate) openAttendanceForDate;
   final SessionFocusHandoff? Function() takeSessionFocus;
   final MatchPrepHandoff? Function() takeMatchPrep;
   final LineupHint? Function() takeLineupHint;
+  final String? Function() takeAttendanceDate;
 
   const ShellActions({
     super.key,
@@ -178,9 +180,11 @@ class ShellActions extends InheritedWidget {
     required this.openMatchPrep,
     required this.openLineup,
     required this.openSection,
+    required this.openAttendanceForDate,
     required this.takeSessionFocus,
     required this.takeMatchPrep,
     required this.takeLineupHint,
+    required this.takeAttendanceDate,
     required super.child,
   });
 
@@ -2069,6 +2073,7 @@ class _MainShellState extends State<MainShell> {
   SessionFocusHandoff? _pendingSessionFocus;
   MatchPrepHandoff? _pendingMatchPrep;
   LineupHint? _pendingLineupHint;
+  String? _pendingAttendanceDate;
 
   int _indexOfScreen<T>() {
     final scope = AppScope.of(context);
@@ -2172,6 +2177,17 @@ class _MainShellState extends State<MainShell> {
   LineupHint? _takeLineupHint() {
     final value = _pendingLineupHint;
     _pendingLineupHint = null;
+    return value;
+  }
+
+  void _openAttendanceForDate(String isoDate) {
+    _pendingAttendanceDate = isoDate;
+    _openSection(ShellSection.attendance);
+  }
+
+  String? _takeAttendanceDate() {
+    final value = _pendingAttendanceDate;
+    _pendingAttendanceDate = null;
     return value;
   }
 
@@ -2469,9 +2485,11 @@ class _MainShellState extends State<MainShell> {
       openMatchPrep: _openMatchPrep,
       openLineup: _openLineup,
       openSection: _openSection,
+      openAttendanceForDate: _openAttendanceForDate,
       takeSessionFocus: _takeSessionFocus,
       takeMatchPrep: _takeMatchPrep,
       takeLineupHint: _takeLineupHint,
+      takeAttendanceDate: _takeAttendanceDate,
       child: shell,
     );
   }

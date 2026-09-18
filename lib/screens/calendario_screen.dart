@@ -1228,7 +1228,11 @@ class _DayEditorPanelState extends State<_DayEditorPanel> {
                   ),
                   onTakeAttendance: () => ShellActions.maybeOf(
                     context,
-                  )?.openSection(ShellSection.attendance),
+                  )?.openAttendanceForDate(
+                    '${widget.day.year.toString().padLeft(4, '0')}-'
+                    '${widget.day.month.toString().padLeft(2, '0')}-'
+                    '${widget.day.day.toString().padLeft(2, '0')}',
+                  ),
                 ),
             ],
             const SizedBox(height: 10),

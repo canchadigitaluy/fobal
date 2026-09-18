@@ -38,6 +38,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
   final Set<String> _remoteHydrationChecked = {};
   final Set<String> _selectedPlantelIds = {};
   bool _savedFlash = false;
+  bool _attendanceHandoffApplied = false;
   // Attendance defaults every player to presente (marking exceptions is
   // faster than marking everyone). But that means a save nobody actually
   // reviewed silently records 100% attendance. Track whether the coach
@@ -49,6 +50,21 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
     _scheduleController.dispose();
     _noteController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_attendanceHandoffApplied) return;
+    final isoDate = ShellActions.maybeOf(context)?.takeAttendanceDate();
+    if (isoDate == null) return;
+    _attendanceHandoffApplied = true;
+    final parsed = DateTime.tryParse(isoDate);
+    if (parsed == null) return;
+    final today = _dateOnly(DateTime.now());
+    final target = _dateOnly(parsed);
+    _selectedDate = target.isAfter(today) ? today : target;
+    _loadedKey = null;
   }
 
   AttendanceStatus _statusOf(String id) =>

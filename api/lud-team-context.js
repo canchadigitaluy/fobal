@@ -124,6 +124,7 @@ export default async function handler(req, res) {
         id: `lud-player-${playerId}-${normalize(entry.category)}`,
         ludPlayerId: playerId,
         categoryId: existing?.categoryId ?? categoryId,
+        categoryName: existing?.categoryName ?? entry.category,
         fullName: player.name ?? "",
         position: player.position ?? player.position_name ?? "",
         matches: Math.max(existing?.matches ?? 0, Number(player.matches) || 0),
@@ -288,9 +289,19 @@ async function loadCachedContext(teamId) {
   const categoryNameById = new Map(
     categories.map((category) => [category.id, category.name]),
   );
+  const categoryIdByName = new Map(
+    categories.map((category) => [normalize(category.name), category.id]),
+  );
   const players = playersResult.data.map((player) => {
     const payload = player.source_payload ?? {};
-    const categoryId = validCategoryIds.has(payload.categoryId) ? payload.categoryId : "";
+    // The numeric lud_category_id can change between syncs (a category that
+    // starts slug-only later gets a real id from LUD); a player cached under
+    // the old id would otherwise fall out of every category filter in the
+    // app. The category name is stable, so resolve by name first and only
+    // fall back to the stored id when the name is missing or unmatched.
+    const categoryId =
+      categoryIdByName.get(normalize(payload.categoryName ?? "")) ??
+      (validCategoryIds.has(payload.categoryId) ? payload.categoryId : "");
     const categoryName = categoryNameById.get(categoryId) ?? "";
     const cachedId = categoryName
       ? `lud-player-${player.lud_player_id}-${normalize(categoryName)}`

@@ -299,14 +299,10 @@ class _ReservasScreenState extends State<ReservasScreen> {
       automatic: _buildSquadProfile(category, categoryPlayers),
     );
     final fixtureContext = _fixtureContextFor(category);
-    if (_rivalName.trim().isEmpty ||
-        !_hasManualRivalStyle(_rivalStyle) ||
-        squadProfile.trim().isEmpty) {
+    if (_rivalName.trim().isEmpty || squadProfile.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Completa rival, como juega de verdad y nuestro plantel.',
-          ),
+          content: Text('Completa el rival y el contexto del plantel.'),
         ),
       );
       return;
@@ -1202,9 +1198,6 @@ class _ReservasScreenState extends State<ReservasScreen> {
       });
     }
   }
-
-  bool _hasManualRivalStyle(String value) =>
-      _ScoutingQuality.fromText(_cleanRivalStyle(value)).ready;
 
   String _cleanRivalStyle(String value) =>
       value.trim() == _fixtureStylePlaceholder ? '' : value.trim();
@@ -3509,16 +3502,14 @@ class _MatchReadiness {
     hasSquadProfile,
   ].where((item) => item).length;
 
-  bool get ready => hasRival && hasRivalStyle && hasSquadProfile;
+  // Conocer el estilo del rival mejora la táctica, pero no es obligatorio:
+  // muchos partidos se preparan sin haber visto al rival todavía.
+  bool get ready => hasRival && hasSquadProfile;
 
   double get progress => completed / 4;
 
   String get nextAction {
     if (!hasRival) return 'Elegi un partido de la liga o escribi el rival.';
-    if (DateTime.now().year < 0 && !hasRivalStyle) {
-      return 'Agrega como juega el rival: sistema, presion, salida, fortalezas y espacios que concede.';
-    }
-    if (!hasRivalStyle) return scouting.nextAction;
     if (!hasSquadProfile) {
       return 'Usá el contexto automático del plantel o describí virtudes, limitaciones y jugadores clave.';
     }

@@ -218,7 +218,7 @@ async function cacheContext(teamId, team, categorySource, entries, players) {
     { auth: { persistSession: false } },
   );
 
-  await supabase.from("lud_teams").upsert(
+  const teamResult = await supabase.from("lud_teams").upsert(
     {
       lud_team_id: teamId,
       name: team.name ?? `LUD ${teamId}`,
@@ -229,8 +229,13 @@ async function cacheContext(teamId, team, categorySource, entries, players) {
     },
     { onConflict: "lud_team_id" },
   );
+  // supabase-js resolves upsert() even when the database rejects it (missing
+  // table, broken constraint) — it never rejects the promise. Checking
+  // .error explicitly is the only way a caching bug here doesn't fail
+  // silently forever, the way the missing lud_team_categories table did.
+  if (teamResult.error) throw teamResult.error;
 
-  await supabase.from("lud_team_categories").upsert(
+  const categoriesResult = await supabase.from("lud_team_categories").upsert(
     categorySource.map((category) => ({
       lud_team_id: teamId,
       lud_category_id: category.id ?? null,
@@ -239,6 +244,7 @@ async function cacheContext(teamId, team, categorySource, entries, players) {
     })),
     { onConflict: "lud_team_id,name" },
   );
+  if (categoriesResult.error) throw categoriesResult.error;
 
   // Requires a Supabase unique key on (lud_team_id, category_key, lud_player_id)
   // and a category_key column so multi-category players do not overwrite each

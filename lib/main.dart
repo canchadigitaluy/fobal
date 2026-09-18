@@ -285,6 +285,8 @@ class CX {
   static const motionSlow = Duration(milliseconds: 420);
   static const curve = Curves.easeOutCubic;
 
+  // Nivel 2 — Operativo (default). Métricas, tablas, resultados: lo normal
+  // de la pantalla.
   static BoxDecoration panelDecoration({Color? borderColor}) => BoxDecoration(
     color: panel,
     borderRadius: BorderRadius.circular(12),
@@ -292,6 +294,27 @@ class CX {
     boxShadow: const [
       BoxShadow(color: Color(0x0E0D1A14), blurRadius: 22, offset: Offset(0, 6)),
     ],
+  );
+
+  // Nivel 1 — Acción. El UNICO elemento por pantalla que representa la
+  // decisión mas urgente ahora mismo (agenda de hoy, generar tactica). Usar
+  // en más de un lugar por pantalla anula el propósito: deja de destacar.
+  static BoxDecoration heroDecoration() => BoxDecoration(
+    color: green.withValues(alpha: .05),
+    borderRadius: BorderRadius.circular(12),
+    border: Border.all(color: green.withValues(alpha: .35)),
+    boxShadow: const [
+      BoxShadow(color: Color(0x0E0D1A14), blurRadius: 22, offset: Offset(0, 6)),
+    ],
+  );
+
+  // Nivel 3 — Auxiliar. Setup, configuración, históricos, metadatos: no
+  // compite por atención. Sin sombra, mismo color que el fondo de la
+  // pantalla para leerse como parte del lienzo, no como una tarjeta más.
+  static BoxDecoration auxiliaryDecoration() => BoxDecoration(
+    color: panel2,
+    borderRadius: BorderRadius.circular(10),
+    border: Border.all(color: line),
   );
 }
 

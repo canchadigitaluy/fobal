@@ -693,7 +693,9 @@ class _OnboardingChecklistState extends State<_OnboardingChecklist> {
         .where((done) => done)
         .length;
     return Container(
-      decoration: CX.panelDecoration(),
+      // Nivel 3: es un recordatorio de configuración, no la razón por la
+      // que el DT abrió la app hoy — no debe competir con la agenda.
+      decoration: CX.auxiliaryDecoration(),
       child: Column(
         children: [
           InkWell(
@@ -2125,7 +2127,10 @@ class _TodayPanel extends StatelessWidget {
     }
     return Container(
       padding: EdgeInsets.all(narrow ? 12 : 18),
-      decoration: CX.panelDecoration(),
+      // Nivel 1: es la decisión mas urgente de la pantalla (que sesion
+      // preparar, a quien convocar) — se distingue del resto con el
+      // tratamiento "accion" en vez del panel operativo por defecto.
+      decoration: CX.heroDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

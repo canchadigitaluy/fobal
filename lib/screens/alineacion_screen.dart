@@ -897,17 +897,79 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                       onPick: (value) => setState(() => _xi[index] = value),
                     ),
                   );
+                  final usedIds = {
+                    ..._xi.whereType<String>(),
+                    ..._subs.whereType<String>(),
+                  };
                   final panel = _LineupPlayerPanel(
                     players: players,
-                    usedIds: {
-                      ..._xi.whereType<String>(),
-                      ..._subs.whereType<String>(),
-                    },
+                    usedIds: usedIds,
                     onAdd: _addFirstAvailable,
                   );
                   if (!wide) {
+                    // El bottom sheet captura esta lista tal como esta al
+                    // abrirse; setState en el padre no lo reconstruye (es
+                    // una ruta separada del Navigator), asi que un sheet
+                    // que se mantuviera abierto mostraria jugadores ya
+                    // agregados como si siguieran disponibles. Se cierra
+                    // solo despues de cada elección — se reabre para el
+                    // siguiente puesto, siempre con datos frescos.
+                    final sheetPanel = _LineupPlayerPanel(
+                      players: players,
+                      usedIds: usedIds,
+                      onAdd: (player) {
+                        Navigator.of(context).pop();
+                        _addFirstAvailable(player);
+                      },
+                    );
+                    // La cancha es el elemento mas distintivo de la app;
+                    // en mobile antes quedaba compitiendo con la lista
+                    // completa de jugadores disponibles debajo. Ahora esa
+                    // lista vive en un bottom sheet, a un toque de
+                    // distancia pero sin empujar la cancha del viewport
+                    // inicial.
+                    final availableCount = players
+                        .where((p) => !usedIds.contains(p.id))
+                        .length;
                     return Column(
-                      children: [pitch, const SizedBox(height: 12), panel],
+                      children: [
+                        pitch,
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => showModalBottomSheet<void>(
+                              context: context,
+                              backgroundColor: CX.panel,
+                              isScrollControlled: true,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(16),
+                                ),
+                              ),
+                              builder: (sheetContext) => DraggableScrollableSheet(
+                                initialChildSize: .6,
+                                minChildSize: .3,
+                                maxChildSize: .9,
+                                expand: false,
+                                builder: (context, scrollController) =>
+                                    SingleChildScrollView(
+                                  controller: scrollController,
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    12,
+                                    16,
+                                    24,
+                                  ),
+                                  child: sheetPanel,
+                                ),
+                              ),
+                            ),
+                            icon: const Icon(Icons.person_add_alt_1_outlined),
+                            label: Text('Agregar jugador ($availableCount)'),
+                          ),
+                        ),
+                      ],
                     );
                   }
                   return Row(

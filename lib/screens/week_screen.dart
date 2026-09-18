@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_web_libraries_in_flutter
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:html' as html;
 
@@ -8,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/attendance_stats_service.dart';
+import '../services/club_access_service.dart';
 import '../services/plantel_service.dart';
 import '../state/calendar_events.dart';
 import '../services/week_view_service.dart';
@@ -25,9 +27,45 @@ class _WeekScreenState extends State<WeekScreen> {
   DateTime _week = weekStart(DateTime.now());
   bool _byPlayer = false;
   String _plantelId = '';
+  // Semana used to read the calendar straight from this browser's
+  // localStorage — a different device or a cleared cache showed an empty
+  // or stale week even though the real calendar was synced. This mirrors
+  // the same "latest shared snapshot wins" read Calendario itself uses.
+  Map<String, dynamic>? _remoteCalendarData;
+  String? _remoteFetchKey;
 
   String _day(DateTime date) =>
       '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
+
+  void _maybeLoadRemoteCalendar(String clubId, String categoryId) {
+    final key = '$clubId|$categoryId';
+    if (_remoteFetchKey == key) return;
+    _remoteFetchKey = key;
+    _remoteCalendarData = null;
+    unawaited(_loadRemoteCalendar(key, categoryId));
+  }
+
+  Future<void> _loadRemoteCalendar(String key, String categoryId) async {
+    try {
+      final records = await ClubAccessService.loadTacticalData(
+        limit: 100,
+        type: 'calendar',
+      );
+      if (!mounted || _remoteFetchKey != key) return;
+      for (final record in records) {
+        if (record.type != 'calendar') continue;
+        if ((record.content['categoryId']?.toString() ?? '') != categoryId) {
+          continue;
+        }
+        final rawEvents = record.content['events'];
+        if (rawEvents is! Map) return;
+        setState(() {
+          _remoteCalendarData = Map<String, dynamic>.from(rawEvents);
+        });
+        return;
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +90,7 @@ class _WeekScreenState extends State<WeekScreen> {
       );
     }
     final activeCategory = category;
+    _maybeLoadRemoteCalendar(club.id, activeCategory.id);
     final planteles = club.isManualClub
         ? plantelesForCategory(club, activeCategory.id)
         : const <Plantel>[];
@@ -268,12 +307,19 @@ class _WeekScreenState extends State<WeekScreen> {
     CanteraClub club,
     String categoryId,
   ) {
-    final raw =
-        html.window.localStorage['cantera_calendar_${club.id}_$categoryId'];
-    if (raw == null || raw.isEmpty) return const [];
+    Map<String, dynamic>? data = _remoteCalendarData;
+    if (data == null) {
+      final raw =
+          html.window.localStorage['cantera_calendar_${club.id}_$categoryId'];
+      if (raw == null || raw.isEmpty) return const [];
+      try {
+        data = jsonDecode(raw) as Map<String, dynamic>;
+      } catch (_) {
+        return const [];
+      }
+    }
     final out = <_WeekCalendarEvent>[];
     try {
-      final data = jsonDecode(raw) as Map<String, dynamic>;
       for (final entry in data.entries) {
         final day = DateTime.tryParse(entry.key);
         if (day == null ||

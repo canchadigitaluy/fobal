@@ -125,32 +125,43 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
         type: 'calendar',
       );
       if (!mounted || storageKey != _storageKey) return;
-      final merged = <String, List<_CalendarEvent>>{
-        for (final entry in _events.entries) entry.key: [...entry.value],
-      };
-      var changed = false;
+      // loadTacticalData() returns newest-first. Each 'calendar' record is a
+      // full snapshot for the category, not a diff — the old code unioned
+      // events from every one of the last 100 snapshots it could find, so a
+      // day removed locally and re-saved would still exist in an older
+      // snapshot and get merged right back in as if it was never deleted.
+      // Only the newest snapshot for this category is authoritative; take
+      // the first match and stop.
+      ClubTacticalRecord? latest;
       for (final record in records) {
         if (record.type != 'calendar') continue;
         if ((record.content['categoryId']?.toString() ?? '') != categoryId) {
           continue;
         }
-        final rawEvents = record.content['events'];
-        if (rawEvents is! Map) continue;
-        final remote = _eventsFromJson(Map<String, dynamic>.from(rawEvents));
-        for (final entry in remote.entries) {
-          final existingIds = {
-            for (final event in merged[entry.key] ?? const <_CalendarEvent>[])
-              event.id,
-          };
-          for (final event in entry.value) {
-            if (existingIds.add(event.id)) {
-              merged.update(
-                entry.key,
-                (items) => [...items, event],
-                ifAbsent: () => [event],
-              );
-              changed = true;
-            }
+        latest = record;
+        break;
+      }
+      if (latest == null) return;
+      final rawEvents = latest.content['events'];
+      if (rawEvents is! Map) return;
+      final remote = _eventsFromJson(Map<String, dynamic>.from(rawEvents));
+      final merged = <String, List<_CalendarEvent>>{
+        for (final entry in _events.entries) entry.key: [...entry.value],
+      };
+      var changed = false;
+      for (final entry in remote.entries) {
+        final existingIds = {
+          for (final event in merged[entry.key] ?? const <_CalendarEvent>[])
+            event.id,
+        };
+        for (final event in entry.value) {
+          if (existingIds.add(event.id)) {
+            merged.update(
+              entry.key,
+              (items) => [...items, event],
+              ifAbsent: () => [event],
+            );
+            changed = true;
           }
         }
       }

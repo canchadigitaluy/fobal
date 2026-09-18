@@ -1012,7 +1012,7 @@ async function authenticateClubRequest(req, payload) {
   }
   const { data: membership, error: membershipError } = await supabase
     .from("club_memberships")
-    .select("role,status")
+    .select("role,status,category_ids")
     .eq("club_id", clubId)
     .eq("user_id", userData.user.id)
     .eq("status", "active")
@@ -1031,6 +1031,29 @@ async function authenticateClubRequest(req, payload) {
         status: 403,
         error: "read_only_role",
         message: "Tu rol es de solo lectura y no puede generar planes.",
+      };
+    }
+    // Same category-scoping rule claim-category-access.js enforces: an
+    // empty category_ids means unrestricted (admins and clubs that never
+    // assigned categories), a populated one restricts assistants/PFs to
+    // just their categories. Without this, a coach limited to one category
+    // could still generate and persist AI memory under a sibling category
+    // of the same club.
+    const assignedCategoryIds = Array.isArray(membership.category_ids)
+      ? membership.category_ids
+      : [];
+    const adminRoles = new Set(["platform_admin", "club_admin"]);
+    const requestedCategoryId = String(payload?.category?.id || "");
+    if (
+      !adminRoles.has(membership.role) &&
+      assignedCategoryIds.length > 0 &&
+      !assignedCategoryIds.includes(requestedCategoryId)
+    ) {
+      return {
+        ok: false,
+        status: 403,
+        error: "category_denied",
+        message: "Esa categoria no esta asignada a tu cuenta.",
       };
     }
     return {

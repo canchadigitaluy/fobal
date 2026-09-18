@@ -1382,7 +1382,26 @@ class _MembershipHydratorState extends State<_MembershipHydrator> {
 
     List<ClubTacticalRecord> sharedRecords = const [];
     try {
-      sharedRecords = await ClubAccessService.loadTacticalData(limit: 100);
+      // One shared fetch of 100 rows across every tactical_data type meant
+      // a burst of recent call-ups or methodology saves could push older
+      // attendance/match-prep rows out of the window before they were ever
+      // read — a DT would see incomplete history for a type nobody was
+      // even touching. Fetch each type its own 100-row window in parallel
+      // so they don't compete.
+      final results = await Future.wait([
+        ClubAccessService.loadTacticalData(limit: 100, type: 'methodology'),
+        ClubAccessService.loadTacticalData(limit: 100, type: 'attendance'),
+        ClubAccessService.loadTacticalData(
+          limit: 100,
+          type: 'match_preparation',
+        ),
+        ClubAccessService.loadTacticalData(limit: 100, type: 'call_up'),
+        // Feeds applyRemotePlayerProfiles() below, which only reads
+        // 'staff_note' records — has to be fetched here too or player
+        // profile updates from other devices stop healing on login.
+        ClubAccessService.loadTacticalData(limit: 100, type: 'staff_note'),
+      ]);
+      sharedRecords = results.expand((list) => list).toList();
     } catch (_) {
       sharedRecords = const [];
     }

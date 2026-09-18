@@ -191,7 +191,24 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final records = await ClubAccessService.loadTacticalData(limit: 80);
+      // A single shared-limit fetch let a burst of one record type (say,
+      // exercise_library saves) push older sessions/match plans out of the
+      // window before this loop ever got to read them. Each type gets its
+      // own window so they stop competing for the same 80 slots.
+      final results = await Future.wait([
+        ClubAccessService.loadTacticalData(limit: 80, type: 'session'),
+        ClubAccessService.loadTacticalData(limit: 80, type: 'match_plan'),
+        ClubAccessService.loadTacticalData(limit: 80, type: 'staff_note'),
+        ClubAccessService.loadTacticalData(
+          limit: 80,
+          type: 'match_preparation',
+        ),
+        ClubAccessService.loadTacticalData(
+          limit: 80,
+          type: 'exercise_library',
+        ),
+      ]);
+      final records = results.expand((list) => list).toList();
       if (!mounted) return;
       final scope = AppScope.of(context);
       final club = scope.club;

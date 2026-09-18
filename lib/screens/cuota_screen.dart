@@ -34,7 +34,10 @@ class _CuotaScreenState extends State<CuotaScreen> {
     if (_syncing) return;
     setState(() => _syncing = true);
     try {
-      final records = await ClubAccessService.loadTacticalData(limit: 100);
+      final records = await ClubAccessService.loadTacticalData(
+        limit: 100,
+        type: 'staff_note',
+      );
       if (!mounted) return;
       final scope = AppScope.of(context);
       final club = scope.club;

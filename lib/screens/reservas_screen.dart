@@ -133,7 +133,10 @@ class _ReservasScreenState extends State<ReservasScreen> {
 
   Future<void> _loadMatchPlans() async {
     try {
-      final records = await ClubAccessService.loadTacticalData(limit: 100);
+      final records = await ClubAccessService.loadTacticalData(
+        limit: 100,
+        type: 'match_plan',
+      );
       if (!mounted) return;
       final plans = <TrainingSession>[];
       for (final record in records) {

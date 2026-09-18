@@ -721,7 +721,7 @@ class _ClubPickerListPanel extends StatelessWidget {
                       child: const Text(
                         'DT',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 12,
                           fontWeight: FontWeight.w800,
                           color: CX.green,
                         ),
@@ -1523,7 +1523,7 @@ class _CategoryListPanel extends StatelessWidget {
                       child: const Text(
                         'DT',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 12,
                           fontWeight: FontWeight.w800,
                           color: CX.green,
                         ),

@@ -582,7 +582,7 @@ class _BuilderBlockTile extends StatelessWidget {
                         '${index + 1}',
                         style: const TextStyle(
                           color: accent,
-                          fontSize: 9,
+                          fontSize: 11,
                           fontWeight: FontWeight.w900,
                         ),
                       ),

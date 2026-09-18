@@ -153,7 +153,7 @@ class _ExerciseAnimationPreviewState extends State<ExerciseAnimationPreview>
                     'escena aproximada',
                     style: TextStyle(
                       color: CX.amber,
-                      fontSize: 9,
+                      fontSize: 11,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -164,7 +164,7 @@ class _ExerciseAnimationPreviewState extends State<ExerciseAnimationPreview>
             const SizedBox(height: 3),
             const Text(
               'Dibujada a partir de la consigna del bloque. Ajustá en cancha.',
-              style: TextStyle(color: CX.faint, fontSize: 10, height: 1.3),
+              style: TextStyle(color: CX.faint, fontSize: 12, height: 1.3),
             ),
           ],
           const SizedBox(height: 9),

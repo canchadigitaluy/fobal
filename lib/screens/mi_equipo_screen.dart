@@ -273,7 +273,7 @@ class _MiEquipoScreenState extends State<MiEquipoScreen> {
                         ),
                         child: const Text(
                           'BÁSICO',
-                          style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900),
+                          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -652,7 +652,7 @@ class _EditableImage extends StatelessWidget {
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: CX.faint,
-                            fontSize: 10,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -798,7 +798,7 @@ class _PlayerCard extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: CX.faint, fontSize: 10),
+              style: const TextStyle(color: CX.faint, fontSize: 12),
             ),
           ],
         ],

@@ -2520,6 +2520,37 @@ class _MainShellState extends State<MainShell> {
     List<_ShellItem> items,
     UserRole role,
   ) {
+    // Clubes manuales podian llegar a 9 destinos en una NavigationBar de 5.
+    // Nueve iconos con la misma jerarquia visual dejan de funcionar como
+    // navegacion primaria. Mostramos solo las primeras 4 (las de uso diario)
+    // y el resto vive detras de "Mas" — mismo indice real, solo cambia la
+    // presentacion.
+    const primaryCount = 4;
+    final overflow = items.length > primaryCount + 1;
+    final visiblePrimary = overflow ? primaryCount : items.length;
+    final primaryItems = items.take(visiblePrimary).toList();
+    final moreItems = overflow
+        ? items.skip(visiblePrimary).toList()
+        : const <_ShellItem>[];
+    final isOverflowSelected = overflow && selectedIndex >= visiblePrimary;
+    final navSelectedIndex = isOverflowSelected
+        ? visiblePrimary
+        : selectedIndex;
+    final destinations = [
+      ...primaryItems.map(
+        (item) => NavigationDestination(
+          icon: Icon(item.icon, color: CX.faint, size: 21),
+          selectedIcon: Icon(item.activeIcon, color: CX.green, size: 21),
+          label: item.shortLabel,
+        ),
+      ),
+      if (overflow)
+        NavigationDestination(
+          icon: const Icon(Icons.more_horiz, color: CX.faint, size: 21),
+          selectedIcon: const Icon(Icons.more_horiz, color: CX.green, size: 21),
+          label: 'Más',
+        ),
+    ];
     return Scaffold(
       body: PageStorage(
         bucket: _pageStorageBucket,
@@ -2543,25 +2574,63 @@ class _MainShellState extends State<MainShell> {
               border: Border(top: BorderSide(color: CX.line)),
             ),
             child: NavigationBar(
-              selectedIndex: selectedIndex,
-              onDestinationSelected: _selectNavigation,
+              selectedIndex: navSelectedIndex,
+              onDestinationSelected: (tapped) {
+                if (overflow && tapped == visiblePrimary) {
+                  _showMoreSheet(context, moreItems, visiblePrimary);
+                  return;
+                }
+                _selectNavigation(tapped);
+              },
               labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              destinations: items
-                  .map(
-                    (item) => NavigationDestination(
-                      icon: Icon(item.icon, color: CX.faint, size: 21),
-                      selectedIcon: Icon(
-                        item.activeIcon,
-                        color: CX.green,
-                        size: 21,
-                      ),
-                      label: item.shortLabel,
-                    ),
-                  )
-                  .toList(),
+              destinations: destinations,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showMoreSheet(
+    BuildContext context,
+    List<_ShellItem> moreItems,
+    int startIndex,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: CX.panel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: CX.line,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 6),
+            for (final (offset, item) in moreItems.indexed)
+              ListTile(
+                leading: Icon(item.icon, color: CX.green),
+                title: Text(
+                  item.label,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _selectNavigation(startIndex + offset);
+                },
+              ),
+            const SizedBox(height: 6),
+          ],
+        ),
       ),
     );
   }
@@ -2627,7 +2696,7 @@ class _DesktopSidebar extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: CX.faint,
-                                  fontSize: 10,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0,
                                 ),
@@ -2754,7 +2823,7 @@ class _DesktopSidebar extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: CX.faint,
-                                  fontSize: 10,
+                                  fontSize: 12,
                                 ),
                               ),
                             ],
@@ -2931,7 +3000,7 @@ class _CategoryScopeSelector extends StatelessWidget {
             'MI CATEGORÍA',
             style: TextStyle(
               color: CX.green,
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: FontWeight.w900,
               letterSpacing: 0,
             ),
@@ -2960,7 +3029,7 @@ class _CategoryScopeSelector extends StatelessWidget {
           const SizedBox(height: 7),
           const Text(
             'La app muestra solo esta categoría.',
-            style: TextStyle(color: CX.faint, fontSize: 10, height: 1.25),
+            style: TextStyle(color: CX.faint, fontSize: 12, height: 1.25),
           ),
         ],
       ),

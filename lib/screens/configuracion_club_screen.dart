@@ -937,7 +937,7 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
               'Base operativa de fobal',
               style: TextStyle(
                 color: CX.faint,
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1848,7 +1848,7 @@ class _AccessPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
       ),
     );
   }

@@ -969,7 +969,7 @@ class _ProductStory extends StatelessWidget {
                     'INTELIGENCIA DEPORTIVA',
                     style: TextStyle(
                       color: Color(0xFF9CF8DB),
-                      fontSize: 10,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                     ),
                   ),

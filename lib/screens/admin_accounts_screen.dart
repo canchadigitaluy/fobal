@@ -108,7 +108,7 @@ class _AdminAccountsScreenState extends State<AdminAccountsScreen> {
             Text('Administración'),
             Text(
               'Cuentas registradas',
-              style: TextStyle(color: CX.faint, fontSize: 10),
+              style: TextStyle(color: CX.faint, fontSize: 12),
             ),
           ],
         ),

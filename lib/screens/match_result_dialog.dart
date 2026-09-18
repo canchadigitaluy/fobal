@@ -276,7 +276,7 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
                   'QUIÉN JUGÓ Y QUIÉN ANOTÓ (OPCIONAL)',
                   style: const TextStyle(
                     color: CX.faint,
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -479,7 +479,7 @@ class _Segments extends StatelessWidget {
           label.toUpperCase(),
           style: const TextStyle(
             color: CX.faint,
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: FontWeight.w900,
           ),
         ),
@@ -528,7 +528,7 @@ class _GoalStepper extends StatelessWidget {
             label.toUpperCase(),
             style: const TextStyle(
               color: CX.faint,
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: FontWeight.w900,
             ),
           ),

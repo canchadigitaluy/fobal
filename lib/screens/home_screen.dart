@@ -861,7 +861,7 @@ class _CommandHero extends StatelessWidget {
                           : 'PUESTA EN MARCHA · $readiness%',
                       style: TextStyle(
                         color: configured ? CX.green : CX.muted,
-                        fontSize: 10,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -967,7 +967,7 @@ class _ReadinessDial extends StatelessWidget {
                 ),
                 const Text(
                   'preparacion',
-                  style: TextStyle(color: CX.faint, fontSize: 10),
+                  style: TextStyle(color: CX.faint, fontSize: 12),
                 ),
               ],
             ),
@@ -1021,7 +1021,7 @@ class _MetricTile extends StatelessWidget {
                 metric.detail,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: CX.faint, fontSize: 10),
+                style: const TextStyle(color: CX.faint, fontSize: 12),
               ),
             ],
           ),
@@ -1148,7 +1148,7 @@ class _RecentResultRow extends StatelessWidget {
             width: 82,
             child: Text(
               match.dateLabel,
-              style: const TextStyle(color: CX.faint, fontSize: 10),
+              style: const TextStyle(color: CX.faint, fontSize: 12),
             ),
           ),
           Expanded(
@@ -1172,7 +1172,7 @@ class _RecentResultRow extends StatelessWidget {
               style: TextStyle(
                 color: color,
                 fontWeight: FontWeight.w800,
-                fontSize: 10,
+                fontSize: 12,
               ),
             ),
           ),
@@ -1258,7 +1258,7 @@ class _DecisionCardState extends State<_DecisionCard> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: CX.faint,
-                        fontSize: 10,
+                        fontSize: 12,
                         height: 1.25,
                       ),
                     ),
@@ -1270,7 +1270,7 @@ class _DecisionCardState extends State<_DecisionCard> {
                 widget.item.actionLabel,
                 style: TextStyle(
                   color: widget.item.color,
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -2028,7 +2028,7 @@ class _StandingCell extends StatelessWidget {
               fontSize: 12,
             ),
           ),
-          Text(label, style: const TextStyle(color: CX.faint, fontSize: 8)),
+          Text(label, style: const TextStyle(color: CX.faint, fontSize: 10)),
         ],
       ),
     );
@@ -2304,7 +2304,7 @@ class _HomeAgendaSession extends StatelessWidget {
             ? null
             : Text(
                 formattedDate,
-                style: const TextStyle(color: CX.faint, fontSize: 10),
+                style: const TextStyle(color: CX.faint, fontSize: 12),
               ),
         children: [details],
       ),
@@ -2398,7 +2398,7 @@ class _HomePostTrainingCue extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: CX.muted,
-                fontSize: 10,
+                fontSize: 12,
                 height: 1.3,
                 fontWeight: FontWeight.w800,
               ),
@@ -2681,7 +2681,7 @@ class _HomeMatchPlanSignal extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: CX.muted,
-                    fontSize: 10,
+                    fontSize: 12,
                     height: 1.3,
                   ),
                 ),
@@ -3227,7 +3227,7 @@ class _BoardShell extends StatelessWidget {
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
-                        fontSize: 10,
+                        fontSize: 12,
                       ),
                     ),
                   ),

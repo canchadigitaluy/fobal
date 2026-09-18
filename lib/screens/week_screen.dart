@@ -140,7 +140,7 @@ class _WeekScreenState extends State<WeekScreen> {
             Text('Semana'),
             Text(
               'Carga, asistencia y competencia',
-              style: TextStyle(fontSize: 10, color: CX.faint),
+              style: TextStyle(fontSize: 12, color: CX.faint),
             ),
           ],
         ),

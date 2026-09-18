@@ -525,7 +525,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
               'Partidos, entrenamientos y registro',
               style: TextStyle(
                 color: CX.faint,
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1324,7 +1324,7 @@ class _ReportCard extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                  color: color, fontSize: 9, fontWeight: FontWeight.w800),
+                  color: color, fontSize: 11, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
             Text(value, style: const TextStyle(fontSize: 12.5, height: 1.4)),
@@ -1619,7 +1619,7 @@ class _MiniAuditPill extends StatelessWidget {
         label,
         style: const TextStyle(
           color: CX.muted,
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -1686,7 +1686,7 @@ class _PlanReadinessStrip extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: CX.muted,
-                    fontSize: 10,
+                    fontSize: 12,
                     height: 1.3,
                   ),
                 ),
@@ -1736,7 +1736,7 @@ class _MatchDayMicroBrief extends StatelessWidget {
                       item.label,
                       style: const TextStyle(
                         color: CX.faint,
-                        fontSize: 10,
+                        fontSize: 12,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -1748,7 +1748,7 @@ class _MatchDayMicroBrief extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: CX.muted,
-                        fontSize: 10,
+                        fontSize: 12,
                         height: 1.3,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1811,7 +1811,7 @@ class _PlanSources extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: CX.muted,
-                      fontSize: 10,
+                      fontSize: 12,
                       height: 1.3,
                     ),
                   ),
@@ -1863,7 +1863,7 @@ class _PlanLimitations extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: CX.muted,
-                      fontSize: 10,
+                      fontSize: 12,
                       height: 1.3,
                     ),
                   ),
@@ -2138,7 +2138,7 @@ class _HistoryMetric extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -2819,7 +2819,7 @@ class _GoalMinuteCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     'Basado en ${analysis.goalMinuteSampleSize} partidos',
-                    style: const TextStyle(color: CX.faint, fontSize: 10),
+                    style: const TextStyle(color: CX.faint, fontSize: 12),
                   ),
                 ],
               ],
@@ -2878,7 +2878,7 @@ class _GoalBucketBar extends StatelessWidget {
             bucket.range,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: CX.faint, fontSize: 9),
+            style: const TextStyle(color: CX.faint, fontSize: 11),
           ),
         ],
       ),
@@ -3090,7 +3090,7 @@ class _OpponentPlayerList extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: CX.faint,
-                                fontSize: 10,
+                                fontSize: 12,
                               ),
                             ),
                           ],
@@ -3331,7 +3331,7 @@ class _LegendDot extends StatelessWidget {
         const SizedBox(width: 5),
         Text(
           label,
-          style: const TextStyle(color: CX.muted, fontSize: 10),
+          style: const TextStyle(color: CX.muted, fontSize: 12),
         ),
       ],
     );
@@ -3771,7 +3771,7 @@ class _FixturePanel extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       color: CX.faint,
-                                      fontSize: 10,
+                                      fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -3833,7 +3833,7 @@ class _FixtureQualityNotice extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: CX.muted,
-                    fontSize: 10,
+                    fontSize: 12,
                     height: 1.3,
                   ),
                 ),
@@ -3992,7 +3992,7 @@ class _FixtureScopePill extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: CX.muted,
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -4206,7 +4206,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                         'CONTEXTO OPCIONAL — MEJORA LA SESIÓN, NO ES OBLIGATORIO',
                         style: TextStyle(
                           color: CX.faint,
-                          fontSize: 9,
+                          fontSize: 11,
                           fontWeight: FontWeight.w900,
                           letterSpacing: .4,
                         ),
@@ -4679,7 +4679,7 @@ class _GeneratedSessionCard extends StatelessWidget {
             'OBJETIVO',
             style: TextStyle(
               color: CX.faint,
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: FontWeight.w900,
               letterSpacing: .5,
             ),
@@ -4995,7 +4995,7 @@ class _OperationalScoreBanner extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: CX.muted,
-                    fontSize: 10,
+                    fontSize: 12,
                     height: 1.3,
                   ),
                 ),
@@ -5263,7 +5263,7 @@ class _WhySessionPanel extends StatelessWidget {
                   label,
                   style: TextStyle(
                     color: color,
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -5320,7 +5320,7 @@ class _WhyList extends StatelessWidget {
         Text(
           title.toUpperCase(),
           style: const TextStyle(
-            fontSize: 9,
+            fontSize: 11,
             fontWeight: FontWeight.w900,
             color: CX.faint,
             letterSpacing: .4,
@@ -5610,7 +5610,7 @@ class _BriefTile extends StatelessWidget {
                   item.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: CX.faint, fontSize: 10),
+                  style: const TextStyle(color: CX.faint, fontSize: 12),
                 ),
               ],
             ),
@@ -5908,7 +5908,7 @@ class _HandoffBanner extends StatelessWidget {
                 const SizedBox(height: 3),
                 const Text(
                   'Ya cargamos lo que se pudo. Revisá y ajustá antes de generar.',
-                  style: TextStyle(color: CX.faint, fontSize: 10, height: 1.3),
+                  style: TextStyle(color: CX.faint, fontSize: 12, height: 1.3),
                 ),
               ],
             ),

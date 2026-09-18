@@ -201,7 +201,7 @@ class InsightRow extends StatelessWidget {
                   label.toUpperCase(),
                   style: const TextStyle(
                     color: _onInkFaint,
-                    fontSize: 9,
+                    fontSize: 11,
                     fontWeight: FontWeight.w900,
                     letterSpacing: .5,
                   ),
@@ -280,7 +280,7 @@ class MetaTag extends StatelessWidget {
         text,
         style: const TextStyle(
           color: CX.muted,
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: FontWeight.w700,
           letterSpacing: .2,
         ),

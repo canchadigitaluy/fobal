@@ -20,7 +20,7 @@ class PerfilScreen extends StatelessWidget {
               'Forma de jugar del equipo',
               style: TextStyle(
                 color: CX.faint,
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -153,7 +153,7 @@ class _SignalTile extends StatelessWidget {
                 metric.label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: CX.faint, fontSize: 9),
+                style: const TextStyle(color: CX.faint, fontSize: 11),
               ),
             ],
           ),
@@ -223,7 +223,7 @@ class _EditableMethodologyBox extends StatelessWidget {
                       'Pendiente',
                       style: TextStyle(
                         color: CX.amber,
-                        fontSize: 10,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -485,7 +485,7 @@ class _PlayerRadar extends StatelessWidget {
                         profileParts.join(' / '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: CX.faint, fontSize: 9),
+                        style: const TextStyle(color: CX.faint, fontSize: 11),
                       ),
                     ],
                   ],
@@ -519,7 +519,7 @@ class _PlayerRadar extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: CX.muted,
-                    fontSize: 9,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -533,7 +533,7 @@ class _PlayerRadar extends StatelessWidget {
                   textAlign: TextAlign.right,
                   style: TextStyle(
                     color: color,
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

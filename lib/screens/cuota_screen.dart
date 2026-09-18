@@ -215,7 +215,7 @@ class _CuotaScreenState extends State<CuotaScreen> {
               'Plantel y seguimiento',
               style: TextStyle(
                 color: CX.faint,
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -616,7 +616,7 @@ class _CompactMetric extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
         ),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(color: CX.faint, fontSize: 9)),
+        Text(label, style: const TextStyle(color: CX.faint, fontSize: 11)),
       ],
     ),
   );
@@ -922,7 +922,7 @@ class _PlayerDetailLine extends StatelessWidget {
                 label.toUpperCase(),
                 style: const TextStyle(
                   color: CX.faint,
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -1356,7 +1356,7 @@ class _PlayerProfileQuality extends StatelessWidget {
               'Falta: ${missing.take(3).join(', ')}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: CX.faint, fontSize: 10),
+              style: const TextStyle(color: CX.faint, fontSize: 12),
             ),
           ],
         ],

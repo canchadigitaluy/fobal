@@ -807,7 +807,7 @@ class _GoalTile extends StatelessWidget {
                         goal.status.label,
                         style: TextStyle(
                           color: _statusColor,
-                          fontSize: 10,
+                          fontSize: 12,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -825,7 +825,7 @@ class _GoalTile extends StatelessWidget {
                         '${goal.area.label} · Prioridad ${goal.priority.label.toLowerCase()}',
                         style: const TextStyle(
                           color: CX.muted,
-                          fontSize: 10,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
                       ),

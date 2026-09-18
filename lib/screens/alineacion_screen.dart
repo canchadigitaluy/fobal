@@ -655,7 +655,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
             Text('Alineación & citaciones'),
             Text(
               'XI inicial, banco y citación',
-              style: TextStyle(color: CX.faint, fontSize: 10),
+              style: TextStyle(color: CX.faint, fontSize: 12),
             ),
           ],
         ),
@@ -1556,7 +1556,7 @@ class _LineupPlayerCard extends StatelessWidget {
                     ].where((v) => v.trim().isNotEmpty).join(' - '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: CX.muted, fontSize: 10),
+                    style: TextStyle(color: CX.muted, fontSize: 12),
                   ),
                   if (player.hasAvailabilityWarning) ...[
                     const SizedBox(height: 3),
@@ -1847,7 +1847,7 @@ class _PlayerDisc extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
             ),
           ),
         ],
@@ -2273,7 +2273,7 @@ class _AvailabilityWarningBanner extends StatelessWidget {
                 const Text(
                   'No se los saca del XI ni del banco: es un aviso para que lo '
                   'confirmes vos.',
-                  style: TextStyle(color: CX.faint, fontSize: 10),
+                  style: TextStyle(color: CX.faint, fontSize: 12),
                 ),
               ],
             ),
@@ -2329,7 +2329,7 @@ class _LineupHintBanner extends StatelessWidget {
                 const SizedBox(height: 2),
                 const Text(
                   'Es un aviso. La citación la decidís vos.',
-                  style: TextStyle(color: CX.faint, fontSize: 10),
+                  style: TextStyle(color: CX.faint, fontSize: 12),
                 ),
               ],
             ),

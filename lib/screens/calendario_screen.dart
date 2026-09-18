@@ -646,7 +646,7 @@ class _PendingResultsPanel extends StatelessWidget {
                 'PARTIDOS SIN RESULTADO',
                 style: TextStyle(
                   color: CX.amber,
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: FontWeight.w900,
                   letterSpacing: .4,
                 ),

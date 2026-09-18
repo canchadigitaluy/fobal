@@ -624,7 +624,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
             Text('Asistencia'),
             Text(
               'Prácticas y control del plantel',
-              style: TextStyle(color: CX.faint, fontSize: 10),
+              style: TextStyle(color: CX.faint, fontSize: 12),
             ),
           ],
         ),

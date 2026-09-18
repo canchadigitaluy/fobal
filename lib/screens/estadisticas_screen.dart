@@ -261,7 +261,7 @@ class _EstadisticasScreenState extends State<EstadisticasScreen> {
               'Rendimiento y lectura deportiva',
               style: TextStyle(
                 color: CX.faint,
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1382,7 +1382,7 @@ class _PlayerLeaders extends StatelessWidget {
                                 : player.position,
                             style: const TextStyle(
                               color: CX.faint,
-                              fontSize: 10,
+                              fontSize: 12,
                             ),
                           ),
                         ],
@@ -1415,7 +1415,7 @@ class _ColHead extends StatelessWidget {
       textAlign: TextAlign.right,
       style: const TextStyle(
         color: CX.faint,
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: FontWeight.w800,
       ),
     ),
@@ -2141,7 +2141,7 @@ class _NoLudResultsList extends StatelessWidget {
                       Text(
                         '${_fmt(r.date)} · ${r.venueLabel}'
                         '${r.isCompetitive ? '' : ' · ${r.kindLabel}'}',
-                        style: const TextStyle(color: CX.faint, fontSize: 10),
+                        style: const TextStyle(color: CX.faint, fontSize: 12),
                       ),
                       if (_scorers(r).isNotEmpty)
                         Text(

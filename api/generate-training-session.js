@@ -1007,6 +1007,7 @@ async function authenticateClubRequest(req, payload) {
       role: "independent_coach",
       userId: userData.user.id,
       clubId,
+      isMember: true,
     };
   }
   const { data: membership, error: membershipError } = await supabase
@@ -1016,10 +1017,44 @@ async function authenticateClubRequest(req, payload) {
     .eq("user_id", userData.user.id)
     .eq("status", "active")
     .maybeSingle();
-  if (membershipError || !membership) {
-    // Used to fall through as "authenticated_guest" and still generate. Any
-    // authenticated user could point clubId at a LUD club they don't belong
-    // to and use the assistant on it. No membership = no access.
+  if (!membershipError && membership) {
+    const writerRoles = new Set([
+      "platform_admin",
+      "club_admin",
+      "coach",
+      "assistant",
+      "physical_trainer",
+    ]);
+    if (!writerRoles.has(membership.role)) {
+      return {
+        ok: false,
+        status: 403,
+        error: "read_only_role",
+        message: "Tu rol es de solo lectura y no puede generar planes.",
+      };
+    }
+    return {
+      ok: true,
+      role: membership.role,
+      userId: userData.user.id,
+      clubId,
+      isMember: true,
+    };
+  }
+  // No membership row: this is normal for the "explorar clubes de la liga"
+  // preview flow, where a coach browses any public LUD club's data without
+  // formally joining it. Public LUD clubs stay usable for generation, but
+  // isMember stays false so loadRagContext/persistGeneratedContext never
+  // read or write that club's shared memory under an id the caller doesn't
+  // actually belong to — only their own user-scoped memory.
+  const { data: ludClub } = await supabase
+    .from("cantera_clubs")
+    .select("id,lud_team_id,status")
+    .eq("id", clubId)
+    .eq("status", "active")
+    .not("lud_team_id", "is", null)
+    .maybeSingle();
+  if (!ludClub) {
     return {
       ok: false,
       status: 403,
@@ -1027,26 +1062,12 @@ async function authenticateClubRequest(req, payload) {
       message: "No tenes acceso a este club.",
     };
   }
-  const writerRoles = new Set([
-    "platform_admin",
-    "club_admin",
-    "coach",
-    "assistant",
-    "physical_trainer",
-  ]);
-  if (!writerRoles.has(membership.role)) {
-    return {
-      ok: false,
-      status: 403,
-      error: "read_only_role",
-      message: "Tu rol es de solo lectura y no puede generar planes.",
-    };
-  }
   return {
     ok: true,
-    role: membership.role,
+    role: "lud_preview",
     userId: userData.user.id,
     clubId,
+    isMember: false,
   };
 }
 
@@ -1084,7 +1105,7 @@ async function loadRagContext({ payload, access, genAI }) {
       query_embedding: embedding.embedding.values,
       match_count: 8,
       filter_user_id: access.userId,
-      filter_club_id: access.clubId,
+      filter_club_id: access.isMember ? access.clubId : null,
       filter_category_id: String(payload?.category?.id || ""),
     });
     if (error || !Array.isArray(data)) return [];
@@ -1102,7 +1123,8 @@ async function persistGeneratedContext({ payload, access, data, mode, genAI }) {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return;
   }
-  if (!access?.userId || !isUuid(access.clubId)) return;
+  if (!access?.userId) return;
+  const memoryClubId = access.isMember && isUuid(access.clubId) ? access.clubId : null;
   try {
     const content = [
       `Tipo: ${mode}`,
@@ -1131,7 +1153,7 @@ async function persistGeneratedContext({ payload, access, data, mode, genAI }) {
     const { error: insertError } = await supabase
       .from("training_context_documents")
       .insert({
-        club_id: access.clubId,
+        club_id: memoryClubId,
         user_id: access.userId,
         category_id: String(payload?.category?.id || ""),
         source_type: mode,

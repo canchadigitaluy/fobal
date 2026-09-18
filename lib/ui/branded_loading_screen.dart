@@ -161,7 +161,7 @@ class _BrandedLoadingScreenState extends State<BrandedLoadingScreen>
               child: Text(
                 'Plataforma para cuerpos técnicos de fútbol',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0x88E0F3EB), fontSize: 11.5),
+                style: TextStyle(color: Color(0x88E0F3EB), fontSize: 13),
               ),
             ),
           ],

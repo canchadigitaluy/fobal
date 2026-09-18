@@ -521,8 +521,11 @@ class MetricTile extends StatelessWidget {
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            // Escala editorial: la cifra es lo primero que un DT lee de
+            // esta tarjeta — se distingue claramente del texto de apoyo,
+            // no compite con el con solo 4px de diferencia.
             style: const TextStyle(
-              fontSize: 22,
+              fontSize: 27,
               fontWeight: FontWeight.w900,
               letterSpacing: -.4,
             ),
@@ -534,7 +537,7 @@ class MetricTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: CX.white,
-              fontSize: 10.5,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: .1,
             ),
@@ -544,7 +547,7 @@ class MetricTile extends StatelessWidget {
             this.context,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: CX.faint, fontSize: 9.5, height: 1.25),
+            style: const TextStyle(color: CX.faint, fontSize: 11, height: 1.25),
           ),
         ],
       ),
@@ -659,7 +662,7 @@ class FormPill extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: TextStyle(color: subColor, fontSize: 8.5),
+            style: TextStyle(color: subColor, fontSize: 11),
           ),
         ],
       ],

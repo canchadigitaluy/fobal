@@ -760,7 +760,7 @@ class _UpcomingEvents extends StatelessWidget {
               'Tocá un día del calendario para agregar un entrenamiento, '
               'partido o evento.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: CX.muted, fontSize: 11.5, height: 1.35),
+              style: TextStyle(color: CX.muted, fontSize: 13, height: 1.35),
             ),
           ],
         ),
@@ -845,7 +845,7 @@ class _UpcomingEvents extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: CX.faint,
-                                fontSize: 10.5,
+                                fontSize: 12,
                               ),
                             ),
                           ),
@@ -906,7 +906,7 @@ class _UpcomingEvents extends StatelessWidget {
           const SizedBox(height: 4),
           const Text(
             'Cargadas desde Planificar — no hace falta repetirlas acá.',
-            style: TextStyle(color: CX.faint, fontSize: 10.5),
+            style: TextStyle(color: CX.faint, fontSize: 12),
           ),
           const SizedBox(height: 8),
           for (final session in upcomingSessions.take(5))
@@ -1481,7 +1481,7 @@ class _EventTile extends StatelessWidget {
               event.notes.trim(),
               style: const TextStyle(
                 color: CX.faint,
-                fontSize: 11.5,
+                fontSize: 13,
                 height: 1.35,
               ),
             ),

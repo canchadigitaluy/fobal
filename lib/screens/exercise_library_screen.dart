@@ -383,7 +383,7 @@ class _ExerciseCard extends StatelessWidget {
                       if (exercise.objective.trim().isNotEmpty)
                         Text(
                           exercise.objective,
-                          style: const TextStyle(color: CX.muted, fontSize: 11.5),
+                          style: const TextStyle(color: CX.muted, fontSize: 13),
                         ),
                     ],
                   ),
@@ -449,7 +449,7 @@ class _ExerciseCard extends StatelessWidget {
       children: [
         Icon(icon, size: 12, color: CX.muted),
         const SizedBox(width: 4),
-        Text(text, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700)),
+        Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
       ],
     ),
   );

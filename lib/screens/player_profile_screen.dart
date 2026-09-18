@@ -713,7 +713,7 @@ class _ProfileHeader extends StatelessWidget {
                     player.statusDetail,
                     style: const TextStyle(
                       color: CX.faint,
-                      fontSize: 11.5,
+                      fontSize: 13,
                       height: 1.3,
                     ),
                   ),
@@ -722,7 +722,7 @@ class _ProfileHeader extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     'Regreso estimado: ${player.expectedReturnDate.trim()}',
-                    style: const TextStyle(color: CX.faint, fontSize: 11.5),
+                    style: const TextStyle(color: CX.faint, fontSize: 13),
                   ),
                 ],
               ],
@@ -743,7 +743,7 @@ class _ProfileHeader extends StatelessWidget {
       text,
       style: const TextStyle(
         color: CX.muted,
-        fontSize: 10.5,
+        fontSize: 12,
         fontWeight: FontWeight.w700,
       ),
     ),
@@ -863,7 +863,7 @@ class _GoalTile extends StatelessWidget {
                         '$prefix: ${goal.reviewDate.trim()}',
                         style: TextStyle(
                           color: color,
-                          fontSize: 10.5,
+                          fontSize: 12,
                           fontWeight: review == GoalReviewStatus.none
                               ? FontWeight.w400
                               : FontWeight.w800,

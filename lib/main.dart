@@ -834,7 +834,7 @@ class _CanteraAppState extends State<CanteraApp> {
             ),
             labelTextStyle: WidgetStateProperty.resolveWith(
               (states) => TextStyle(
-                fontSize: 10.5,
+                fontSize: 12,
                 letterSpacing: .1,
                 fontWeight: states.contains(WidgetState.selected)
                     ? FontWeight.w800

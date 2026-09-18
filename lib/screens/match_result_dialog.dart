@@ -171,7 +171,7 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
                     'la tabla oficial de la liga.',
                     style: TextStyle(
                       color: CX.amber,
-                      fontSize: 11.5,
+                      fontSize: 13,
                       height: 1.35,
                     ),
                   ),
@@ -283,7 +283,7 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
                 const SizedBox(height: 4),
                 Text(
                   'Alimenta partidos jugados y goles en el perfil de cada jugador.',
-                  style: const TextStyle(color: CX.faint, fontSize: 10.5),
+                  style: const TextStyle(color: CX.faint, fontSize: 12),
                 ),
                 if (_lineupSuggested) ...[
                   const SizedBox(height: 6),
@@ -291,7 +291,7 @@ class _MatchResultDialogState extends State<_MatchResultDialog> {
                     'Precargado desde la última alineación citada contra este rival — revisá y ajustá.',
                     style: const TextStyle(
                       color: CX.blue,
-                      fontSize: 10.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

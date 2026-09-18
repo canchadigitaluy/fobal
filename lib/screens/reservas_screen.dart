@@ -2572,12 +2572,12 @@ class _MatchPrepFormState extends State<_MatchPrepForm> {
         labelText: labelText,
         hintText: hintText,
         labelStyle: const TextStyle(
-          fontSize: 11.5,
+          fontSize: 13,
           fontWeight: FontWeight.w700,
           color: CX.faint,
         ),
         floatingLabelStyle: const TextStyle(
-          fontSize: 11.5,
+          fontSize: 13,
           fontWeight: FontWeight.w800,
           color: CX.green,
         ),
@@ -4266,7 +4266,7 @@ class _GeneratorFormState extends State<_GeneratorForm> {
                           '${w.totalPlayers - w.suggestedPlayers == 1 ? '' : 'es'} '
                           'no disponible${w.totalPlayers - w.suggestedPlayers == 1 ? '' : 's'} '
                           '(lesión/sanción) — no cuentan en el plantel sugerido.',
-                          style: const TextStyle(color: CX.faint, fontSize: 10.5),
+                          style: const TextStyle(color: CX.faint, fontSize: 12),
                         ),
                       ],
                     ],
@@ -4885,7 +4885,7 @@ class _GeneratedBlockTileState extends State<_GeneratedBlockTile> {
                   style: const TextStyle(
                     color: CX.green,
                     fontWeight: FontWeight.w900,
-                    fontSize: 10.5,
+                    fontSize: 12,
                   ),
                 ),
               ),
@@ -5273,7 +5273,7 @@ class _WhySessionPanel extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             blurb,
-            style: const TextStyle(color: CX.muted, fontSize: 11.5, height: 1.4),
+            style: const TextStyle(color: CX.muted, fontSize: 13, height: 1.4),
           ),
           if (session.contextSources.isNotEmpty) ...[
             const SizedBox(height: 10),

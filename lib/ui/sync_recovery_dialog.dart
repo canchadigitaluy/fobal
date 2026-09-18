@@ -212,7 +212,7 @@ class _ConflictCard extends StatelessWidget {
           const SizedBox(height: 6),
           const Text(
             'Reemplazar conserva esta copia completa y sustituye la versión actual del club.',
-            style: TextStyle(color: _faint, fontSize: 10.5),
+            style: TextStyle(color: _faint, fontSize: 12),
           ),
         ],
       ),

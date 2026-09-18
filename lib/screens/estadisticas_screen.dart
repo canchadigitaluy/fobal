@@ -2150,7 +2150,7 @@ class _NoLudResultsList extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: CX.muted,
-                            fontSize: 10.5,
+                            fontSize: 12,
                           ),
                         ),
                     ],

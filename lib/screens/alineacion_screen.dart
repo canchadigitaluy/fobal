@@ -1243,7 +1243,7 @@ class _LineupProgressStrip extends StatelessWidget {
             label,
             style: const TextStyle(
               color: CX.muted,
-              fontSize: 11.5,
+              fontSize: 13,
               fontWeight: FontWeight.w700,
             ),
           ),

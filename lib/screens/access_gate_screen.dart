@@ -819,7 +819,7 @@ class _ClubPickerListPanel extends StatelessWidget {
             Text(
               'Mostrando ${visible.length} de $totalFiltered — seguí escribiendo para refinar la búsqueda.',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11.5, color: CX.faint),
+              style: const TextStyle(fontSize: 13, color: CX.faint),
             ),
           ],
           if (collaborations.isNotEmpty) ...[
@@ -870,7 +870,7 @@ class _ClubPickerListPanel extends StatelessWidget {
           const Text(
             '¿No encontrás tu club? Escribinos a soporte@fobal.com',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11.5, color: CX.faint),
+            style: TextStyle(fontSize: 13, color: CX.faint),
           ),
         ],
       ),
@@ -918,7 +918,7 @@ class _PendingRequestBanner extends StatelessWidget {
                   'Un admin del club todavía no la aprobó. Mientras tanto, '
                   'podés explorar cualquier club de la liga desde la lista '
                   'de abajo.',
-                  style: TextStyle(fontSize: 11.5, color: CX.muted, height: 1.35),
+                  style: TextStyle(fontSize: 13, color: CX.muted, height: 1.35),
                 ),
               ],
             ),
@@ -985,7 +985,7 @@ class _CollaborationRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     _collaborationRoleName(collaboration.role),
-                    style: const TextStyle(fontSize: 11.5, color: CX.faint),
+                    style: const TextStyle(fontSize: 13, color: CX.faint),
                   ),
                 ],
               ),
@@ -1391,7 +1391,7 @@ class _CategoryBrandPanel extends StatelessWidget {
                             'CLUB SELECCIONADO',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: .65),
-                              fontSize: 10.5,
+                              fontSize: 12,
                               fontWeight: FontWeight.w700,
                               letterSpacing: .5,
                             ),

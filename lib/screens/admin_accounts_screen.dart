@@ -354,7 +354,7 @@ class _AccountTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   account.email,
-                  style: const TextStyle(color: CX.faint, fontSize: 11.5),
+                  style: const TextStyle(color: CX.faint, fontSize: 13),
                 ),
                 if (clubLabels.isNotEmpty) ...[
                   const SizedBox(height: 6),

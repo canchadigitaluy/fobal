@@ -525,7 +525,7 @@ class _SquadGoalsPanel extends StatelessWidget {
                                 color: review == GoalReviewStatus.overdue
                                     ? CX.red
                                     : CX.amber,
-                                fontSize: 10.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -781,7 +781,7 @@ class _PlayerCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: CX.green,
-                  fontSize: 10.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w900,
                 ),
               ),

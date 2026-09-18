@@ -1057,7 +1057,7 @@ class _AttendanceSummary extends StatelessWidget {
             label,
             style: const TextStyle(
               color: CX.muted,
-              fontSize: 10.5,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1175,7 +1175,7 @@ class _AttendanceRow extends StatelessWidget {
                   '${(player.attendanceRate * 100).round()}%',
                   style: TextStyle(
                     color: player.attendanceRate < .7 ? CX.amber : CX.green,
-                    fontSize: 10.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w900,
                   ),
                 ),

@@ -325,15 +325,22 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     // quien quiera navegar visualmente; en desktop el orden no cambia.
     final upcomingBlock = <Widget>[
       const SizedBox(height: 14),
-      _UpcomingEvents(
-        events: _events,
-        onOpenDay: _openDay,
-        onEdit: _openDayToEdit,
-        preparedEventIds: {
-          for (final p in AppScope.of(context).fullClub.matchPreparations)
-            if (p.calendarEventId.isNotEmpty) p.calendarEventId,
-        },
-        sessions: AppScope.of(context).club.sessions,
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        // Nivel 1: la agenda es la razon por la que un DT entra a esta
+        // pantalla — que se viene, que falta cargar resultado.
+        decoration: CX.heroDecoration(),
+        child: _UpcomingEvents(
+          events: _events,
+          onOpenDay: _openDay,
+          onEdit: _openDayToEdit,
+          preparedEventIds: {
+            for (final p in AppScope.of(context).fullClub.matchPreparations)
+              if (p.calendarEventId.isNotEmpty) p.calendarEventId,
+          },
+          sessions: AppScope.of(context).club.sessions,
+        ),
       ),
       Builder(
         builder: (context) {

@@ -926,7 +926,8 @@ class _DateSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: CX.panelDecoration(),
+      // Nivel 3: navegar fechas es secundario al checklist en si.
+      decoration: CX.auxiliaryDecoration(),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
         children: [
@@ -985,7 +986,9 @@ class _AttendanceSummary extends StatelessWidget {
         : CX.red;
     return Container(
       padding: EdgeInsets.all(compact ? 10 : 12),
-      decoration: CX.panelDecoration(),
+      // Nivel 3: es un resumen de lo que ya esta marcado en el checklist,
+      // no una tarea en si misma.
+      decoration: CX.auxiliaryDecoration(),
       child: Column(
         children: [
           ClipRRect(
@@ -1236,7 +1239,8 @@ class _AttendanceHistory extends StatelessWidget {
     ];
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: CX.panelDecoration(),
+      // Nivel 3: lectura historica, no la tarea de hoy.
+      decoration: CX.auxiliaryDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

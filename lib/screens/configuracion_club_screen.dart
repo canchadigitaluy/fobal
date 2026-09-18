@@ -1031,7 +1031,7 @@ class _BasicDataForm extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: CX.panelDecoration(),
+      decoration: CX.auxiliaryDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1149,7 +1149,7 @@ class _CategoryForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: CX.panelDecoration(),
+      decoration: CX.auxiliaryDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1341,7 +1341,7 @@ class _PlayerForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: CX.panelDecoration(),
+      decoration: CX.auxiliaryDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1501,7 +1501,7 @@ class _MethodologyForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: CX.panelDecoration(),
+      decoration: CX.auxiliaryDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1571,7 +1571,7 @@ class _ManualCollaboratorsPanel extends StatelessWidget {
         final collaborators = snapshot.data ?? const <ClubCollaborator>[];
         return Container(
           padding: const EdgeInsets.all(15),
-          decoration: CX.panelDecoration(),
+          decoration: CX.auxiliaryDecoration(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1685,7 +1685,7 @@ class _RealClubAccessPanel extends StatelessWidget {
         final members = snapshot.data ?? const <ClubMemberAccess>[];
         return Container(
           padding: const EdgeInsets.all(15),
-          decoration: CX.panelDecoration(),
+          decoration: CX.auxiliaryDecoration(),
           child: Material(
             type: MaterialType.transparency,
             child: Column(
@@ -2060,7 +2060,7 @@ class _EmptyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: CX.panelDecoration(),
+      decoration: CX.auxiliaryDecoration(),
       child: Text(
         text,
         style: const TextStyle(color: CX.muted, fontSize: 12.5, height: 1.4),
@@ -2087,7 +2087,7 @@ class _Header extends StatelessWidget {
     final narrow = MediaQuery.sizeOf(context).width < 700;
     return Container(
       padding: EdgeInsets.all(narrow ? 12 : 18),
-      decoration: CX.panelDecoration(),
+      decoration: CX.auxiliaryDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2213,7 +2213,7 @@ class _ClubDataCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: CX.panelDecoration(),
+      decoration: CX.auxiliaryDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

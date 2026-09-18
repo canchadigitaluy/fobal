@@ -393,6 +393,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: pagePadding.copyWith(top: narrow ? 7 : 10),
                   sliver: SliverList.list(
                     children: CanteraMotion.stagger([
+                      // "Que pasa hoy" primero en mobile: antes esta misma
+                      // tarjeta (_TodayPanel, mas abajo bajo "TU SEMANA")
+                      // quedaba a ~10 secciones de scroll, detras de un
+                      // hero generico y tablas de liga. En cancha, con el
+                      // celular, lo primero que un DT necesita es la
+                      // proxima sesion y el boton de pasar lista.
+                      if (narrow) ...[
+                        _TodayPanel(
+                          club: club,
+                          matchPlans: _matchPlans,
+                          syncing: _planningSyncing,
+                          syncFailed: _planningSyncFailed,
+                          syncedAt: _planningSyncedAt,
+                          onRefresh: _syncSharedPlanning,
+                          onOpenField: () => widget.onNavigate(1),
+                          onOpenAssistant: () => widget.onNavigate(2),
+                        ),
+                        sectionGap,
+                      ],
                       _CommandBoard(
                         club: club,
                         categoryId: selectedCategoryId,
@@ -515,6 +534,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       SizedBox(height: narrow ? 8 : 12),
                       LayoutBuilder(
                         builder: (context, constraints) {
+                          final secondary = _SetupPanel(
+                            club: club,
+                            completed: completed,
+                            total: setupItems.length,
+                            role: scope.role,
+                            onNavigate: widget.onNavigate,
+                          );
+                          // En mobile la agenda ya se muestra arriba de
+                          // todo (ver el bloque "if (narrow)" al comienzo
+                          // de esta lista) — repetirla aca la duplicaria.
+                          if (narrow) return secondary;
                           final desktop = constraints.maxWidth >= 820;
                           final primary = _TodayPanel(
                             club: club,
@@ -525,13 +555,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             onRefresh: _syncSharedPlanning,
                             onOpenField: () => widget.onNavigate(1),
                             onOpenAssistant: () => widget.onNavigate(2),
-                          );
-                          final secondary = _SetupPanel(
-                            club: club,
-                            completed: completed,
-                            total: setupItems.length,
-                            role: scope.role,
-                            onNavigate: widget.onNavigate,
                           );
                           if (!desktop) {
                             return Column(

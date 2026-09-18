@@ -79,97 +79,92 @@ class TacticaScreenState extends State<TacticaScreen> {
           color: CX.panel,
           child: Stack(
             children: [
-              // Acento de "pizarra tactica": un arco de circulo central muy
-              // tenue, asomando desde la esquina — referencia deportiva sin
-              // competir con el contenido. Experimento de identidad visual;
-              // si no suma, se revierte este bloque sin tocar nada mas.
-              Positioned(
-                top: -60,
-                right: -60,
-                child: IgnorePointer(
-                  child: Container(
-                    width: 160,
-                    height: 160,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: CX.green.withValues(alpha: .06),
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
               SafeArea(
                 bottom: false,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final segmented = SegmentedButton<int>(
-                    segments: [
-                      const ButtonSegment(
-                        value: 0,
-                        icon: Icon(Icons.sports_soccer_outlined),
-                        label: Text('Planificar'),
-                      ),
-                      const ButtonSegment(
-                        value: 1,
-                        icon: Icon(Icons.groups_2_outlined),
-                        label: Text('Plantel'),
-                      ),
-                      if (!external)
-                        const ButtonSegment(
-                          value: 2,
-                          icon: Icon(Icons.fact_check_outlined),
-                          label: Text('Asistencia'),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final segmented = SegmentedButton<int>(
+                        expandedInsets: constraints.maxWidth < 560
+                            ? EdgeInsets.zero
+                            : null,
+                        style: const ButtonStyle(
+                          padding: WidgetStatePropertyAll(
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                          ),
                         ),
-                    ],
-                    selected: {selectedSection},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (value) => selectSection(value.first),
-                  );
-                  final showCategory = planning &&
-                      categories.isNotEmpty &&
-                      plannerCategoryId != null;
-                  final categorySelector = showCategory
-                      ? _PlannerCategorySelector(
-                          categories: categories,
-                          selectedCategoryId: plannerCategoryId,
-                          onChanged: _selectPlannerCategory,
-                        )
-                      : null;
-                  // En mobile, tabs + selector de categoria compartiendo
-                  // una fila con scroll horizontal era facil de no
-                  // descubrir. Cada uno va en su propia fila, sin scroll.
-                  if (constraints.maxWidth < 560) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: segmented,
+                        segments: [
+                          ButtonSegment(
+                            value: 0,
+                            icon: constraints.maxWidth < 560
+                                ? null
+                                : const Icon(Icons.sports_soccer_outlined),
+                            label: const Text('Planificar'),
+                          ),
+                          ButtonSegment(
+                            value: 1,
+                            icon: constraints.maxWidth < 560
+                                ? null
+                                : const Icon(Icons.groups_2_outlined),
+                            label: const Text('Plantel'),
+                          ),
+                          if (!external)
+                            ButtonSegment(
+                              value: 2,
+                              icon: constraints.maxWidth < 560
+                                  ? null
+                                  : const Icon(Icons.fact_check_outlined),
+                              label: const Text('Asistencia'),
+                            ),
+                        ],
+                        selected: {selectedSection},
+                        showSelectedIcon: false,
+                        onSelectionChanged: (value) =>
+                            selectSection(value.first),
+                      );
+                      final showCategory =
+                          planning &&
+                          categories.isNotEmpty &&
+                          plannerCategoryId != null;
+                      final categorySelector = showCategory
+                          ? _PlannerCategorySelector(
+                              categories: categories,
+                              selectedCategoryId: plannerCategoryId,
+                              onChanged: _selectPlannerCategory,
+                            )
+                          : null;
+                      // En mobile, tabs + selector de categoria compartiendo
+                      // una fila con scroll horizontal era facil de no
+                      // descubrir. Cada uno va en su propia fila, sin scroll.
+                      if (constraints.maxWidth < 560) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: constraints.maxWidth,
+                              child: segmented,
+                            ),
+                            if (categorySelector != null) ...[
+                              const SizedBox(height: 8),
+                              categorySelector,
+                            ],
+                          ],
+                        );
+                      }
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            segmented,
+                            if (categorySelector != null) ...[
+                              const SizedBox(width: 10),
+                              categorySelector,
+                            ],
+                          ],
                         ),
-                        if (categorySelector != null) ...[
-                          const SizedBox(height: 8),
-                          categorySelector,
-                        ],
-                      ],
-                    );
-                  }
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        segmented,
-                        if (categorySelector != null) ...[
-                          const SizedBox(width: 10),
-                          categorySelector,
-                        ],
-                      ],
-                    ),
-                  );
-                },
+                      );
+                    },
                   ),
                 ),
               ),
@@ -193,10 +188,7 @@ class TacticaScreenState extends State<TacticaScreen> {
             switchOutCurve: CX.curve,
             layoutBuilder: (currentChild, previousChildren) => Stack(
               fit: StackFit.expand,
-              children: [
-                ...previousChildren,
-                ?currentChild,
-              ],
+              children: [...previousChildren, ?currentChild],
             ),
             transitionBuilder: (child, animation) => FadeTransition(
               opacity: animation,
@@ -212,9 +204,9 @@ class TacticaScreenState extends State<TacticaScreen> {
               key: ValueKey('tactica-section-$selectedSection-$external'),
               child: switch (selectedSection) {
                 0 => ReservasScreen(
-                    initialCategoryOverride: plannerCategoryId,
-                    onCategoryChanged: _selectPlannerCategory,
-                  ),
+                  initialCategoryOverride: plannerCategoryId,
+                  onCategoryChanged: _selectPlannerCategory,
+                ),
                 1 => const CuotaScreen(),
                 _ => const AsistenciaScreen(),
               },
@@ -254,9 +246,9 @@ class _PlannerCategorySelector extends StatelessWidget {
           isExpanded: true,
           icon: const Icon(Icons.expand_more, size: 18),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: CX.white,
-                fontWeight: FontWeight.w700,
-              ),
+            color: CX.white,
+            fontWeight: FontWeight.w700,
+          ),
           selectedItemBuilder: (context) => categories
               .map(
                 (item) => Row(

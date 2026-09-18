@@ -266,16 +266,16 @@ TextTheme _tuneText(TextTheme t) => t.copyWith(
 
 class CX {
   static const bg = Color(0xFFF3F6F4);
-  static const canvas = Color(0xFFFAFCFB);
+  static const canvas = Color(0xFFF6F7F7);
   static const panel = Color(0xFFFFFFFF);
   static const panel2 = Color(0xFFF1F5F3);
   static const panel3 = Color(0xFFE7EFEB);
   static const line = Color(0x260D1A14);
   static const lineStrong = Color(0x420D1A14);
   static const white = Color(0xFF102019);
-  static const muted = Color(0xA60D1A14);
-  static const faint = Color(0x850D1A14);
-  static const green = Color(0xFF159463);
+  static const muted = Color(0xFF46564D);
+  static const faint = Color(0xFF637169);
+  static const green = Color(0xFF087D4F);
   static const greenDark = Color(0xFFDDF6EA);
   static const blue = Color(0xFF2E67A8);
   static const amber = Color(0xFFE0A11A);
@@ -707,8 +707,10 @@ class _CanteraAppState extends State<CanteraApp> {
           focusColor: CX.green.withValues(alpha: .10),
           colorScheme: const ColorScheme.light(
             primary: CX.green,
+            onPrimary: Colors.white,
             secondary: CX.blue,
             surface: CX.panel,
+            onSurface: CX.white,
             error: CX.red,
           ),
           textTheme: baseText.apply(
@@ -737,7 +739,7 @@ class _CanteraAppState extends State<CanteraApp> {
               color: CX.white,
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              letterSpacing: -.3,
+              letterSpacing: 0,
             ),
           ),
           inputDecorationTheme: InputDecorationTheme(
@@ -765,18 +767,66 @@ class _CanteraAppState extends State<CanteraApp> {
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
               backgroundColor: CX.green,
-              foregroundColor: const Color(0xFF07100B),
-              minimumSize: const Size(double.infinity, 44),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 48),
+              visualDensity: VisualDensity.standard,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
               textStyle: const TextStyle(
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w800,
               ),
               animationDuration: CX.motionFast,
+            ),
+          ),
+          filledButtonTheme: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+              backgroundColor: CX.green,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 48),
+              visualDensity: VisualDensity.standard,
+              textStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          segmentedButtonTheme: SegmentedButtonThemeData(
+            style: ButtonStyle(
+              minimumSize: const WidgetStatePropertyAll(Size(0, 44)),
+              visualDensity: VisualDensity.standard,
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              textStyle: const WidgetStatePropertyAll(
+                TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
+              iconSize: const WidgetStatePropertyAll(18),
+              side: const WidgetStatePropertyAll(
+                BorderSide(color: CX.lineStrong),
+              ),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              backgroundColor: WidgetStateProperty.resolveWith(
+                (states) =>
+                    states.contains(WidgetState.selected) ? CX.white : CX.panel,
+              ),
+              foregroundColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? Colors.white
+                    : CX.muted,
+              ),
             ),
           ),
           outlinedButtonTheme: OutlinedButtonThemeData(
@@ -786,7 +836,8 @@ class _CanteraAppState extends State<CanteraApp> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
-              minimumSize: const Size(0, 40),
+              minimumSize: const Size(0, 44),
+              visualDensity: VisualDensity.standard,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               textStyle: const TextStyle(fontSize: 13),
               animationDuration: CX.motionFast,
@@ -890,7 +941,7 @@ class _CanteraAppState extends State<CanteraApp> {
                   ? CX.green
                   : Colors.transparent,
             ),
-            checkColor: const WidgetStatePropertyAll(Color(0xFF07100B)),
+            checkColor: const WidgetStatePropertyAll(Colors.white),
             side: const BorderSide(color: CX.lineStrong, width: 1.5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(5),

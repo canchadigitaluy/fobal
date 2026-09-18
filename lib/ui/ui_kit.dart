@@ -11,7 +11,7 @@ const _ink = Color(0xFF102019);
 const _mint = Color(0xFF6EF2C7);
 const _onInk = Color(0xFFE8F1ED);
 const _onInkMuted = Color(0xFFB8C5BF);
-const _onInkFaint = Color(0xFF8CA39B);
+const _onInkFaint = Color(0xFFB4C7BC);
 const _hair = Color(0x22FFFFFF);
 
 /// High-contrast dark card for the headline read. One consistent frame for the
@@ -72,13 +72,13 @@ class InsightCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 13,
+                    fontSize: 17,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: .2,
+                    letterSpacing: 0,
                   ),
                 ),
               ),
@@ -91,12 +91,12 @@ class InsightCard extends StatelessWidget {
               subtitle!,
               style: const TextStyle(
                 color: _onInkMuted,
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
           child,
           if (notes.isNotEmpty) ...[
             const SizedBox(height: 6),
@@ -106,14 +106,18 @@ class InsightCard extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline, size: 12, color: _onInkFaint),
+                    const Icon(
+                      Icons.info_outline,
+                      size: 12,
+                      color: _onInkFaint,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         note,
                         style: const TextStyle(
                           color: _onInkFaint,
-                          fontSize: 11,
+                          fontSize: 12,
                           height: 1.35,
                         ),
                       ),
@@ -157,11 +161,7 @@ class InsightLine extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: _onInk,
-                fontSize: 13.5,
-                height: 1.4,
-              ),
+              style: const TextStyle(color: _onInk, fontSize: 15, height: 1.4),
             ),
           ),
         ],
@@ -211,7 +211,7 @@ class InsightRow extends StatelessWidget {
                   value,
                   style: const TextStyle(
                     color: _onInk,
-                    fontSize: 13,
+                    fontSize: 15,
                     height: 1.35,
                     fontWeight: FontWeight.w600,
                   ),
@@ -251,9 +251,9 @@ class StatusPill extends StatelessWidget {
         label,
         style: TextStyle(
           color: color,
-          fontSize: compact ? 9 : 10,
+          fontSize: compact ? 10 : 11,
           fontWeight: FontWeight.w900,
-          letterSpacing: .2,
+          letterSpacing: 0,
         ),
       ),
     );
@@ -358,50 +358,49 @@ class PremiumSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: compact ? 9 : 14, top: compact ? 0 : 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 3,
-            height: compact ? 24 : 30,
-            margin: EdgeInsets.only(right: compact ? 8 : 10),
-            decoration: BoxDecoration(
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (eyebrow != null && eyebrow!.trim().isNotEmpty) ...[
+          Text(
+            eyebrow!.toUpperCase(),
+            style: const TextStyle(
               color: CX.green,
-              borderRadius: BorderRadius.circular(999),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
             ),
           ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (eyebrow != null && eyebrow!.trim().isNotEmpty) ...[
-                  Text(
-                    eyebrow!.toUpperCase(),
-                    style: TextStyle(
-                      color: CX.green,
-                      fontSize: compact ? 9 : 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: compact ? .5 : .8,
-                    ),
-                  ),
-                  SizedBox(height: compact ? 2 : 3),
-                ],
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: compact ? 16 : 18,
-                    fontWeight: FontWeight.w900,
-                    height: 1.15,
-                    letterSpacing: compact ? 0 : -.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          ?trailing,
+          const SizedBox(height: 4),
         ],
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: compact ? 17 : 21,
+            fontWeight: FontWeight.w800,
+            height: 1.2,
+            letterSpacing: 0,
+          ),
+        ),
+      ],
+    );
+    return Padding(
+      padding: EdgeInsets.only(bottom: compact ? 12 : 16, top: compact ? 0 : 4),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 480 && trailing != null) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [heading, const SizedBox(height: 8), trailing!],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: heading),
+              if (trailing != null) ...[const SizedBox(width: 16), trailing!],
+            ],
+          );
+        },
       ),
     );
   }
@@ -497,49 +496,45 @@ class MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: CX.panel,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: CX.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(icon, color: accent, size: 17),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: accent, size: 19),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: CX.muted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ],
           ),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            // Escala editorial: la cifra es lo primero que un DT lee de
-            // esta tarjeta — se distingue claramente del texto de apoyo,
-            // no compite con el con solo 4px de diferencia.
             style: const TextStyle(
-              fontSize: 27,
+              fontSize: 34,
               fontWeight: FontWeight.w900,
-              letterSpacing: -.4,
-            ),
-          ),
-          const SizedBox(height: 1),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: CX.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: .1,
+              letterSpacing: 0,
+              height: 1.15,
             ),
           ),
           if (meter != null) ...[const SizedBox(height: 4), meter!],
@@ -547,7 +542,7 @@ class MetricTile extends StatelessWidget {
             this.context,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: CX.faint, fontSize: 11, height: 1.25),
+            style: const TextStyle(color: CX.muted, fontSize: 12, height: 1.35),
           ),
         ],
       ),
@@ -564,26 +559,26 @@ class MetricGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, c) {
-        final cols = c.maxWidth < 620
+        final cols = c.maxWidth < 320
+            ? 1
+            : c.maxWidth < 620
             ? 2
             : c.maxWidth < 940
             ? 3
             : tiles.length.clamp(1, 6);
-        // Phones get taller cells so the icon badge, big numeral and the
-        // two-line context never clip; wide screens stay calm and roomy.
-        final ratio = c.maxWidth < 380
-            ? 0.92
-            : c.maxWidth < 620
-            ? 1.06
-            : 1.34;
-        return GridView.count(
-          crossAxisCount: cols,
+        // Bound the surface height on wide screens; grow with accessible text.
+        final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+        return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: ratio,
-          children: tiles,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            mainAxisExtent: 180 * textScale.clamp(1.0, 3.0),
+          ),
+          itemCount: tiles.length,
+          itemBuilder: (context, index) => tiles[index],
         );
       },
     );
@@ -847,7 +842,11 @@ class QuickValueRow extends StatelessWidget {
   final List<String> values;
   final ValueChanged<String> onSelected;
 
-  const QuickValueRow({super.key, required this.values, required this.onSelected});
+  const QuickValueRow({
+    super.key,
+    required this.values,
+    required this.onSelected,
+  });
 
   @override
   Widget build(BuildContext context) {

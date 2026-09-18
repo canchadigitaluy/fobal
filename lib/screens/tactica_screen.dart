@@ -77,10 +77,33 @@ class TacticaScreenState extends State<TacticaScreen> {
       children: [
         Material(
           color: CX.panel,
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
+          child: Stack(
+            children: [
+              // Acento de "pizarra tactica": un arco de circulo central muy
+              // tenue, asomando desde la esquina — referencia deportiva sin
+              // competir con el contenido. Experimento de identidad visual;
+              // si no suma, se revierte este bloque sin tocar nada mas.
+              Positioned(
+                top: -60,
+                right: -60,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 160,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: CX.green.withValues(alpha: .06),
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final segmented = SegmentedButton<int>(
@@ -147,8 +170,10 @@ class TacticaScreenState extends State<TacticaScreen> {
                     ),
                   );
                 },
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ),
         const Divider(height: 1),

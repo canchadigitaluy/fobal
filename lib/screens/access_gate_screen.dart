@@ -65,10 +65,17 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
     } catch (_) {
       collaborations = const [];
     }
+    ClubMembership? pending;
+    try {
+      pending = await ClubAccessService.pendingMembership();
+    } catch (_) {
+      pending = null;
+    }
     return _AccessState(
       clubs: clubs,
       collaborations: collaborations,
       previewMode: true,
+      pending: pending,
     );
   }
 
@@ -286,6 +293,7 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
                             : _PreviewClubPicker(
                                 clubs: state.clubs,
                                 collaborations: state.collaborations,
+                                pending: state.pending,
                                 selectedClubId: _selectedClubId,
                                 loading: _loadingClubContext,
                                 onChanged: (value) =>
@@ -307,6 +315,7 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
 class _PreviewClubPicker extends StatefulWidget {
   final List<CanteraAccessClub> clubs;
   final List<ClubCollaboration> collaborations;
+  final ClubMembership? pending;
   final String? selectedClubId;
   final bool loading;
   final ValueChanged<String?> onChanged;
@@ -317,6 +326,7 @@ class _PreviewClubPicker extends StatefulWidget {
   const _PreviewClubPicker({
     required this.clubs,
     required this.collaborations,
+    required this.pending,
     required this.selectedClubId,
     required this.loading,
     required this.onChanged,
@@ -370,6 +380,7 @@ class _PreviewClubPickerState extends State<_PreviewClubPicker> {
           final picker = _ClubPickerListPanel(
             clubs: widget.clubs,
             collaborations: widget.collaborations,
+            pending: widget.pending,
             visible: visible,
             totalFiltered: filtered.length,
             query: query,
@@ -636,6 +647,7 @@ class _StepDot extends StatelessWidget {
 class _ClubPickerListPanel extends StatelessWidget {
   final List<CanteraAccessClub> clubs;
   final List<ClubCollaboration> collaborations;
+  final ClubMembership? pending;
   final List<CanteraAccessClub> visible;
   final int totalFiltered;
   final String query;
@@ -651,6 +663,7 @@ class _ClubPickerListPanel extends StatelessWidget {
   const _ClubPickerListPanel({
     required this.clubs,
     required this.collaborations,
+    required this.pending,
     required this.visible,
     required this.totalFiltered,
     required this.query,
@@ -671,6 +684,10 @@ class _ClubPickerListPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (pending != null) ...[
+            _PendingRequestBanner(pending: pending!),
+            const SizedBox(height: 16),
+          ],
           Row(
             children: [
               Expanded(
@@ -854,6 +871,57 @@ class _ClubPickerListPanel extends StatelessWidget {
             '¿No encontrás tu club? Escribinos a soporte@fobal.com',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 11.5, color: CX.faint),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A club-membership request from a previous session that's still waiting
+/// on a club_admin to review it. Explorá clubes de la liga (below) works
+/// without this — it never needed a membership — but a DT who tried the
+/// invite-code path for a private club deserves to know why nothing
+/// happened after they asked, instead of silence.
+class _PendingRequestBanner extends StatelessWidget {
+  final ClubMembership pending;
+  const _PendingRequestBanner({required this.pending});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: CX.amber.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: CX.amber.withValues(alpha: .22)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.hourglass_top_outlined, color: CX.amber, size: 17),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Solicitud pendiente en ${pending.clubName}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12.5,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'Un admin del club todavía no la aprobó. Mientras tanto, '
+                  'podés explorar cualquier club de la liga desde la lista '
+                  'de abajo.',
+                  style: TextStyle(fontSize: 11.5, color: CX.muted, height: 1.35),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1659,7 +1727,6 @@ class _CategoryRowState extends State<_CategoryRow> {
 }
 
 class _AccessState {
-  final List<ClubMembership> activeMemberships;
   final ClubMembership? pending;
   final List<CanteraAccessClub> clubs;
   final List<ClubCollaboration> collaborations;
@@ -1671,6 +1738,6 @@ class _AccessState {
     this.collaborations = const [],
     this.previewMode = false,
     this.localMode = false,
-  }) : pending = null,
-       activeMemberships = const [];
+    this.pending,
+  });
 }

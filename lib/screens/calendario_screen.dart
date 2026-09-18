@@ -319,6 +319,58 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     while (cells.length % 7 != 0) {
       cells.add(null);
     }
+    // Un mes completo de 7 columnas es dificil de leer apretado en un
+    // celular. En mobile mostramos primero la agenda (proximos eventos +
+    // partidos sin resultado) y dejamos la grilla del mes mas abajo para
+    // quien quiera navegar visualmente; en desktop el orden no cambia.
+    final upcomingBlock = <Widget>[
+      const SizedBox(height: 14),
+      _UpcomingEvents(
+        events: _events,
+        onOpenDay: _openDay,
+        onEdit: _openDayToEdit,
+        preparedEventIds: {
+          for (final p in AppScope.of(context).fullClub.matchPreparations)
+            if (p.calendarEventId.isNotEmpty) p.calendarEventId,
+        },
+        sessions: AppScope.of(context).club.sessions,
+      ),
+      Builder(
+        builder: (context) {
+          final logged = {
+            for (final r in AppScope.of(context).fullClub.matchResults)
+              if (r.calendarKey.isNotEmpty) r.calendarKey,
+          };
+          final now = DateTime.now();
+          final floor = DateTime(now.year, now.month, now.day);
+          final pending = <({DateTime day, _CalendarEvent event})>[];
+          for (final entry in _events.entries) {
+            final parts = entry.key.split('-');
+            if (parts.length != 3) continue;
+            final day = DateTime(
+              int.tryParse(parts[0]) ?? 0,
+              int.tryParse(parts[1]) ?? 1,
+              int.tryParse(parts[2]) ?? 1,
+            );
+            if (day.isAfter(floor)) continue;
+            for (final e in entry.value) {
+              if (!isMatchEventType(e.type)) continue;
+              if (logged.contains(e.id)) continue;
+              pending.add((day: day, event: e));
+            }
+          }
+          if (pending.isEmpty) return const SizedBox.shrink();
+          pending.sort((a, b) => b.day.compareTo(a.day));
+          return Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: _PendingResultsPanel(
+              pending: pending.take(5).toList(),
+              onOpenDay: _openDay,
+            ),
+          );
+        },
+      ),
+    ];
     return ColoredBox(
       color: CX.canvas,
       child: SingleChildScrollView(
@@ -342,6 +394,10 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
               style: TextStyle(color: CX.faint, fontSize: 11),
             ),
             SizedBox(height: narrow ? 12 : 18),
+            if (narrow && _selectedDay == null) ...[
+              ...upcomingBlock,
+              const SizedBox(height: 18),
+            ],
             Align(
               alignment: Alignment.centerLeft,
               child: ConstrainedBox(
@@ -490,64 +546,10 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
                       ),
                       const Divider(height: 22),
                       const _Legend(),
-                      if (_selectedDay == null) ...[
-                        const SizedBox(height: 14),
-                        _UpcomingEvents(
-                          events: _events,
-                          onOpenDay: _openDay,
-                          onEdit: _openDayToEdit,
-                          preparedEventIds: {
-                            for (final p in AppScope.of(
-                              context,
-                            ).fullClub.matchPreparations)
-                              if (p.calendarEventId.isNotEmpty)
-                                p.calendarEventId,
-                          },
-                          sessions: AppScope.of(context).club.sessions,
-                        ),
-                        Builder(
-                          builder: (context) {
-                            final logged = {
-                              for (final r in AppScope.of(
-                                context,
-                              ).fullClub.matchResults)
-                                if (r.calendarKey.isNotEmpty) r.calendarKey,
-                            };
-                            final now = DateTime.now();
-                            final floor = DateTime(
-                              now.year,
-                              now.month,
-                              now.day,
-                            );
-                            final pending =
-                                <({DateTime day, _CalendarEvent event})>[];
-                            for (final entry in _events.entries) {
-                              final parts = entry.key.split('-');
-                              if (parts.length != 3) continue;
-                              final day = DateTime(
-                                int.tryParse(parts[0]) ?? 0,
-                                int.tryParse(parts[1]) ?? 1,
-                                int.tryParse(parts[2]) ?? 1,
-                              );
-                              if (day.isAfter(floor)) continue;
-                              for (final e in entry.value) {
-                                if (!isMatchEventType(e.type)) continue;
-                                if (logged.contains(e.id)) continue;
-                                pending.add((day: day, event: e));
-                              }
-                            }
-                            if (pending.isEmpty) return const SizedBox.shrink();
-                            pending.sort((a, b) => b.day.compareTo(a.day));
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 16),
-                              child: _PendingResultsPanel(
-                                pending: pending.take(5).toList(),
-                                onOpenDay: _openDay,
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                      // En mobile la agenda ya se muestra arriba de la
+                      // grilla del mes (ver upcomingBlock al inicio de
+                      // build) — repetirla aca la duplicaria.
+                      if (_selectedDay == null && !narrow) ...upcomingBlock,
                       if (_selectedDay != null) ...[
                         const SizedBox(height: 14),
                         _DayEditorPanel(

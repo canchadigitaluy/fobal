@@ -656,6 +656,50 @@ class _PlayerGrid extends StatelessWidget {
   }
 }
 
+/// Etiqueta de dato del jugador (posicion, disponibilidad, pie). Las tres
+/// comparten forma, alto y tipografia; solo la disponibilidad suma un punto
+/// de color, para que el estado se lea sin gritar.
+class _PlayerTag extends StatelessWidget {
+  final String label;
+  final Color? dot;
+
+  const _PlayerTag(this.label, {this.dot});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      decoration: BoxDecoration(
+        color: CX.panel2,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (dot != null) ...[
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            label,
+            style: const TextStyle(
+              color: CX.muted,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PlayerTile extends StatelessWidget {
   final Player player;
   final bool canEdit;
@@ -703,14 +747,17 @@ class _PlayerTile extends StatelessWidget {
           spacing: 6,
           runSpacing: 5,
           children: [
-            MetaTag(
+            _PlayerTag(
               player.position.trim().isEmpty
                   ? 'Posicion pendiente'
                   : player.position.trim(),
             ),
-            AvailabilityChip(player.availability, compact: true),
+            _PlayerTag(
+              player.availability.label,
+              dot: player.availability.color,
+            ),
             if (player.dominantFoot.trim().isNotEmpty)
-              MetaTag(player.dominantFoot.trim()),
+              _PlayerTag(player.dominantFoot.trim()),
           ],
         ),
         trailing: canEdit

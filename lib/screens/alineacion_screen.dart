@@ -769,6 +769,13 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                   shirtNumbers: _shirtNumbers,
                   noteController: _callUpNoteController,
                   reloadToken: _callUpReloadToken,
+                  matchInfo: [
+                    if (_rivalController.text.trim().isNotEmpty)
+                      'vs ${_rivalController.text.trim()}',
+                    [_dateController.text.trim(), _timeController.text.trim()]
+                        .where((v) => v.isNotEmpty)
+                        .join(' · '),
+                  ].where((v) => v.isNotEmpty).join('  |  '),
                   onChanged: () => setState(() {}),
                 ),
               ),
@@ -879,6 +886,7 @@ class _AlineacionScreenState extends State<AlineacionScreen> {
                     title: _titleController.text.trim(),
                     rival: _rivalController.text.trim(),
                     date: _dateController.text.trim(),
+                    time: _timeController.text.trim(),
                     spots: _spots,
                     customSpots: _customSpots,
                     xi: _xi,
@@ -1048,6 +1056,7 @@ class _CallUpEditor extends StatelessWidget {
   final Map<String, int> shirtNumbers;
   final TextEditingController noteController;
   final int reloadToken;
+  final String matchInfo;
   final VoidCallback onChanged;
 
   const _CallUpEditor({
@@ -1059,6 +1068,7 @@ class _CallUpEditor extends StatelessWidget {
     required this.shirtNumbers,
     required this.noteController,
     required this.reloadToken,
+    required this.matchInfo,
     required this.onChanged,
   });
 
@@ -1077,6 +1087,17 @@ class _CallUpEditor extends StatelessWidget {
             eyebrow: 'CITACIÓN',
             title: 'Listado del partido',
           ),
+          if (matchInfo.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              matchInfo,
+              style: const TextStyle(
+                color: CX.muted,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           SizedBox(height: narrow ? 6 : 8),
           for (final player in players)
             Material(
@@ -1654,6 +1675,7 @@ class _Pitch extends StatelessWidget {
   final String title;
   final String rival;
   final String date;
+  final String time;
   final List<_Spot> spots;
   final Map<int, Offset> customSpots;
   final List<String?> xi;
@@ -1667,6 +1689,7 @@ class _Pitch extends StatelessWidget {
     required this.title,
     required this.rival,
     required this.date,
+    required this.time,
     required this.spots,
     required this.customSpots,
     required this.xi,
@@ -1713,6 +1736,7 @@ class _Pitch extends StatelessWidget {
                           title: title,
                           rival: rival,
                           date: date,
+                          time: time,
                         ),
                       ),
                       ...List.generate(spots.length, (index) {
@@ -1767,12 +1791,14 @@ class _PitchContextBadge extends StatelessWidget {
   final String title;
   final String rival;
   final String date;
+  final String time;
 
   const _PitchContextBadge({
     required this.categoryName,
     required this.title,
     required this.rival,
     required this.date,
+    required this.time,
   });
 
   @override
@@ -1780,7 +1806,8 @@ class _PitchContextBadge extends StatelessWidget {
     final main = title.isNotEmpty ? title : categoryName;
     final secondary = [
       if (rival.isNotEmpty) 'VS ${rival.toUpperCase()}',
-      if (date.isNotEmpty) date,
+      if (date.isNotEmpty || time.isNotEmpty)
+        [date, time].where((v) => v.isNotEmpty).join(' · '),
     ].join('  |  ');
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -2154,7 +2181,9 @@ class _SavedAlignmentsList extends StatelessWidget {
                 title: Text(item.title),
                 subtitle: Text(
                   [
-                    item.date,
+                    [item.date, item.time]
+                        .where((value) => value.trim().isNotEmpty)
+                        .join(' · '),
                     item.rival,
                     item.formation,
                   ].where((value) => value.trim().isNotEmpty).join(' / '),

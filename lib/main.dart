@@ -2830,33 +2830,6 @@ class _DesktopSidebar extends StatelessWidget {
                 icon: const Icon(Icons.install_mobile, size: 17),
                 label: const Text('Instalar app'),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton.icon(
-                      onPressed: () => ClubBackupService.downloadJson(
-                        AppScope.of(context).fullClub,
-                      ),
-                      icon: const Icon(Icons.download_outlined, size: 15),
-                      label: const Text(
-                        'Exportar',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: TextButton.icon(
-                      onPressed: () => importClubFromFile(context),
-                      icon: const Icon(Icons.upload_outlined, size: 15),
-                      label: const Text(
-                        'Importar',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -2926,14 +2899,6 @@ class _DesktopSidebar extends StatelessWidget {
                               tooltip: 'Ayuda',
                               onPressed: onHelp,
                               icon: const Icon(Icons.help_outline, size: 18),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: IconButton.outlined(
-                              tooltip: 'Cambiar club',
-                              onPressed: onSwitchClub,
-                              icon: const Icon(Icons.swap_horiz, size: 18),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -3179,12 +3144,6 @@ class _MobileClubContextBar extends StatelessWidget {
                     if (value == 'club') onSwitchClub();
                     if (value == 'install') onInstallPwa();
                     if (value == 'logout') onSignOut();
-                    if (value == 'export') {
-                      ClubBackupService.downloadJson(
-                        AppScope.of(context).fullClub,
-                      );
-                    }
-                    if (value == 'import') importClubFromFile(context);
                     if (value == 'help') onHelp();
                   },
                   itemBuilder: (context) => const [
@@ -3193,20 +3152,6 @@ class _MobileClubContextBar extends StatelessWidget {
                       child: ListTile(
                         leading: Icon(Icons.install_mobile),
                         title: Text('Instalar app'),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'export',
-                      child: ListTile(
-                        leading: Icon(Icons.download_outlined),
-                        title: Text('Exportar datos'),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'import',
-                      child: ListTile(
-                        leading: Icon(Icons.upload_outlined),
-                        title: Text('Importar datos'),
                       ),
                     ),
                     PopupMenuItem(

@@ -9,6 +9,7 @@ import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/supabase_auth_service.dart';
 import '../services/club_access_service.dart';
+import '../services/fixture_calendar_sync.dart';
 import '../state/calendar_events.dart';
 import '../state/section_handoff.dart';
 import '../ui/ui_kit.dart';
@@ -141,11 +142,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }) async {
     final membership = await _membershipForVisibleClub(category);
     if (membership == null) return const [];
-    return ClubAccessService.loadFixture(
+    final matches = await ClubAccessService.loadFixture(
       membership: membership,
       category: category,
       forceRefresh: force,
     );
+    // El fixture tambien alimenta la agenda: cada partido entra en su dia y
+    // hora sin que el DT lo cargue a mano.
+    if (mounted) {
+      FixtureCalendarSync.applyToStorage(
+        FixtureCalendarSync.storageKey(
+          AppScope.of(context).fullClub.id,
+          category.id,
+        ),
+        matches,
+      );
+    }
+    return matches;
   }
 
   Future<List<LudFixtureMatch>> _loadResults(

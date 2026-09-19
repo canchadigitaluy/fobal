@@ -1002,9 +1002,14 @@ class LudFixtureMatch {
   final int invalidDateRows;
   final int checkedAttempts;
 
+  /// Fecha tal cual la publica la liga (con la hora de pared si la trae);
+  /// [date] es un instante normalizado y pierde la hora real.
+  final String rawDate;
+
   const LudFixtureMatch({
     required this.id,
     required this.date,
+    this.rawDate = '',
     required this.opponentName,
     required this.homeTeamName,
     required this.awayTeamName,
@@ -1038,6 +1043,7 @@ class LudFixtureMatch {
     return LudFixtureMatch(
       id: json['id']?.toString() ?? '',
       date: parsedDate ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      rawDate: json['rawDate']?.toString() ?? '',
       opponentName: json['opponentName']?.toString() ?? '',
       homeTeamName: json['homeTeamName']?.toString() ?? '',
       awayTeamName: json['awayTeamName']?.toString() ?? '',

@@ -535,10 +535,8 @@ class _CategoryAverages {
   }
 }
 
-enum _Confidence { alta, media, baja }
-
 /// The headline read: 3-5 deterministic sentences built only from real rows,
-/// with a confidence badge and an explicit note when the sample is short.
+/// with an explicit note when the sample is short.
 class _WeekReading extends StatelessWidget {
   final String clubName;
   final String category;
@@ -593,7 +591,6 @@ class _WeekReading extends StatelessWidget {
     if (row == null || row.played == 0) {
       return _shell(
         title: title,
-        confidence: null,
         lines: const [],
         empty: isLud
             ? 'La liga todavía no publicó partidos jugados para esta categoría.'
@@ -683,12 +680,6 @@ class _WeekReading extends StatelessWidget {
       }
     }
 
-    final confidence = row.played >= 8 && played.length >= 4
-        ? _Confidence.alta
-        : row.played >= 4
-        ? _Confidence.media
-        : _Confidence.baja;
-
     final limits = <String>[
       if (row.played < 4)
         'Datos de ${row.played} partido${row.played == 1 ? '' : 's'}: tomalo como tendencia preliminar.',
@@ -713,7 +704,6 @@ class _WeekReading extends StatelessWidget {
 
     return _shell(
       title: title,
-      confidence: confidence,
       lines: lines,
       limits: limits,
       actions: _readingActions(
@@ -781,7 +771,6 @@ class _WeekReading extends StatelessWidget {
 
   Widget _shell({
     required String title,
-    required _Confidence? confidence,
     required List<String> lines,
     List<String> limits = const [],
     List<_ReadingAction> actions = const [],
@@ -791,9 +780,6 @@ class _WeekReading extends StatelessWidget {
       icon: Icons.auto_graph,
       title: 'Lectura de la semana',
       subtitle: title,
-      badge: confidence == null
-          ? null
-          : ConfidenceBadge(_kitConfidence(confidence)),
       notes: limits,
       actions: actions.isEmpty
           ? null
@@ -840,12 +826,6 @@ class _ReadingAction {
     required this.run,
   });
 }
-
-Confidence _kitConfidence(_Confidence c) => switch (c) {
-  _Confidence.alta => Confidence.alta,
-  _Confidence.media => Confidence.media,
-  _Confidence.baja => Confidence.baja,
-};
 
 class _Metric {
   final String label;
@@ -1271,7 +1251,9 @@ class _AutomaticReading extends StatelessWidget {
   }
 }
 
-class _PlayerLeaders extends StatelessWidget {
+enum _PlayerSort { goals, minutes }
+
+class _PlayerLeaders extends StatefulWidget {
   final List<_PlayerStat> players;
   final bool hasError;
 
@@ -1291,6 +1273,19 @@ class _PlayerLeaders extends StatelessWidget {
   });
 
   @override
+  State<_PlayerLeaders> createState() => _PlayerLeadersState();
+}
+
+class _PlayerLeadersState extends State<_PlayerLeaders> {
+  _PlayerSort _sort = _PlayerSort.goals;
+
+  List<_PlayerStat> get players => widget.players;
+  bool get hasError => widget.hasError;
+  bool get showFullColumns => widget.showFullColumns;
+  VoidCallback? get onRetry => widget.onRetry;
+  void Function(String playerId)? get onTapPlayer => widget.onTapPlayer;
+
+  @override
   Widget build(BuildContext context) {
     final withData = players
         .where(
@@ -1304,15 +1299,17 @@ class _PlayerLeaders extends StatelessWidget {
         child: hasError ? _LoadError(onRetry: onRetry) : const _NoData(),
       );
     }
-    // Goal contributions first, then minutes as the tiebreaker / participation
-    // proxy.
+    // Cada orden usa al otro dato como desempate. Sin minutos cargados
+    // (No-LUD) solo se ordena por goles.
+    final byMinutes = showFullColumns && _sort == _PlayerSort.minutes;
     final ranked = [...withData]
       ..sort((a, b) {
-        final byContribution = b.goalContributions.compareTo(
-          a.goalContributions,
-        );
-        return byContribution != 0
-            ? byContribution
+        final primary = byMinutes
+            ? b.minutes.compareTo(a.minutes)
+            : b.goals.compareTo(a.goals);
+        if (primary != 0) return primary;
+        return byMinutes
+            ? b.goals.compareTo(a.goals)
             : b.minutes.compareTo(a.minutes);
       });
     return _Panel(
@@ -1320,6 +1317,30 @@ class _PlayerLeaders extends StatelessWidget {
       icon: Icons.groups_2_outlined,
       child: Column(
         children: [
+          if (showFullColumns) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SegmentedButton<_PlayerSort>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: _PlayerSort.goals,
+                    icon: Icon(Icons.sports_soccer, size: 16),
+                    label: Text('Goles'),
+                  ),
+                  ButtonSegment(
+                    value: _PlayerSort.minutes,
+                    icon: Icon(Icons.timer_outlined, size: 16),
+                    label: Text('Minutos'),
+                  ),
+                ],
+                selected: {_sort},
+                onSelectionChanged: (value) =>
+                    setState(() => _sort = value.first),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
           Row(
             children: [
               const Spacer(),
@@ -1811,7 +1832,6 @@ class _NoLudReading extends StatelessWidget {
   Widget build(BuildContext context) {
     final lines = <String>[];
     final limits = <String>[];
-    _Confidence? confidence;
 
     if (summary.played == 0) {
       lines.add(
@@ -1822,12 +1842,6 @@ class _NoLudReading extends StatelessWidget {
       );
     } else {
       final s = summary;
-      confidence = s.played >= 6
-          ? _Confidence.alta
-          : s.played >= 3
-          ? _Confidence.media
-          : _Confidence.baja;
-
       lines.add(
         '${s.wins}G ${s.draws}E ${s.losses}P en ${s.played} '
         'partido${s.played == 1 ? '' : 's'} — '
@@ -1889,9 +1903,6 @@ class _NoLudReading extends StatelessWidget {
     return InsightCard(
       icon: Icons.auto_graph,
       title: 'Lectura de la semana',
-      badge: confidence == null
-          ? null
-          : ConfidenceBadge(_kitConfidence(confidence)),
       notes: limits,
       actions: focus == null
           ? null

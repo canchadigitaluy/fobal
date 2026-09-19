@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../data/cantera_data.dart';
 import '../main.dart';
 import '../services/club_access_service.dart';
+import '../services/fixture_calendar_sync.dart';
 import '../services/offline_mutation_service.dart';
 import '../services/player_match_stats_service.dart';
 import '../state/calendar_events.dart';
@@ -94,8 +95,59 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     }
     if (_remoteLoadedStorageKey != key) {
       _remoteLoadedStorageKey = key;
-      unawaited(_loadRemoteCalendar(key));
+      unawaited(_loadRemoteCalendar(key).then((_) => _syncFixture(key)));
     }
+  }
+
+  /// Pone en la agenda los partidos que la liga publica en el fixture, en su
+  /// dia y hora. Corre despues de cargar lo remoto para que el snapshot que
+  /// se sube ya incluya todo lo del calendario.
+  Future<void> _syncFixture(String storageKey) async {
+    try {
+      final scope = AppScope.of(context);
+      final club = scope.fullClub;
+      final categoryId = _activeCategoryId(scope);
+      if (!isLudCategoryId(categoryId)) return;
+      CategorySquad? category;
+      for (final item in club.categories) {
+        if (item.id == categoryId) category = item;
+      }
+      if (category == null) return;
+      final active = await ClubAccessService.activeMembership();
+      final teamId = LudCategoryRef.teamIdOf(category.id);
+      final membership = active != null && active.clubId == club.id
+          ? active
+          : teamId == null
+          ? null
+          : ClubMembership(
+              clubId: club.id,
+              clubName: club.name,
+              ludTeamId: '$teamId',
+              role: 'coach',
+              status: 'active',
+            );
+      if (membership == null) return;
+      final matches = await ClubAccessService.loadFixture(
+        membership: membership,
+        category: category,
+      );
+      if (!mounted || storageKey != _storageKey) return;
+      final result = mergeFixtureIntoCalendar(
+        _events.map(
+          (key, value) =>
+              MapEntry(key, value.map((item) => item.toJson()).toList()),
+        ),
+        FixtureCalendarSync.slots(matches),
+        dismissed: FixtureCalendarSync.dismissed(storageKey),
+      );
+      if (!result.changed) return;
+      setState(() {
+        _events
+          ..clear()
+          ..addAll(_eventsFromJson(result.calendar));
+      });
+      _save();
+    } catch (_) {}
   }
 
   Map<String, List<_CalendarEvent>> _eventsFromJson(
@@ -233,7 +285,11 @@ class _CalendarioScreenState extends State<CalendarioScreen> {
     setState(() {
       final items = _events[_key(day)];
       if (items == null || index < 0 || index >= items.length) return;
-      items.removeAt(index);
+      final removed = items.removeAt(index);
+      // Un partido del fixture que el DT borra a mano no debe reaparecer.
+      if (removed.id.startsWith(fixtureEventPrefix)) {
+        FixtureCalendarSync.dismiss(_storageKey, removed.id);
+      }
       if (items.isEmpty) _events.remove(_key(day));
       _save();
     });

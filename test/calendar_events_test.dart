@@ -170,4 +170,92 @@ void main() {
       expect(a, isNot(b));
     });
   });
+
+  group('parseKickoff', () {
+    final placeholder = DateTime.utc(2026, 9, 19, 12);
+
+    test('hora de pared sin zona se toma tal cual', () {
+      final k = parseKickoff('2026-09-19T13:30:00', placeholder);
+      expect(k.dayKey, '2026-09-19');
+      expect(k.time, '13:30');
+    });
+
+    test('con zona UTC pasa a hora de Uruguay', () {
+      final k = parseKickoff('2026-09-19T01:00:00Z', placeholder);
+      expect(k.dayKey, '2026-09-18');
+      expect(k.time, '22:00');
+    });
+
+    test('solo fecha: dia sin hora inventada', () {
+      final k = parseKickoff('19/09/2026', placeholder);
+      expect(k.dayKey, '2026-09-19');
+      expect(k.time, '');
+    });
+  });
+
+  group('mergeFixtureIntoCalendar', () {
+    const slot = FixtureSlot(
+      id: 'fixture-1',
+      dayKey: '2026-09-19',
+      time: '13:30',
+      opponent: 'E.L.F.',
+      notes: 'Fecha 14',
+    );
+
+    test('agrega el partido en su dia y hora, y es idempotente', () {
+      final first = mergeFixtureIntoCalendar({}, [slot]);
+      expect(first.changed, isTrue);
+      final event = first.calendar['2026-09-19']!.single;
+      expect(event['type'], 'Partido');
+      expect(event['title'], 'E.L.F.');
+      expect(event['time'], '13:30');
+      final second = mergeFixtureIntoCalendar(first.calendar, [slot]);
+      expect(second.changed, isFalse);
+      expect(second.calendar['2026-09-19'], hasLength(1));
+    });
+
+    test('respeta un partido cargado a mano ese dia', () {
+      final manual = {
+        '2026-09-19': [
+          {'id': 'evt-1', 'type': 'Partido', 'title': 'ELF', 'time': ''},
+        ],
+      };
+      final r = mergeFixtureIntoCalendar(manual, [slot]);
+      expect(r.changed, isFalse);
+      expect(r.calendar['2026-09-19'], hasLength(1));
+    });
+
+    test('un entrenamiento el mismo dia no bloquea el partido', () {
+      final r = mergeFixtureIntoCalendar({
+        '2026-09-19': [
+          {'id': 'evt-2', 'type': 'Entrenamiento', 'title': 'Suave'},
+        ],
+      }, [slot]);
+      expect(r.calendar['2026-09-19'], hasLength(2));
+    });
+
+    test('mueve el partido si la liga cambio el dia y actualiza la hora', () {
+      final placed = mergeFixtureIntoCalendar({}, [slot]).calendar;
+      const moved = FixtureSlot(
+        id: 'fixture-1',
+        dayKey: '2026-09-20',
+        time: '16:00',
+        opponent: 'E.L.F.',
+      );
+      final r = mergeFixtureIntoCalendar(placed, [moved]);
+      expect(r.changed, isTrue);
+      expect(r.calendar.containsKey('2026-09-19'), isFalse);
+      expect(r.calendar['2026-09-20']!.single['time'], '16:00');
+    });
+
+    test('un partido descartado no vuelve', () {
+      final r = mergeFixtureIntoCalendar(
+        {},
+        [slot],
+        dismissed: {'fixture-1'},
+      );
+      expect(r.changed, isFalse);
+      expect(r.calendar, isEmpty);
+    });
+  });
 }

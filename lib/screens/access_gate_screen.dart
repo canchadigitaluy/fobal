@@ -85,8 +85,94 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
     return ClubAccessService.listClubs();
   }
 
+  Future<bool> _confirm({
+    required String title,
+    required String body,
+    required String action,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
+  void _snack(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Un club lo dirige una sola cuenta: la primera que lo reclama. Las demas
+  /// tienen que pedir acceso y esperar la aprobacion del director. Devuelve
+  /// true solo si ya se puede entrar.
+  Future<bool> _passClaimGate(CanteraAccessClub club) async {
+    final status = await ClubAccessService.clubClaimStatus(club.id);
+    if (!mounted) return false;
+    switch (status) {
+      case 'free':
+        final ok = await _confirm(
+          title: 'Dirigir ${club.name}',
+          body:
+              'Al continuar quedás como director de este club. Los demás '
+              'entrenadores van a tener que pedirte acceso para entrar.',
+          action: 'Continuar',
+        );
+        if (!ok || !mounted) return false;
+        return _requestClubAccess(club);
+      case 'claimed':
+        final ok = await _confirm(
+          title: '${club.name} ya tiene director',
+          body:
+              'Solo el director puede darte acceso a este club. ¿Querés '
+              'enviarle una solicitud?',
+          action: 'Pedir acceso',
+        );
+        if (ok && mounted) await _requestClubAccess(club);
+        return false;
+      case 'pending':
+        _snack('Tu solicitud a ${club.name} sigue esperando aprobación.');
+        return false;
+      default:
+        return true;
+    }
+  }
+
+  Future<bool> _requestClubAccess(CanteraAccessClub club) async {
+    try {
+      final result = await ClubAccessService.requestAccess(
+        clubId: club.id,
+        role: 'coach',
+        inviteCode: '',
+      );
+      if (!mounted) return false;
+      if (result == 'active') return true;
+      _snack('Solicitud enviada. El director del club tiene que aprobarla.');
+      setState(() => _state = _load());
+    } catch (_) {
+      if (mounted) _snack('No pudimos enviar la solicitud. Probá de nuevo.');
+    }
+    return false;
+  }
+
   Future<void> _enterPreview(CanteraAccessClub club) async {
     if (_loadingClubContext) return;
+    if (!widget.forcePreview && SupabaseAuthService.currentSession != null) {
+      if (!await _passClaimGate(club)) return;
+    }
     setState(() => _loadingClubContext = true);
     final membership = ClubMembership(
       clubId: club.id,

@@ -91,6 +91,23 @@ class ClubAccessService {
     return ClubMembership.fromJson(rows.first);
   }
 
+  /// Quien dirige un club, visto por quien intenta entrar: 'mine' (ya sos
+  /// miembro), 'pending' (tu solicitud espera), 'claimed' (otro lo dirige) o
+  /// 'free' (nadie). Si la consulta falla devuelve 'mine': el bloqueo real de
+  /// datos lo hace RLS, esto solo evita dejar afuera a alguien por un corte.
+  static Future<String> clubClaimStatus(String clubId) async {
+    if (!SupabaseAuthService.isConfigured) return 'mine';
+    try {
+      final status = await _client.rpc(
+        'club_claim_status',
+        params: {'target_club_id': clubId},
+      );
+      return status as String? ?? 'mine';
+    } catch (_) {
+      return 'mine';
+    }
+  }
+
   static Future<List<CanteraAccessClub>> listClubs() async {
     if (!SupabaseAuthService.isConfigured) return [];
     dynamic rows;

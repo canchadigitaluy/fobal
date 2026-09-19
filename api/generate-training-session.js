@@ -366,22 +366,22 @@ export default async function handler(req, res) {
       return;
     }
 
+    const quota = await consumeAiQuota(access);
+    if (!quota.ok) {
+      if (quota.retryAfter) res.setHeader("retry-after", String(quota.retryAfter));
+      res.status(429).json({ error: "ai_quota_exceeded", message: quota.message });
+      return;
+    }
+
     const genAI = new GoogleGenerativeAI(geminiApiKey);
     const ragContext = await loadRagContext({
       payload,
       access,
-      genAI,
+      apiKey: geminiApiKey,
     });
     const prompt = `${systemPrompt}\n\nMODO ACTIVO: ${mode}\n\nSCHEMA JSON OBLIGATORIO:\n${JSON.stringify(schema, null, 2)}\n\nCONTEXTO HISTORICO DISPONIBLE:\n${JSON.stringify(ragContext, null, 2)}\n\nDATOS COMPLETOS DEL CASO:\n${JSON.stringify(payload, null, 2)}`;
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      generationConfig: {
-        maxOutputTokens: 8192,
-        responseMimeType: "application/json",
-      },
-    });
-    const result = await model.generateContent(prompt);
+    const result = await generateWithModelFallback(genAI, prompt);
     const data = parseJson(result.response.text());
 
     normalizeGeneratedPlanShape(data, payload, mode);
@@ -392,11 +392,14 @@ export default async function handler(req, res) {
       access,
       data,
       mode,
-      genAI,
+      apiKey: geminiApiKey,
     });
 
     res.status(200).json(data);
   } catch (error) {
+    // Sin este log, un modelo retirado o una clave revocada quedan escondidos
+    // detras del plan de respaldo (responde 200) y nadie se entera.
+    console.error("generate-training-session failed:", error?.status, error?.message);
     const safePayload = payload || {};
     const fallback = buildFallbackPlan(safePayload, mode);
     normalizeGeneratedPlanShape(fallback, safePayload, mode);
@@ -1094,7 +1097,122 @@ async function authenticateClubRequest(req, payload) {
   };
 }
 
-async function loadRagContext({ payload, access, genAI }) {
+// Gemini free tier es POR PROYECTO y Google lo recorta sin aviso; estos topes
+// van por debajo del piso conocido (10 RPM / 250 RPD de 2.5 Flash). Ajustables
+// por env sin redeploy de codigo.
+function envInt(name, fallback) {
+  const value = Number.parseInt(process.env[name] || "", 10);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+async function consumeAiQuota(access) {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { ok: true };
+  }
+  try {
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { persistSession: false } },
+    );
+    const { data, error } = await supabase.rpc("ai_usage_consume", {
+      p_user: access?.userId || "preview",
+      p_user_day: envInt("AI_USER_DAILY_LIMIT", 20),
+      p_global_day: envInt("AI_GLOBAL_DAILY_LIMIT", 200),
+      p_global_minute: envInt("AI_GLOBAL_MINUTE_LIMIT", 6),
+    });
+    // Falla de infraestructura: no bloquear al DT; el 429 de Gemini es el
+    // respaldo (sin billing activo, exceder la cuota nunca genera cobro).
+    if (error) return { ok: true };
+    if (data === "user_day") {
+      return {
+        ok: false,
+        message:
+          "Llegaste al limite diario de generaciones con IA. Se renueva mañana.",
+      };
+    }
+    if (data === "global_day") {
+      return {
+        ok: false,
+        message:
+          "El asistente alcanzo su limite diario de uso. Volve a intentar mañana.",
+      };
+    }
+    if (data === "global_minute") {
+      return {
+        ok: false,
+        retryAfter: 60,
+        message:
+          "El asistente esta con mucha demanda. Proba de nuevo en un minuto.",
+      };
+    }
+    return { ok: true };
+  } catch (_) {
+    return { ok: true };
+  }
+}
+
+// gemini-1.5-flash y text-embedding-004 ya fueron retirados por Google; se
+// prueba primero un modelo vigente y se cae al siguiente solo si el actual no
+// existe (404), agoto cuota (429) o esta caido (5xx). GEMINI_MODEL fuerza uno.
+const GENERATION_MODELS = [
+  ...new Set(
+    [
+      process.env.GEMINI_MODEL,
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-1.5-flash",
+    ].filter(Boolean),
+  ),
+];
+
+async function generateWithModelFallback(genAI, prompt) {
+  let lastError;
+  for (const modelName of GENERATION_MODELS) {
+    try {
+      const generationConfig = {
+        maxOutputTokens: 8192,
+        responseMimeType: "application/json",
+      };
+      // 2.5 "piensa" por defecto y ese razonamiento se come los tokens de
+      // salida: el JSON llegaria cortado.
+      if (modelName.startsWith("gemini-2.5")) {
+        generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      }
+      return await genAI
+        .getGenerativeModel({ model: modelName, generationConfig })
+        .generateContent(prompt);
+    } catch (error) {
+      lastError = error;
+      if (![404, 429, 500, 503].includes(error?.status)) throw error;
+    }
+  }
+  throw lastError;
+}
+
+async function embedText(apiKey, text) {
+  const response = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+      // La columna training_context_documents.embedding es vector(768).
+      body: JSON.stringify({
+        content: { parts: [{ text }] },
+        outputDimensionality: 768,
+      }),
+    },
+  );
+  if (!response.ok) throw new Error(`embedding_failed_${response.status}`);
+  const json = await response.json();
+  const values = json?.embedding?.values;
+  if (!Array.isArray(values) || values.length !== 768) {
+    throw new Error("embedding_bad_shape");
+  }
+  return values;
+}
+
+async function loadRagContext({ payload, access, apiKey }) {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return [];
   }
@@ -1115,17 +1233,14 @@ async function loadRagContext({ payload, access, genAI }) {
       .slice(0, 6000);
     if (!text.trim()) return [];
 
-    const embeddingModel = genAI.getGenerativeModel({
-      model: "text-embedding-004",
-    });
-    const embedding = await embeddingModel.embedContent(text);
+    const embedding = await embedText(apiKey, text);
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
       { auth: { persistSession: false } },
     );
     const { data, error } = await supabase.rpc("match_training_context", {
-      query_embedding: embedding.embedding.values,
+      query_embedding: embedding,
       match_count: 8,
       filter_user_id: access.userId,
       filter_club_id: access.isMember ? access.clubId : null,
@@ -1142,7 +1257,7 @@ async function loadRagContext({ payload, access, genAI }) {
   }
 }
 
-async function persistGeneratedContext({ payload, access, data, mode, genAI }) {
+async function persistGeneratedContext({ payload, access, data, mode, apiKey }) {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return;
   }
@@ -1164,10 +1279,7 @@ async function persistGeneratedContext({ payload, access, data, mode, genAI }) {
       .slice(0, 9000);
     if (!content.trim()) return;
 
-    const embeddingModel = genAI.getGenerativeModel({
-      model: "text-embedding-004",
-    });
-    const embedding = await embeddingModel.embedContent(content);
+    const embedding = await embedText(apiKey, content);
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -1186,7 +1298,7 @@ async function persistGeneratedContext({ payload, access, data, mode, genAI }) {
           confidence: data?.confidence || "",
           generated_at: new Date().toISOString(),
         },
-        embedding: embedding.embedding.values,
+        embedding,
       });
     // The Supabase client does not throw on a rejected insert (bad
     // constraint, RLS denial, etc) — it returns { error }. Not checking it

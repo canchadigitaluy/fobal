@@ -1152,16 +1152,18 @@ async function consumeAiQuota(access) {
   }
 }
 
-// gemini-1.5-flash y text-embedding-004 ya fueron retirados por Google; se
-// prueba primero un modelo vigente y se cae al siguiente solo si el actual no
-// existe (404), agoto cuota (429) o esta caido (5xx). GEMINI_MODEL fuerza uno.
+// Google retira modelos seguido: 1.5 y text-embedding-004 ya no existen y los
+// 2.5 responden 404 "no longer available to new users" (verificado en logs de
+// produccion 2026-09-18). Se prueba el primero vigente y se cae al siguiente
+// solo si no existe (404), agoto cuota (429) o esta caido (5xx).
+// GEMINI_MODEL fuerza uno sin tocar codigo cuando Google vuelva a mover todo.
 const GENERATION_MODELS = [
   ...new Set(
     [
       process.env.GEMINI_MODEL,
-      "gemini-2.5-flash",
-      "gemini-2.5-flash-lite",
-      "gemini-1.5-flash",
+      "gemini-3.6-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
     ].filter(Boolean),
   ),
 ];
@@ -1170,20 +1172,22 @@ async function generateWithModelFallback(genAI, prompt) {
   let lastError;
   for (const modelName of GENERATION_MODELS) {
     try {
+      // Holgura extra: los modelos con "thinking" gastan parte de este tope
+      // en razonar y el JSON llegaria cortado con 8192.
       const generationConfig = {
-        maxOutputTokens: 8192,
+        maxOutputTokens: 16384,
         responseMimeType: "application/json",
       };
-      // 2.5 "piensa" por defecto y ese razonamiento se come los tokens de
-      // salida: el JSON llegaria cortado.
-      if (modelName.startsWith("gemini-2.5")) {
-        generationConfig.thinkingConfig = { thinkingBudget: 0 };
-      }
       return await genAI
         .getGenerativeModel({ model: modelName, generationConfig })
         .generateContent(prompt);
     } catch (error) {
       lastError = error;
+      console.warn(
+        `gemini model ${modelName} failed:`,
+        error?.status,
+        String(error?.message || "").slice(0, 300),
+      );
       if (![404, 429, 500, 503].includes(error?.status)) throw error;
     }
   }
@@ -1252,7 +1256,8 @@ async function loadRagContext({ payload, access, apiKey }) {
       metadata: item.metadata || {},
       similarity: Number(item.similarity || 0),
     }));
-  } catch (_) {
+  } catch (error) {
+    console.warn("rag load failed:", String(error?.message || "").slice(0, 200));
     return [];
   }
 }

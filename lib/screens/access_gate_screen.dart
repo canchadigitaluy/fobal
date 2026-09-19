@@ -146,6 +146,9 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
       case 'pending':
         _snack('Tu solicitud a ${club.name} sigue esperando aprobación.');
         return false;
+      case 'other':
+        _snack(_oneClubMessage);
+        return false;
       default:
         return true;
     }
@@ -162,11 +165,20 @@ class _AccessGateScreenState extends State<AccessGateScreen> {
       if (result == 'active') return true;
       _snack('Solicitud enviada. El director del club tiene que aprobarla.');
       setState(() => _state = _load());
-    } catch (_) {
-      if (mounted) _snack('No pudimos enviar la solicitud. Probá de nuevo.');
+    } catch (error) {
+      if (mounted) {
+        _snack(
+          error.toString().contains('already_in_another_club')
+              ? _oneClubMessage
+              : 'No pudimos enviar la solicitud. Probá de nuevo.',
+        );
+      }
     }
     return false;
   }
+
+  static const _oneClubMessage =
+      'Tu cuenta ya pertenece a otro club. Cada cuenta gestiona un solo club.';
 
   Future<void> _enterPreview(CanteraAccessClub club) async {
     if (_loadingClubContext) return;

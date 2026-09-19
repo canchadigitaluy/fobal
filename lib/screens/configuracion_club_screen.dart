@@ -985,10 +985,102 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
                   ),
                   onImport: () => importClubFromFile(context),
                 ),
+                if (SupabaseAuthService.currentSession != null &&
+                    !AppScope.of(context).fullClub.isManualClub) ...[
+                  SizedBox(height: narrow ? 11 : 16),
+                  _LeaveClubCard(clubName: club.name, onLeave: _leaveClub),
+                ],
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _leaveClub() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Dejar este club'),
+        content: Text(
+          'Tu cuenta deja de pertenecer a ${AppScope.of(context).fullClub.name}. '
+          'Si sos el único director, el club queda libre para que otra cuenta '
+          'lo reclame. Después vas a poder elegir otro club.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: CX.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Dejar club'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    try {
+      final membership = await ClubAccessService.activeMembership();
+      final clubId = membership?.clubId ?? AppScope.of(context).fullClub.id;
+      await ClubAccessService.leaveClub(clubId);
+      navigator.pushReplacementNamed('/access');
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            error.toString().contains('last_admin_has_members')
+                ? 'Sos el único director y el club tiene otros miembros. '
+                      'Designá a otro director o quitá a los miembros antes '
+                      'de dejarlo.'
+                : 'No pudimos dejar el club. Probá de nuevo.',
+          ),
+        ),
+      );
+    }
+  }
+}
+
+class _LeaveClubCard extends StatelessWidget {
+  final String clubName;
+  final VoidCallback onLeave;
+
+  const _LeaveClubCard({required this.clubName, required this.onLeave});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: CX.auxiliaryDecoration(),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Tu cuenta en este club',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Si te cambiás de equipo, dejá $clubName para poder unirte a otro.',
+                  style: const TextStyle(
+                    color: CX.muted,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton(onPressed: onLeave, child: const Text('Dejar club')),
+        ],
       ),
     );
   }

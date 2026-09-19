@@ -108,6 +108,15 @@ class ClubAccessService {
     }
   }
 
+  /// Deja el club (borra la membresia propia). Lanza si sos el unico director
+  /// y todavia hay otros miembros activos (`last_admin_has_members`).
+  static Future<void> leaveClub(String clubId) async {
+    await _client.rpc('leave_club', params: {'target_club_id': clubId});
+    if (_selectedClubId == clubId) _selectedClubId = null;
+    _activeMembershipCache = null;
+    _previewMembership = null;
+  }
+
   static Future<List<CanteraAccessClub>> listClubs() async {
     if (!SupabaseAuthService.isConfigured) return [];
     dynamic rows;

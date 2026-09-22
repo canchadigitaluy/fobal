@@ -1704,7 +1704,13 @@ class _MinimalAppLoader extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: CX.green.withValues(alpha: .5)),
             ),
-            child: const CustomPaint(painter: FobalMarkPainter(color: Colors.white)),
+            child: Center(
+            child: Image.asset(
+              'assets/branding/isotipo_white.png',
+              width: 30,
+              height: 30,
+            ),
+          ),
           ),
           const SizedBox(height: 14),
           const Text(
@@ -2551,7 +2557,6 @@ class _MainShellState extends State<MainShell> {
                   selectedIndex: selectedIndex,
                   items: items,
                   onSelected: _selectNavigation,
-                  onSwitchClub: _switchClub,
                   onSignOut: _signOut,
                   onInstallPwa: _installPwa,
                   onHelp: () => _showSupportDialog(context),
@@ -2714,7 +2719,6 @@ class _DesktopSidebar extends StatelessWidget {
   final int selectedIndex;
   final List<_ShellItem> items;
   final ValueChanged<int> onSelected;
-  final VoidCallback onSwitchClub;
   final Future<void> Function() onSignOut;
   final VoidCallback onInstallPwa;
   final VoidCallback onHelp;
@@ -2723,7 +2727,6 @@ class _DesktopSidebar extends StatelessWidget {
     required this.selectedIndex,
     required this.items,
     required this.onSelected,
-    required this.onSwitchClub,
     required this.onSignOut,
     required this.onInstallPwa,
     required this.onHelp,
@@ -3355,7 +3358,15 @@ class _BrandMark extends StatelessWidget {
               BoxShadow(color: CX.green.withValues(alpha: .18), blurRadius: 14),
             ],
           ),
-          child: const CustomPaint(painter: FobalMarkPainter()),
+          child: Center(
+            child: Image.asset(
+              'assets/branding/isotipo_white.png',
+              width: compact ? 20 : 22,
+              height: compact ? 20 : 22,
+              color: CX.green,
+              colorBlendMode: BlendMode.srcIn,
+            ),
+          ),
         ),
         const SizedBox(width: 10),
         Text(
@@ -3372,44 +3383,6 @@ class _BrandMark extends StatelessWidget {
   }
 }
 
-/// The fobal mark: a goal frame with two players at its base. One drawing
-/// routine shared by the login screen, the loading splash and the shell
-/// brand badge so the mark stays identical everywhere instead of drifting
-/// between hand-copied CustomPainters.
-void paintFobalMark(Canvas canvas, Size size, {Color color = CX.green}) {
-  final w = size.width;
-  final h = size.height;
-  final line = Paint()
-    ..color = color
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = w * .09
-    ..strokeCap = StrokeCap.round
-    ..strokeJoin = StrokeJoin.round;
-  final dot = Paint()..color = color;
-
-  final frame = Path()
-    ..moveTo(w * .27, h * .64)
-    ..lineTo(w * .27, h * .22)
-    ..lineTo(w * .73, h * .22)
-    ..lineTo(w * .73, h * .64);
-  canvas.drawPath(frame, line);
-
-  canvas.drawCircle(Offset(w * .38, h * .76), w * .075, dot);
-  canvas.drawCircle(Offset(w * .62, h * .76), w * .075, dot);
-}
-
-class FobalMarkPainter extends CustomPainter {
-  final Color color;
-  const FobalMarkPainter({this.color = CX.green});
-
-  @override
-  void paint(Canvas canvas, Size size) =>
-      paintFobalMark(canvas, size, color: color);
-
-  @override
-  bool shouldRepaint(covariant FobalMarkPainter oldDelegate) =>
-      oldDelegate.color != color;
-}
 
 class ClubCrest extends StatelessWidget {
   final String logoUrl;

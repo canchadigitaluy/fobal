@@ -98,13 +98,10 @@ class _BrandedLoadingScreenState extends State<BrandedLoadingScreen>
                       ],
                     ),
                     child: Center(
-                      child: Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                      child: Image.asset(
+                        'assets/branding/isotipo_white.png',
+                        width: 36,
+                        height: 36,
                       ),
                     ),
                   ),

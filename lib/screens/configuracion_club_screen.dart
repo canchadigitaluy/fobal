@@ -741,7 +741,7 @@ class _ConfiguracionClubScreenState extends State<ConfiguracionClubScreen> {
         icon: Icons.account_tree_outlined,
         completed: club.categories.isNotEmpty && club.players.isNotEmpty,
         fields: const [
-          'Categorias',
+          'Categorías',
           'Entrenadores',
           'Coordinador',
           'Planteles',

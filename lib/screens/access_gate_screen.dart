@@ -581,13 +581,10 @@ class _ClubPickerBrandPanel extends StatelessWidget {
                       ],
                     ),
                     child: Center(
-                      child: Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+                      child: Image.asset(
+                        'assets/branding/isotipo_white.png',
+                        width: 20,
+                        height: 20,
                       ),
                     ),
                   ),
@@ -1428,13 +1425,10 @@ class _CategoryBrandPanel extends StatelessWidget {
                       ],
                     ),
                     child: Center(
-                      child: Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+                      child: Image.asset(
+                        'assets/branding/isotipo_white.png',
+                        width: 20,
+                        height: 20,
                       ),
                     ),
                   ),

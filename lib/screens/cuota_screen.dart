@@ -126,7 +126,7 @@ class _CuotaScreenState extends State<CuotaScreen> {
   /// Opens the same edit dialog one player after another for everyone still
   /// missing a position, instead of making the DT hunt each one down in the
   /// list — completing 26 profiles one dialog at a time is the real friction
-  /// the "Posicion pendiente" tags create.
+  /// the "Posición pendiente" tags create.
   Future<void> _completePendingPositions(
     CanteraClub club,
     List<Player> players,
@@ -489,7 +489,7 @@ class _UncategorizedPlayersPanel extends StatelessWidget {
             title: Text(player.fullName.trim()),
             content: DropdownButtonFormField<String>(
               initialValue: value,
-              decoration: const InputDecoration(labelText: 'Categoria'),
+              decoration: const InputDecoration(labelText: 'Categoría'),
               items: [
                 for (final category in categories)
                   DropdownMenuItem(
@@ -749,7 +749,7 @@ class _PlayerTile extends StatelessWidget {
           children: [
             _PlayerTag(
               player.position.trim().isEmpty
-                  ? 'Posicion pendiente'
+                  ? 'Posición pendiente'
                   : player.position.trim(),
             ),
             _PlayerTag(

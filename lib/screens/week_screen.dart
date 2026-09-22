@@ -431,7 +431,7 @@ class _Agenda extends StatelessWidget {
             icon: Icons.view_agenda_outlined,
             accent: CX.amber,
             title: session.title.trim().isEmpty
-                ? 'Sesion planificada'
+                ? 'Sesión planificada'
                 : session.title.trim(),
             subtitle: [
               if (session.objective.trim().isNotEmpty) session.objective.trim(),

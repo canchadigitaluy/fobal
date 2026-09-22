@@ -228,7 +228,7 @@ class InsightRow extends StatelessWidget {
 
 /// The one tinted status pill used across the app — a hue-tinted fill with a
 /// faint same-hue hairline so it reads as a solid token, not floating text.
-/// Both [ConfidenceBadge] and [AvailabilityChip] render through this.
+/// [AvailabilityChip] renders through this.
 class StatusPill extends StatelessWidget {
   final String label;
   final Color color;
@@ -308,23 +308,6 @@ IconData attendanceStatusIcon(AttendanceStatus status) => switch (status) {
   AttendanceStatus.lesionado => Icons.healing_outlined,
   AttendanceStatus.permiso => Icons.beach_access_outlined,
 };
-
-enum Confidence { alta, media, baja }
-
-class ConfidenceBadge extends StatelessWidget {
-  final Confidence level;
-  const ConfidenceBadge(this.level, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, color) = switch (level) {
-      Confidence.alta => ('Confianza alta', _mint),
-      Confidence.media => ('Confianza media', CX.amber),
-      Confidence.baja => ('Confianza baja', const Color(0xFFFF9B9B)),
-    };
-    return StatusPill(label, color, compact: true);
-  }
-}
 
 /// Sober status pill for a player's availability — same 5-state palette
 /// (green/amber/red/red/gray) everywhere it appears. Never implies a block:
@@ -610,21 +593,26 @@ class FormPill extends StatelessWidget {
         ? CX.green
         : CX.red;
     final subColor = onDark ? const Color(0xFF9DB2AB) : CX.faint;
-    return Column(
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
+        SizedBox(
           height: 44,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: onDark ? .9 : .85),
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: Text(
-            outcome,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 15,
+          width: double.infinity,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: onDark ? .9 : .85),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Center(
+              child: Text(
+                outcome,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
+                ),
+              ),
             ),
           ),
         ),
@@ -654,7 +642,7 @@ class FormPill extends StatelessWidget {
           const SizedBox(height: 1),
           Text(
             rival!,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(color: subColor, fontSize: 11),
@@ -662,6 +650,8 @@ class FormPill extends StatelessWidget {
         ],
       ],
     );
+    if (rival == null) return content;
+    return Tooltip(message: rival!, child: content);
   }
 }
 

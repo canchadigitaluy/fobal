@@ -1132,7 +1132,15 @@ class _MobileBrand extends StatelessWidget {
               BoxShadow(color: CX.green.withValues(alpha: .18), blurRadius: 14),
             ],
           ),
-          child: const CustomPaint(painter: FobalMarkPainter()),
+          child: Center(
+            child: Image.asset(
+              'assets/branding/isotipo_white.png',
+              width: 22,
+              height: 22,
+              color: CX.green,
+              colorBlendMode: BlendMode.srcIn,
+            ),
+          ),
         ),
         const SizedBox(width: 10),
         RichText(

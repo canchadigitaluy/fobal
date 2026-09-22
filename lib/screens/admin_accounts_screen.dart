@@ -53,8 +53,8 @@ class _AdminAccountsScreenState extends State<AdminAccountsScreen> {
         title: Text(account.banned ? 'Reactivar cuenta' : 'Desactivar cuenta'),
         content: Text(
           account.banned
-              ? '${account.email} vuelve a poder iniciar sesion.'
-              : '${account.email} no va a poder iniciar sesion hasta que la reactives.',
+              ? '${account.email} vuelve a poder iniciar sesión.'
+              : '${account.email} no va a poder iniciar sesión hasta que la reactives.',
         ),
         actions: [
           TextButton(

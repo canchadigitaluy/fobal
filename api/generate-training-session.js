@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 const forbiddenInputs = new Set([
   "caca",
@@ -90,6 +90,7 @@ Incluye como minimo estos bloques diferenciados:
 10. Ajustes durante el partido y plan alternativo.
 Relaciona nuestras fortalezas con sus debilidades y nuestras limitaciones con sus amenazas. Si el rival es flojo por bandas, no alcanza con decir "atacar por bandas": define como crear la superioridad, quien fija, quien desdobla, quien ocupa el area, donde va el pase final y como queda la cobertura tras perdida.
 Si hay memoria de cruces anteriores, notas post partido o jugadores rivales señalados, el plan debe explicar que se aprendio, que se repite, que se corrige y que alarma observar durante el partido.
+- La duracion del partido debe salir del payload cuando exista (session_request.duration_minutes o match_context si incluye duracion); si no hay duracion, no indiques largo total ni asumas 90 minutos.
 
 ANIMATION_SCENE (OBLIGATORIO EN CADA BLOQUE)
 Cada bloque incluye "animation_scene": una representacion espacial del ejercicio de ESE bloque. No es decorativa: debe coincidir con la descripcion del bloque (mismo espacio, misma cantidad de jugadores, mismos movimientos, mismas zonas y misma idea de balon). Si dos bloques o dos sesiones tienen ejercicios distintos, sus animation_scene deben ser claramente distintas.
@@ -917,7 +918,8 @@ async function authenticateClubRequest(req, payload) {
     req.headers["x-cantera-preview-token"] || "",
   ).trim();
   if (previewToken && verifyPreviewToken(previewToken)) {
-    return { ok: true, preview: true };
+    const previewKey = `preview-${createHash("sha256").update(previewToken).digest("hex").slice(0, 16)}`;
+    return { ok: true, preview: true, previewKey };
   }
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
     return {
@@ -971,7 +973,7 @@ async function authenticateClubRequest(req, payload) {
       ok: false,
       status: 401,
       error: "invalid_session",
-      message: "Tu sesion vencio. Vuelve a ingresar para usar el asistente.",
+      message: "Tu sesión venció. Volvé a ingresar para usar el asistente.",
     };
   }
   if (isIndependentClub) {
@@ -1002,7 +1004,7 @@ async function authenticateClubRequest(req, payload) {
         ok: false,
         status: 403,
         error: "club_access_denied",
-        message: "No tenes acceso a este club.",
+        message: "No tenés acceso a este club.",
       };
     }
     return {
@@ -1085,7 +1087,7 @@ async function authenticateClubRequest(req, payload) {
       ok: false,
       status: 403,
       error: "club_access_denied",
-      message: "No tenes acceso a este club.",
+      message: "No tenés acceso a este club.",
     };
   }
   return {
@@ -1116,7 +1118,7 @@ async function consumeAiQuota(access) {
       { auth: { persistSession: false } },
     );
     const { data, error } = await supabase.rpc("ai_usage_consume", {
-      p_user: access?.userId || "preview",
+      p_user: access?.userId || access?.previewKey || "preview",
       p_user_day: envInt("AI_USER_DAILY_LIMIT", 20),
       p_global_day: envInt("AI_GLOBAL_DAILY_LIMIT", 200),
       p_global_minute: envInt("AI_GLOBAL_MINUTE_LIMIT", 6),
@@ -1128,14 +1130,14 @@ async function consumeAiQuota(access) {
       return {
         ok: false,
         message:
-          "Llegaste al limite diario de generaciones con IA. Se renueva mañana.",
+          "Llegaste al límite diario de generaciones con IA. Se renueva mañana.",
       };
     }
     if (data === "global_day") {
       return {
         ok: false,
         message:
-          "El asistente alcanzo su limite diario de uso. Volve a intentar mañana.",
+          "El asistente alcanzó su límite diario de uso. Volvé a intentar mañana.",
       };
     }
     if (data === "global_minute") {
@@ -1143,7 +1145,7 @@ async function consumeAiQuota(access) {
         ok: false,
         retryAfter: 60,
         message:
-          "El asistente esta con mucha demanda. Proba de nuevo en un minuto.",
+          "El asistente está con mucha demanda. Probá de nuevo en un minuto.",
       };
     }
     return { ok: true };

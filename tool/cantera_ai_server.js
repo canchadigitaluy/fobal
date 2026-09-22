@@ -83,6 +83,30 @@ function parseJson(text) {
   return JSON.parse(cleaned);
 }
 
+const GENERATION_MODELS = [
+  ...new Set(
+    [
+      process.env.GEMINI_MODEL,
+      "gemini-3.6-flash",
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+    ].filter(Boolean),
+  ),
+];
+
+async function generateWithModelFallback(genAI, prompt) {
+  let lastError;
+  for (const modelName of GENERATION_MODELS) {
+    try {
+      return await genAI.getGenerativeModel({ model: modelName }).generateContent(prompt);
+    } catch (error) {
+      lastError = error;
+      if (![404, 429, 500, 503].includes(error?.status)) throw error;
+    }
+  }
+  throw lastError;
+}
+
 async function generate(payload) {
   const prompt = `${systemPrompt}
 
@@ -102,8 +126,7 @@ ${JSON.stringify(payload)}
 `;
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  const result = await model.generateContent(prompt);
+  const result = await generateWithModelFallback(genAI, prompt);
   const text = result.response.text();
   return parseJson(text);
 }

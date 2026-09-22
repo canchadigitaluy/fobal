@@ -27,7 +27,7 @@ export default async function handler(req, res) {
 
   const authorization = String(req.headers.authorization || "");
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
-  if (!token) return res.status(401).json({ error: "not_authenticated", message: "Inicia sesion para gestionar accesos." });
+  if (!token) return res.status(401).json({ error: "not_authenticated", message: "Iniciá sesión para gestionar accesos." });
 
   const payload = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
   const action = String(payload?.action || "");
@@ -38,7 +38,7 @@ export default async function handler(req, res) {
   });
   const { data: authData, error: authError } = await userClient.auth.getUser(token);
   if (authError || !authData.user) {
-    return res.status(401).json({ error: "invalid_session", message: "Tu sesion vencio. Vuelve a ingresar." });
+    return res.status(401).json({ error: "invalid_session", message: "Tu sesión venció. Volvé a ingresar." });
   }
 
   if (PLATFORM_ACTIONS.has(action)) {
@@ -349,7 +349,7 @@ async function handleCollaboratorAction({ res, action, payload, authData }) {
         .eq("user_id", callerId)
         .eq("status", "active")
         .maybeSingle();
-      if (!membership) return res.status(403).json({ error: "not_a_member", message: "No tenes acceso a este club." });
+      if (!membership) return res.status(403).json({ error: "not_a_member", message: "No tenés acceso a este club." });
     }
     const { data, error } = await adminClient
       .from("club_collaborators")

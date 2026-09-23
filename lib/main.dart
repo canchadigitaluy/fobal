@@ -16,7 +16,8 @@ import 'screens/admin_pin_screen.dart';
 import 'screens/alineacion_screen.dart' deferred as alineacion_screen;
 import 'screens/asistencia_screen.dart' deferred as asistencia_screen;
 import 'screens/calendario_screen.dart' deferred as calendario_screen;
-import 'screens/configuracion_club_screen.dart' deferred as configuracion_screen;
+import 'screens/configuracion_club_screen.dart'
+    deferred as configuracion_screen;
 import 'screens/estadisticas_screen.dart' deferred as estadisticas_screen;
 import 'screens/home_screen.dart';
 import 'screens/legal_screen.dart';
@@ -1496,8 +1497,7 @@ class _MembershipHydratorState extends State<_MembershipHydrator> {
           }
         } else if (record.type == 'attendance') {
           final attendance = AttendanceRecord.fromJson(record.content);
-          if (attendance.categoryId.isNotEmpty &&
-              attendance.date.isNotEmpty) {
+          if (attendance.categoryId.isNotEmpty && attendance.date.isNotEmpty) {
             remoteAttendanceByKey.putIfAbsent(
               '${attendance.categoryId}|${attendance.date}',
               () => attendance,
@@ -1562,7 +1562,8 @@ class _MembershipHydratorState extends State<_MembershipHydrator> {
         attendanceRecords: [
           ...remoteAttendance,
           ...localClub.attendanceRecords.where(
-            (item) => !attendanceKeys.contains('${item.categoryId}|${item.date}'),
+            (item) =>
+                !attendanceKeys.contains('${item.categoryId}|${item.date}'),
           ),
         ],
         matchPreparations: [
@@ -1574,7 +1575,8 @@ class _MembershipHydratorState extends State<_MembershipHydrator> {
         callUps: [
           ...remoteCallUps,
           ...localClub.callUps.where(
-            (item) => !callUpKeys.contains('${item.categoryId}|${item.calendarKey}'),
+            (item) =>
+                !callUpKeys.contains('${item.categoryId}|${item.calendarKey}'),
           ),
         ],
       ),
@@ -1705,12 +1707,12 @@ class _MinimalAppLoader extends StatelessWidget {
               border: Border.all(color: CX.green.withValues(alpha: .5)),
             ),
             child: Center(
-            child: Image.asset(
-              'assets/branding/isotipo_white.png',
-              width: 30,
-              height: 30,
+              child: Image.asset(
+                'assets/branding/isotipo_white.png',
+                width: 30,
+                height: 30,
+              ),
             ),
-          ),
           ),
           const SizedBox(height: 14),
           const Text(
@@ -2746,7 +2748,7 @@ class _DesktopSidebar extends StatelessWidget {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 22, 14, 18),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2759,7 +2761,7 @@ class _DesktopSidebar extends StatelessWidget {
                         padding: EdgeInsets.symmetric(horizontal: 10),
                         child: _BrandMark(compact: false),
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 18),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: Row(
@@ -2791,7 +2793,7 @@ class _DesktopSidebar extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 10),
                         child: _DataStatusChip(),
@@ -2800,7 +2802,7 @@ class _DesktopSidebar extends StatelessWidget {
                           ClubAccessService.accessibleCategories(
                             scope.fullClub.categories,
                           ).isNotEmpty) ...[
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         _CategoryScopeSelector(
                           categories: ClubAccessService.accessibleCategories(
                             scope.fullClub.categories,
@@ -2809,12 +2811,12 @@ class _DesktopSidebar extends StatelessWidget {
                           onChanged: scope.selectCategory,
                         ),
                       ],
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       ...List.generate(items.length, (index) {
                         final item = items[index];
                         final selected = index == selectedIndex;
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.only(bottom: 2),
                           child: _DesktopNavTile(
                             item: item,
                             selected: selected,
@@ -2822,20 +2824,20 @@ class _DesktopSidebar extends StatelessWidget {
                           ),
                         );
                       }),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: onInstallPwa,
                 icon: const Icon(Icons.install_mobile, size: 17),
                 label: const Text('Instalar app'),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: CX.panelDecoration(),
                 child: Column(
                   children: [
@@ -2943,6 +2945,12 @@ class _DesktopNavTile extends StatefulWidget {
 
 class _DesktopNavTileState extends State<_DesktopNavTile> {
   bool _hovered = false;
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2950,61 +2958,95 @@ class _DesktopNavTileState extends State<_DesktopNavTile> {
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(7),
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: CX.motionFast,
-          curve: CX.curve,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: widget.selected
-                ? CX.greenDark
-                : _hovered
-                ? CX.panel
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(7),
-            border: Border.all(
+      child: AnimatedScale(
+        scale: _pressed ? .985 : 1,
+        duration: CX.motionFast,
+        curve: CX.curve,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(7),
+          onTap: widget.onTap,
+          onTapDown: (_) => _setPressed(true),
+          onTapUp: (_) => _setPressed(false),
+          onTapCancel: () => _setPressed(false),
+          child: AnimatedContainer(
+            duration: CX.motionFast,
+            curve: CX.curve,
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+            decoration: BoxDecoration(
               color: widget.selected
-                  ? CX.green.withValues(alpha: .26)
+                  ? CX.greenDark
+                  : _hovered
+                  ? CX.panel
                   : Colors.transparent,
-            ),
-          ),
-          child: Row(
-            children: [
-              AnimatedScale(
-                duration: CX.motionFast,
-                curve: CX.curve,
-                scale: widget.selected ? 1.08 : 1,
-                child: Icon(
-                  widget.selected ? widget.item.activeIcon : widget.item.icon,
-                  color: widget.selected
-                      ? CX.green
-                      : active
-                      ? CX.white
-                      : CX.faint,
-                  size: 20,
-                ),
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(
+                color: widget.selected
+                    ? CX.green.withValues(alpha: .26)
+                    : Colors.transparent,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AnimatedDefaultTextStyle(
+              boxShadow: widget.selected
+                  ? [
+                      BoxShadow(
+                        color: CX.green.withValues(alpha: .12),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : const [],
+            ),
+            child: Row(
+              children: [
+                AnimatedContainer(
                   duration: CX.motionFast,
                   curve: CX.curve,
-                  style: TextStyle(
+                  width: 3,
+                  height: widget.selected ? 20 : 8,
+                  decoration: BoxDecoration(
+                    color: widget.selected ? CX.green : Colors.transparent,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 9),
+                AnimatedScale(
+                  duration: CX.motionFast,
+                  curve: CX.curve,
+                  scale: widget.selected ? 1.06 : 1,
+                  child: Icon(
+                    widget.selected ? widget.item.activeIcon : widget.item.icon,
                     color: widget.selected
-                        ? CX.white
+                        ? CX.green
                         : active
                         ? CX.white
-                        : CX.muted,
-                    fontWeight: widget.selected
-                        ? FontWeight.w800
-                        : FontWeight.w600,
+                        : CX.faint,
+                    size: 19,
                   ),
-                  child: Text(widget.item.label),
                 ),
-              ),
-            ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: AnimatedDefaultTextStyle(
+                    duration: CX.motionFast,
+                    curve: CX.curve,
+                    style: TextStyle(
+                      color: widget.selected
+                          ? CX.white
+                          : active
+                          ? CX.white
+                          : CX.muted,
+                      fontSize: 14,
+                      fontWeight: widget.selected
+                          ? FontWeight.w800
+                          : FontWeight.w600,
+                      height: 1.12,
+                    ),
+                    child: Text(
+                      widget.item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -3090,9 +3132,39 @@ class _AnimatedShellStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return KeyedSubtree(
+    final child = KeyedSubtree(
       key: ValueKey('shell-screen-$selectedIndex'),
       child: children[selectedIndex],
+    );
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
+      return child;
+    }
+    return AnimatedSwitcher(
+      duration: CX.motion,
+      reverseDuration: CX.motionFast,
+      switchInCurve: CX.curve,
+      switchOutCurve: Curves.easeOutCubic,
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        fit: StackFit.expand,
+        children: [...previousChildren, ?currentChild],
+      ),
+      transitionBuilder: (child, animation) {
+        final curved = CurvedAnimation(parent: animation, curve: CX.curve);
+        return FadeTransition(
+          opacity: curved,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(.012, .018),
+              end: Offset.zero,
+            ).animate(curved),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: .995, end: 1).animate(curved),
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: child,
     );
   }
 }
@@ -3382,7 +3454,6 @@ class _BrandMark extends StatelessWidget {
     );
   }
 }
-
 
 class ClubCrest extends StatelessWidget {
   final String logoUrl;

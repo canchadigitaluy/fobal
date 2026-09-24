@@ -2687,16 +2687,7 @@ class _MainShellState extends State<MainShell> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: CX.line,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 6),
+            // La manija la pone el bottomSheetTheme (showDragHandle).
             for (final (offset, item) in moreItems.indexed)
               ListTile(
                 leading: Icon(item.icon, color: CX.green),

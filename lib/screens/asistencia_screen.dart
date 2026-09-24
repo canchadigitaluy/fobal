@@ -1053,7 +1053,7 @@ class _AsistenciaScreenState extends State<AsistenciaScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: _KpiTile(
-              label: 'Mejor práctica',
+              label: 'Mejor',
               value: best == null ? '—' : '$best%',
             ),
           ),
@@ -1532,6 +1532,9 @@ class _AttendanceSummary extends StatelessWidget {
             child: SizedBox(
               height: 10,
               child: Row(
+                // Sin stretch los ColoredBox sin hijo miden 0 de alto y la
+                // barra no se ve.
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _segment(presentes, total, CX.green),
                   _segment(tarde, total, _blueFill),
@@ -2039,6 +2042,7 @@ class _SessionRow extends StatelessWidget {
                     child: SizedBox(
                       height: 6,
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           seg(presentes, CX.green),
                           seg(tarde, _blueFill),

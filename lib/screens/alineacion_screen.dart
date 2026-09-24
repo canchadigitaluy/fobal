@@ -1744,11 +1744,19 @@ class _Pitch extends StatelessWidget {
                         final normalized =
                             customSpots[index] ?? Offset(base.x, base.y);
                         final player = players[xi[index]];
-                        const discWidth = 108.0;
-                        const discHeight = 82.0;
+                        const discWidth = 96.0;
+                        const discHeight = 76.0;
+                        // El cartel del partido ocupa la franja superior: los
+                        // puestos se dibujan en el 86% inferior para que el
+                        // delantero no quede tapado. Las coordenadas guardadas
+                        // siguen siendo 0..1 (retrocompatibles).
+                        const top = .13;
+                        const span = .86;
                         return Positioned(
                           left: normalized.dx * size.width - discWidth / 2,
-                          top: normalized.dy * size.height - discHeight / 2,
+                          top:
+                              (top + normalized.dy * span) * size.height -
+                              discHeight / 2,
                           width: discWidth,
                           height: discHeight,
                           child: GestureDetector(
@@ -1758,9 +1766,8 @@ class _Pitch extends StatelessWidget {
                                             details.delta.dx) /
                                         size.width)
                                     .clamp(.08, .92),
-                                ((normalized.dy * size.height +
-                                            details.delta.dy) /
-                                        size.height)
+                                (normalized.dy +
+                                        details.delta.dy / (size.height * span))
                                     .clamp(.08, .94),
                               );
                               onMove(index, next);
@@ -1868,6 +1875,19 @@ class _PlayerDisc extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = goalkeeper ? CX.amber : CX.green;
     final name = player?.fullName ?? label;
+    // En la cancha solo el apellido: con nombre completo las etiquetas de
+    // jugadores cercanos se pisaban.
+    final shortName = player == null
+        ? label
+        : (player!.lastName.trim().isNotEmpty
+              ? player!.lastName.trim()
+              : name);
+    final initials = player == null
+        ? '+'
+        : [player!.firstName, player!.lastName]
+              .where((part) => part.trim().isNotEmpty)
+              .map((part) => part.trim()[0].toUpperCase())
+              .join();
     final warning = player?.hasAvailabilityWarning ?? false;
     return InkWell(
       onTap: onTap,
@@ -1891,13 +1911,11 @@ class _PlayerDisc extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    player == null || name.isEmpty
-                        ? '+'
-                        : name[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.black,
+                    initials.isEmpty ? '+' : initials,
+                    style: TextStyle(
+                      color: goalkeeper ? const Color(0xFF1B1300) : Colors.white,
                       fontWeight: FontWeight.w900,
-                      fontSize: 18,
+                      fontSize: 16,
                     ),
                   ),
                 ),
@@ -1928,15 +1946,19 @@ class _PlayerDisc extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: .55),
+              color: Colors.black.withValues(alpha: .6),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
-              name,
+              shortName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
@@ -2168,11 +2190,6 @@ class _SavedAlignmentsList extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Alineaciones guardadas',
-              style: TextStyle(fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 8),
             ...saved.map(
               (item) => ListTile(
                 dense: true,

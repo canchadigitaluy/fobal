@@ -3235,8 +3235,12 @@ class _BoardShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final pills = <String>[
       ...?formPills?.map((m) {
-        final gf = m.homeScore ?? 0;
-        final ga = m.awayScore ?? 0;
+        // El marcador viene como local-visitante: de visitante hay que darlo
+        // vuelta, si no una derrota afuera se muestra como victoria.
+        final opp = m.opponentName.trim();
+        final home = opp.isEmpty || m.awayTeamName.trim() == opp;
+        final gf = (home ? m.homeScore : m.awayScore) ?? 0;
+        final ga = (home ? m.awayScore : m.homeScore) ?? 0;
         return gf == ga ? 'E' : (gf > ga ? 'G' : 'P');
       }),
       ...?manualPills,
